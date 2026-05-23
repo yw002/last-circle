@@ -1226,10 +1226,12 @@
                 spawnLoot(x, y, z);
             }
 
-            // 密集的草地植被 (使用 InstancedMesh 进行海量渲染)
-            const grassCount = 150000;
-            const grassGeo = new THREE.ConeGeometry(1.2, 5, 3); // 简单的三角锥草丛
-            grassGeo.translate(0, 2.5, 0); // 底部对齐地面
+            // 友好的卡通风格草地植被 (使用 InstancedMesh)
+            // 降低绝对数量，增大单体体积，改用平顶宽底形状，彻底解决尖锐感和密集恐惧症
+            const grassCount = 80000;
+            // 采用顶部扁平、底部宽大的多边形柱体（类似卡通里的一簇粗草或矮灌木），消除三角锥的“扎人”感
+            const grassGeo = new THREE.CylinderGeometry(0.8, 2.5, 3.5, 4);
+            grassGeo.translate(0, 1.75, 0); // 底部对齐地面
             const grassMat = new THREE.MeshLambertMaterial({ color: 0x4a7c2e });
             const grassInstanced = new THREE.InstancedMesh(grassGeo, grassMat, grassCount);
 
@@ -1263,8 +1265,9 @@
                         }
                         if (!tooCloseToHouse) {
                             dummy.position.set(x, y, z);
+                            // 添加随机缩放，增加自然感，避免千篇一律
                             dummy.rotation.y = Math.random() * Math.PI;
-                            dummy.scale.set(1, 0.5 + Math.random(), 1);
+                            dummy.scale.set(1.0 + Math.random()*0.5, 0.7 + Math.random()*0.6, 1.0 + Math.random()*0.5);
                             dummy.updateMatrix();
                             grassInstanced.setMatrixAt(gIdx, dummy.matrix);
 
