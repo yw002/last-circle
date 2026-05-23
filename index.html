@@ -2447,6 +2447,30 @@
                 pPos.y += velocity.y * delta;
 
                 let groundY = getTerrainHeight(pPos.x, pPos.z) + 10;
+
+                // 降落伞判定落在屋顶上
+                for (let i = 0; i < housePositions.length; i++) {
+                    let hPos = housePositions[i];
+                    let dx = Math.abs(pPos.x - hPos.x);
+                    let dz = Math.abs(pPos.z - hPos.z);
+                    if (dx <= 15.6 && dz <= 15.6) {
+                        let roofSurfaceY = hPos.baseHeight + 38.1 - 14 * (Math.max(dx, dz) / 15.556);
+                        if (roofSurfaceY + 10 > groundY) {
+                            groundY = roofSurfaceY + 10;
+                        }
+                    }
+                }
+
+                // 降落伞判定落在石头或树顶
+                let pBoxPara = new THREE.Box3().setFromCenterAndSize(pPos, new THREE.Vector3(1, 10, 1));
+                for (let box of colliders) {
+                    if (pBoxPara.intersectsBox(box)) {
+                        if (box.max.y + 10 > groundY) {
+                            groundY = box.max.y + 10;
+                        }
+                    }
+                }
+
                 if (pPos.y <= groundY) {
                     pPos.y = groundY;
                     player.isParachuting = false;
@@ -2550,17 +2574,36 @@
                 // --- 阶段二：垂直 Y 轴物理位移 (重力坠落/起跳) 与踩立判定 ---
                 pPos.y += velocity.y * delta;
 
-                // 3. 玩家与树顶、石头顶部的垂直落足、踩立判定
-                let pBoxY = new THREE.Box3().setFromCenterAndSize(pPos, new THREE.Vector3(3, 10, 3));
                 let hitColliderY = false;
                 let landingY = 0;
-                for(let box of colliders) {
-                    if(pBoxY.intersectsBox(box)) {
-                        // 判定是否是从上往下踩在石头顶表面：前一帧脚底高度 (oldY - 4.5) 必须在石头顶盖 (box.max.y) 以上或附近
-                        if (oldY - 4.5 >= box.max.y - 1.2) {
+
+                // 新增：玩家落在屋顶上的垂直落足踩立判定
+                for (let i = 0; i < housePositions.length; i++) {
+                    let hPos = housePositions[i];
+                    let dx = Math.abs(pPos.x - hPos.x);
+                    let dz = Math.abs(pPos.z - hPos.z);
+                    if (dx <= 15.6 && dz <= 15.6) {
+                        let roofSurfaceY = hPos.baseHeight + 38.1 - 14 * (Math.max(dx, dz) / 15.556);
+                        // 判定是否是从上往下落到屋顶上：允许 2.0 的穿透容差判定
+                        if (oldY - 4.5 >= roofSurfaceY - 2.0 && (pPos.y - 5.0) <= roofSurfaceY) {
                             hitColliderY = true;
-                            landingY = box.max.y + 5.0; // 踩立在表面 (眼睛中轴在 box.max.y + 5)
+                            landingY = roofSurfaceY + 5.0; // 踩立在表面 (眼睛中轴在 roofSurfaceY + 5)
                             break;
+                        }
+                    }
+                }
+
+                // 3. 玩家与树顶、石头顶部的垂直落足、踩立判定
+                if (!hitColliderY) {
+                    let pBoxY = new THREE.Box3().setFromCenterAndSize(pPos, new THREE.Vector3(3, 10, 3));
+                    for(let box of colliders) {
+                        if(pBoxY.intersectsBox(box)) {
+                            // 判定是否是从上往下踩在石头顶表面：前一帧脚底高度 (oldY - 4.5) 必须在石头顶盖 (box.max.y) 以上或附近
+                            if (oldY - 4.5 >= box.max.y - 1.2) {
+                                hitColliderY = true;
+                                landingY = box.max.y + 5.0; // 踩立在表面 (眼睛中轴在 box.max.y + 5)
+                                break;
+                            }
                         }
                     }
                 }
@@ -2568,7 +2611,7 @@
                 if (hitColliderY) {
                     pPos.y = landingY;
                     velocity.y = 0;
-                    canJump = true; // 允许站在石头和树顶表面正常活动和再次起跳！
+                    canJump = true; // 允许站在石头、树顶和屋顶表面正常活动和再次起跳！
                 } else {
                     // 若未落在大石头顶盖上，则判定降落到草地形地面、或洋房实木地板上
                     let groundY = getTerrainHeight(pPos.x, pPos.z) + 10;
