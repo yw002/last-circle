@@ -106,6 +106,7 @@
         let deers = [];
         let zombies = [];
         let boars = [];
+        let ghosts = [];
         let housePositions = [];
         let doors = [];
         let rockPositions = [];
@@ -1082,6 +1083,13 @@
                 rock.updateMatrixWorld(true);
 
                 const colliderBox = new THREE.Box3().setFromObject(rock);
+                // 缩小石头的碰撞盒 (水平缩小 30%)，使其与模型更贴合，允许玩家更靠近石头
+                let dx = (colliderBox.max.x - colliderBox.min.x) * 0.15;
+                let dz = (colliderBox.max.z - colliderBox.min.z) * 0.15;
+                colliderBox.min.x += dx;
+                colliderBox.max.x -= dx;
+                colliderBox.min.z += dz;
+                colliderBox.max.z -= dz;
                 colliders.push(colliderBox);
             }
 
@@ -1217,6 +1225,62 @@
                 // 玩家物理碰撞由 updatePlayer 的 custom AABB 精密墙壁碰撞数学算法代劳，此处无需压入 colliders 盒子，实现真正进入中空室内！
                 spawnLoot(x, y, z);
             }
+
+            // 密集的草地植被 (使用 InstancedMesh 进行海量渲染)
+            const grassCount = 150000;
+            const grassGeo = new THREE.ConeGeometry(1.2, 5, 3); // 简单的三角锥草丛
+            grassGeo.translate(0, 2.5, 0); // 底部对齐地面
+            const grassMat = new THREE.MeshLambertMaterial({ color: 0x4a7c2e });
+            const grassInstanced = new THREE.InstancedMesh(grassGeo, grassMat, grassCount);
+
+            const dummy = new THREE.Object3D();
+            let gIdx = 0;
+            for(let i=0; i<grassCount; i++) {
+                let x = (Math.random() - 0.5) * mapSize;
+                let z = (Math.random() - 0.5) * mapSize;
+                let y = getTerrainHeight(x, z);
+
+                // 只在草地区域生成
+                if (y > 2 && y < 35) {
+                    // 避开道路
+                    let roadFactor = 0;
+                    for(let rx = -mapSize/2; rx < mapSize/2; rx += 500) {
+                        if(Math.abs(x - rx) < 25) roadFactor = 1;
+                    }
+                    for(let rz = -mapSize/2; rz < mapSize/2; rz += 500) {
+                        if(Math.abs(z - rz) < 25) roadFactor = 1;
+                    }
+                    if (roadFactor === 0) {
+                        // 避开洋房内部
+                        let tooCloseToHouse = false;
+                        for (let h of housePositions) {
+                            let dx = x - h.x;
+                            let dz = z - h.z;
+                            if (dx*dx + dz*dz < 20 * 20) {
+                                tooCloseToHouse = true;
+                                break;
+                            }
+                        }
+                        if (!tooCloseToHouse) {
+                            dummy.position.set(x, y, z);
+                            dummy.rotation.y = Math.random() * Math.PI;
+                            dummy.scale.set(1, 0.5 + Math.random(), 1);
+                            dummy.updateMatrix();
+                            grassInstanced.setMatrixAt(gIdx, dummy.matrix);
+
+                            // 不同深浅的草地颜色
+                            let c = new THREE.Color();
+                            if (y < 10) c.setHex(0x3d8c40);
+                            else c.setHex(0x4a7c2e);
+                            grassInstanced.setColorAt(gIdx, c);
+
+                            gIdx++;
+                        }
+                    }
+                }
+            }
+            grassInstanced.count = gIdx;
+            scene.add(grassInstanced);
         }
 
         function initBots() {
@@ -1841,6 +1905,176 @@
 
             addKillFeed(`[You] 击杀了一只 [血腥丧尸]`);
             updateUI();
+        }
+
+        // --- 恐怖元素：幽灵 ---
+        function initGhosts() {
+            const ghostMat = new THREE.MeshBasicMaterial({
+                color: 0xccffff,
+                transparent: true,
+                opacity: 0.0, // 初始透明，幽灵会在玩家附近忽隐忽现
+                blending: THREE.AdditiveBlending,
+                side: THREE.DoubleSide,
+                depthWrite: false
+            });
+
+            // 斗篷
+            const bodyGeo = new THREE.ConeGeometry(2, 8, 16, 1, true);
+            bodyGeo.translate(0, -1, 0); // 中心点上移
+
+            // 头
+            const headGeo = new THREE.SphereGeometry(2, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+            headGeo.translate(0, 3, 0);
+
+            // 黑洞洞的眼睛
+            const eyeMat = new THREE.MeshBasicMaterial({color: 0x000000, side: THREE.DoubleSide});
+            const eyeGeo = new THREE.PlaneGeometry(0.5, 0.8);
+
+            for (let i = 0; i < 30; i++) {
+                const ghostGroup = new THREE.Group();
+                const body = new THREE.Mesh(bodyGeo, ghostMat.clone());
+                const head = new THREE.Mesh(headGeo, ghostMat.clone());
+
+                const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
+                eyeL.position.set(-0.6, 3.5, 1.95);
+                const eyeR = new THREE.Mesh(eyeGeo, eyeMat);
+                eyeR.position.set(0.6, 3.5, 1.95);
+
+                ghostGroup.add(body, head, eyeL, eyeR);
+
+                let x = (Math.random() - 0.5) * mapSize * 0.9;
+                let z = (Math.random() - 0.5) * mapSize * 0.9;
+                let y = getTerrainHeight(x, z) + 5;
+
+                ghostGroup.position.set(x, y, z);
+                scene.add(ghostGroup);
+
+                ghosts.push({
+                    mesh: ghostGroup,
+                    bodyMesh: body,
+                    headMesh: head,
+                    x: x, z: z, originY: y,
+                    timeOffset: Math.random() * 100,
+                    targetOpacity: 0.0,
+                    currentOpacity: 0.0,
+                    state: 'hidden', // 'hidden', 'appearing', 'visible', 'vanishing'
+                    stateTimer: 0
+                });
+            }
+        }
+
+        // 幽灵低语恐怖音效合成
+        function playGhostWhisper(pos) {
+            if(!audioCtx || audioCtx.state === 'suspended') return;
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            const filter = audioCtx.createBiquadFilter();
+
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(300, now);
+            osc.frequency.exponentialRampToValueAtTime(150, now + 2.0);
+
+            // 高频调制带来诡异的“空灵”听感
+            const lfo = audioCtx.createOscillator();
+            lfo.type = 'sine';
+            lfo.frequency.value = 6;
+            const lfoGain = audioCtx.createGain();
+            lfoGain.gain.value = 50;
+            lfo.connect(lfoGain);
+            lfoGain.connect(osc.frequency);
+
+            filter.type = 'bandpass';
+            filter.frequency.value = 400;
+
+            osc.connect(filter);
+            filter.connect(gain);
+
+            const panner = audioCtx.createPanner();
+            panner.panningModel = 'HRTF';
+            panner.distanceModel = 'exponential';
+            panner.refDistance = 10;
+            panner.maxDistance = 300;
+            panner.rolloffFactor = 1.0;
+
+            panner.positionX.value = pos.x;
+            panner.positionY.value = pos.y;
+            panner.positionZ.value = pos.z;
+
+            gain.connect(panner);
+            panner.connect(audioCtx.destination);
+
+            gain.gain.setValueAtTime(0, now);
+            gain.gain.linearRampToValueAtTime(1.5, now + 1.0);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 3.0);
+
+            lfo.start(now);
+            osc.start(now);
+            lfo.stop(now + 3.0);
+            osc.stop(now + 3.0);
+        }
+
+        function updateGhosts(delta) {
+            let playerPos = controls.getObject().position;
+
+            ghosts.forEach(ghost => {
+                ghost.timeOffset += delta;
+                let dSq = ghost.mesh.position.distanceToSquared(playerPos);
+
+                // 距离玩家 150 米以内，有几率显现
+                if (dSq < 150 * 150) {
+                    if (ghost.state === 'hidden' && Math.random() < 0.005) {
+                        ghost.state = 'appearing';
+                        ghost.targetOpacity = 0.5 + Math.random() * 0.3;
+                        ghost.stateTimer = 5 + Math.random() * 5; // 显示 5-10 秒
+                        playGhostWhisper(ghost.mesh.position);
+
+                        // 瞬移到玩家背后的随机位置
+                        let angle = Math.random() * Math.PI * 2;
+                        let dist = 15 + Math.random() * 30;
+                        ghost.x = playerPos.x + Math.cos(angle) * dist;
+                        ghost.z = playerPos.z + Math.sin(angle) * dist;
+                        ghost.originY = getTerrainHeight(ghost.x, ghost.z) + 5;
+                    }
+                } else {
+                    if (ghost.state !== 'hidden' && ghost.state !== 'vanishing') {
+                        ghost.state = 'vanishing';
+                    }
+                }
+
+                if (ghost.state === 'appearing') {
+                    ghost.currentOpacity = THREE.MathUtils.lerp(ghost.currentOpacity, ghost.targetOpacity, delta * 2);
+                    ghost.stateTimer -= delta;
+                    if (ghost.stateTimer <= 0) ghost.state = 'vanishing';
+                } else if (ghost.state === 'vanishing') {
+                    ghost.currentOpacity = THREE.MathUtils.lerp(ghost.currentOpacity, 0, delta * 1.5);
+                    if (ghost.currentOpacity < 0.01) {
+                        ghost.currentOpacity = 0;
+                        ghost.state = 'hidden';
+                    }
+                }
+
+                ghost.bodyMesh.material.opacity = ghost.currentOpacity;
+                ghost.headMesh.material.opacity = ghost.currentOpacity;
+
+                if (ghost.currentOpacity > 0) {
+                    // 幽灵上下漂浮，并缓慢向玩家移动
+                    ghost.mesh.position.y = ghost.originY + Math.sin(ghost.timeOffset * 2) * 2;
+
+                    let dirX = playerPos.x - ghost.x;
+                    let dirZ = playerPos.z - ghost.z;
+                    let len = Math.sqrt(dirX*dirX + dirZ*dirZ);
+                    if (len > 0) {
+                        ghost.x += (dirX / len) * delta * 4; // 缓慢飘近
+                        ghost.z += (dirZ / len) * delta * 4;
+                    }
+                    ghost.mesh.position.x = ghost.x;
+                    ghost.mesh.position.z = ghost.z;
+
+                    // 永远盯着玩家
+                    ghost.mesh.lookAt(playerPos.x, ghost.mesh.position.y, playerPos.z);
+                }
+            });
         }
 
         function updateAnimals(delta) {
@@ -3052,6 +3286,7 @@
                     gameStarted = true;
                     initBots();
                     initZombies();
+                    initGhosts();
                 }
             });
 
@@ -3239,6 +3474,7 @@
                 updatePlayer(delta);
                 updateBots(delta);
                 updateZombies(delta);
+                updateGhosts(delta);
                 updateAnimals(delta);
                 updateZone(delta);
                 updateWeather(delta);
