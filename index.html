@@ -284,19 +284,160 @@
         ];
 
         const weapons = [
-            { name: "AKM", ammo: 30, maxAmmo: 30, damage: 42, fireRate: 100, range: 800, color: 0x333333, sound: 'ar', scope: null },
-            { name: "M416", ammo: 30, maxAmmo: 30, damage: 38, fireRate: 80, range: 800, color: 0x222222, sound: 'ar_fast', scope: null },
-            { name: "S686", ammo: 2, maxAmmo: 2, damage: 85, fireRate: 800, range: 50, color: 0x555555, sound: 'shotgun', scope: null },
-            { name: "Kar98k", ammo: 5, maxAmmo: 5, damage: 95, fireRate: 1500, range: 1500, color: 0x8b4513, sound: 'sniper', scope: null }
+            // ARs (Ammo 40)
+            { type: "ar", name: "AKM", ammo: 40, maxAmmo: 40, damage: 47, fireRate: 100, range: 800, color: 0x5a4a42, sound: 'ar', scope: null },
+            { type: "ar", name: "M416", ammo: 40, maxAmmo: 40, damage: 41, fireRate: 85, range: 800, color: 0x222222, sound: 'ar_fast', scope: null },
+            { type: "ar", name: "SCAR-L", ammo: 40, maxAmmo: 40, damage: 41, fireRate: 96, range: 800, color: 0x8a817c, sound: 'ar', scope: null },
+            { type: "ar", name: "M16A4", ammo: 40, maxAmmo: 40, damage: 43, fireRate: 75, range: 800, color: 0x2b2b2b, sound: 'ar_fast', scope: null },
+            { type: "ar", name: "Groza", ammo: 40, maxAmmo: 40, damage: 47, fireRate: 80, range: 800, color: 0x333333, sound: 'ar_fast', scope: null },
+            { type: "ar", name: "AUG", ammo: 40, maxAmmo: 40, damage: 41, fireRate: 85, range: 800, color: 0x4a5a4a, sound: 'ar_fast', scope: null },
+            { type: "ar", name: "QBZ", ammo: 40, maxAmmo: 40, damage: 41, fireRate: 92, range: 800, color: 0x5a5a4a, sound: 'ar', scope: null },
+            { type: "ar", name: "G36C", ammo: 40, maxAmmo: 40, damage: 41, fireRate: 86, range: 800, color: 0x444444, sound: 'ar_fast', scope: null },
+            { type: "ar", name: "Beryl M762", ammo: 40, maxAmmo: 40, damage: 44, fireRate: 86, range: 800, color: 0x111111, sound: 'ar', scope: null },
+            { type: "ar", name: "Mk47 Mutant", ammo: 40, maxAmmo: 40, damage: 49, fireRate: 100, range: 800, color: 0x3a3a3a, sound: 'ar', scope: null },
+            // SMGs
+            { type: "smg", name: "UZI", ammo: 35, maxAmmo: 35, damage: 26, fireRate: 48, range: 300, color: 0x222222, sound: 'ar_fast', scope: null },
+            { type: "smg", name: "UMP45", ammo: 35, maxAmmo: 35, damage: 41, fireRate: 92, range: 400, color: 0x333333, sound: 'ar', scope: null },
+            { type: "smg", name: "Vector", ammo: 33, maxAmmo: 33, damage: 31, fireRate: 54, range: 300, color: 0x555555, sound: 'ar_fast', scope: null },
+            { type: "smg", name: "Thompson", ammo: 50, maxAmmo: 50, damage: 40, fireRate: 86, range: 400, color: 0x8b4513, sound: 'ar', scope: null },
+            { type: "smg", name: "Bizon", ammo: 53, maxAmmo: 53, damage: 35, fireRate: 86, range: 400, color: 0x444444, sound: 'ar', scope: null },
+            { type: "smg", name: "MP5K", ammo: 40, maxAmmo: 40, damage: 33, fireRate: 66, range: 350, color: 0x2a2a2a, sound: 'ar_fast', scope: null },
+            // Snipers & DMRs
+            { type: "sniper", name: "Kar98k", ammo: 5, maxAmmo: 5, damage: 95, fireRate: 1500, range: 1500, color: 0x8b4513, sound: 'sniper', scope: null },
+            { type: "sniper", name: "M24", ammo: 5, maxAmmo: 5, damage: 98, fireRate: 1500, range: 1500, color: 0x222222, sound: 'sniper', scope: null },
+            { type: "sniper", name: "AWM", ammo: 5, maxAmmo: 5, damage: 130, fireRate: 1500, range: 1500, color: 0x3d4a3d, sound: 'sniper', scope: null },
+            { type: "sniper", name: "SKS", ammo: 20, maxAmmo: 20, damage: 53, fireRate: 150, range: 1200, color: 0x5a4a42, sound: 'sniper', scope: null },
+            { type: "sniper", name: "Mini14", ammo: 30, maxAmmo: 30, damage: 46, fireRate: 100, range: 1200, color: 0x333333, sound: 'ar', scope: null },
+            { type: "sniper", name: "SLR", ammo: 20, maxAmmo: 20, damage: 58, fireRate: 150, range: 1200, color: 0x2b2b2b, sound: 'sniper', scope: null },
+            { type: "sniper", name: "Mk14", ammo: 20, maxAmmo: 20, damage: 61, fireRate: 90, range: 1200, color: 0x222222, sound: 'sniper', scope: null },
+            // Shotguns
+            { type: "shotgun", name: "S686", ammo: 2, maxAmmo: 2, damage: 85, fireRate: 800, range: 50, color: 0x555555, sound: 'shotgun', scope: null },
+            { type: "shotgun", name: "S1897", ammo: 5, maxAmmo: 5, damage: 85, fireRate: 1000, range: 50, color: 0x4a4a4a, sound: 'shotgun', scope: null },
+            { type: "shotgun", name: "S12K", ammo: 8, maxAmmo: 8, damage: 75, fireRate: 250, range: 50, color: 0x222222, sound: 'shotgun', scope: null },
+            { type: "shotgun", name: "DBS", ammo: 14, maxAmmo: 14, damage: 85, fireRate: 400, range: 50, color: 0x111111, sound: 'shotgun', scope: null },
+            // Pistols
+            { type: "pistol", name: "M1911", ammo: 15, maxAmmo: 15, damage: 41, fireRate: 400, range: 300, color: 0xaaaaaa, sound: 'pistol', scope: null },
+            { type: "pistol", name: "P92", ammo: 20, maxAmmo: 20, damage: 35, fireRate: 350, range: 300, color: 0x555555, sound: 'pistol', scope: null },
+            { type: "pistol", name: "Desert Eagle", ammo: 10, maxAmmo: 10, damage: 62, fireRate: 500, range: 300, color: 0xdddddd, sound: 'sniper', scope: null },
+            // Melee
+            { type: "melee", name: "Pan", ammo: 1, maxAmmo: 1, damage: 80, fireRate: 600, range: 5, color: 0x111111, sound: 'hit', scope: null },
+            { type: "melee", name: "Machete", ammo: 1, maxAmmo: 1, damage: 60, fireRate: 500, range: 5, color: 0x888888, sound: 'hit', scope: null },
+            // Throwables
+            { type: "throwable", name: "Grenade", ammo: 1, maxAmmo: 1, damage: 150, fireRate: 1000, range: 80, color: 0x27ae60, sound: '', scope: null },
+            { type: "throwable", name: "Flashbang", ammo: 1, maxAmmo: 1, damage: 0, fireRate: 1000, range: 80, color: 0xbdc3c7, sound: '', scope: null }
         ];
+
+        // --- 武器建模系统 (Procedural Weapon Meshes) ---
+        function createWeaponMesh(weaponData, scaleMultiplier = 1.0) {
+            const group = new THREE.Group();
+            let c = weaponData ? weaponData.color : 0x333333;
+            const mat = new THREE.MeshLambertMaterial({ color: c });
+            const darkMat = new THREE.MeshLambertMaterial({ color: 0x111111 });
+            const woodMat = new THREE.MeshLambertMaterial({ color: 0x8b4513 });
+            const metalMat = new THREE.MeshLambertMaterial({ color: 0x888888 });
+
+            if (!weaponData) return group;
+
+            if (weaponData.type === 'ar' || weaponData.type === 'smg' || weaponData.type === 'sniper') {
+                // 机匣/枪身
+                let bodyLen = weaponData.type === 'sniper' ? 6 : (weaponData.type === 'smg' ? 3 : 4);
+                let bodyMat = (weaponData.name === 'Kar98k' || weaponData.name === 'Thompson') ? woodMat : mat;
+                const body = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.8, bodyLen), bodyMat);
+                body.position.set(0, 0, 0);
+
+                // 枪管
+                let barrelLen = weaponData.type === 'sniper' ? 5 : (weaponData.type === 'smg' ? 2 : 3.5);
+                const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, barrelLen, 8), darkMat);
+                barrel.rotation.x = Math.PI / 2;
+                barrel.position.set(0, 0.2, -bodyLen/2 - barrelLen/2);
+
+                // 枪托
+                let stockLen = 2.5;
+                const stock = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.6, stockLen), bodyMat);
+                stock.position.set(0, -0.1, bodyLen/2 + stockLen/2);
+
+                // 握把
+                const grip = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.2, 0.5), darkMat);
+                grip.rotation.x = -Math.PI / 8;
+                grip.position.set(0, -0.8, bodyLen/2 - 0.5);
+
+                // 弹匣
+                if (weaponData.type !== 'sniper' || weaponData.name === 'SKS' || weaponData.name === 'Mini14' || weaponData.name === 'Mk14' || weaponData.name === 'SLR') {
+                    const mag = new THREE.Mesh(new THREE.BoxGeometry(0.35, 1.5, 0.8), darkMat);
+                    mag.rotation.x = Math.PI / 16;
+                    mag.position.set(0, -1.0, -bodyLen/4);
+                    group.add(mag);
+                }
+
+                group.add(body, barrel, stock, grip);
+
+                // 瞄准镜 (如果有)
+                if (weaponData.scope) {
+                    const scopeColor = scopes.find(s => s.name === weaponData.scope.name).color;
+                    const scopeMat = new THREE.MeshLambertMaterial({color: scopeColor});
+                    const scopeMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 1.5, 8), scopeMat);
+                    scopeMesh.rotation.x = Math.PI / 2;
+                    scopeMesh.position.set(0, 0.6, 0);
+                    group.add(scopeMesh);
+                } else {
+                    // 机瞄
+                    const sight = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.3, 0.2), darkMat);
+                    sight.position.set(0, 0.5, -bodyLen/2 + 0.5);
+                    group.add(sight);
+                }
+
+            } else if (weaponData.type === 'shotgun') {
+                const body = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.6, 3), mat);
+                const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 4, 8), darkMat);
+                barrel.rotation.x = Math.PI / 2;
+                barrel.position.set(0, 0.2, -3.5);
+                const stock = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.8, 2.5), woodMat);
+                stock.position.set(0, -0.2, 2.75);
+                group.add(body, barrel, stock);
+            } else if (weaponData.type === 'pistol') {
+                const body = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.5, 1.8), mat);
+                const grip = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.0, 0.6), darkMat);
+                grip.rotation.x = -Math.PI / 8;
+                grip.position.set(0, -0.6, 0.5);
+                group.add(body, grip);
+            } else if (weaponData.type === 'throwable') {
+                if (weaponData.name === 'Grenade') {
+                    const nade = new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 8), mat);
+                    const pin = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.4, 0.2), metalMat);
+                    pin.position.set(0, 0.6, 0);
+                    group.add(nade, pin);
+                } else if (weaponData.name === 'Flashbang') {
+                    const flash = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 1.2, 8), mat);
+                    const pin = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.3, 0.2), metalMat);
+                    pin.position.set(0, 0.7, 0);
+                    group.add(flash, pin);
+                }
+            } else if (weaponData.type === 'melee') {
+                if (weaponData.name === 'Pan') {
+                    const panBody = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.0, 0.2, 16), darkMat);
+                    panBody.rotation.x = Math.PI / 2;
+                    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 2, 8), mat);
+                    handle.position.set(0, -1.8, 0);
+                    group.add(panBody, handle);
+                } else if (weaponData.name === 'Machete') {
+                    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.5, 0.5), metalMat);
+                    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 1.2, 8), woodMat);
+                    handle.position.set(0, -1.8, 0);
+                    group.add(blade, handle);
+                }
+            }
+
+            group.scale.set(scaleMultiplier, scaleMultiplier, scaleMultiplier);
+            return group;
+        }
 
         // --- 玩家状态 ---
         let player = {
             health: 500, maxHealth: 500, alive: true,
             helmet: null, armor: null,
             sharedAmmo: 0, isReloading: false, isADS: false,
-            weapon: { name: "M1911", ammo: 15, maxAmmo: 15, damage: 20, fireRate: 400, range: 300, color: 0xaaaaaa, sound: 'pistol', scope: null },
-            inventory: [ { name: "M1911", ammo: 15, maxAmmo: 15, damage: 20, fireRate: 400, range: 300, color: 0xaaaaaa, sound: 'pistol', scope: null }, null ],
+            weapon: { type: "pistol", name: "M1911", ammo: 15, maxAmmo: 15, damage: 41, fireRate: 400, range: 300, color: 0xaaaaaa, sound: 'pistol', scope: null },
+            inventory: [ { type: "pistol", name: "M1911", ammo: 15, maxAmmo: 15, damage: 41, fireRate: 400, range: 300, color: 0xaaaaaa, sound: 'pistol', scope: null }, null ],
             currentWeaponIndex: 0,
             lastFire: 0, isParachuting: true, kills: 0, recoilY: 0, cameraRecoil: 0
         };
@@ -867,8 +1008,8 @@
         }
 
         function spawnLoot(bx, by, bz) {
-            // 物资生成在建筑物旁边，而不是在建筑物内部
-            for(let i=0; i<4; i++) {
+            // 物资生成在建筑物旁边，增加生成密度和武器掉率
+            for(let i=0; i<12; i++) {
                 let lx = bx + (Math.random() - 0.5) * 50;
                 let lz = bz + (Math.random() - 0.5) * 50;
                 let ly = getTerrainHeight(lx, lz) + 1.5;
@@ -878,43 +1019,51 @@
 
                 let r = Math.random();
                 let type, itemData;
-                let color = 0xffffff;
-                let geo = new THREE.BoxGeometry(2, 2, 2);
+                let mesh;
 
-                if(r < 0.3) {
+                if(r < 0.45) { // 45% 概率生成武器
                     type = "weapon";
                     itemData = weapons[Math.floor(Math.random() * weapons.length)];
-                    color = itemData.color;
-                    geo = new THREE.BoxGeometry(4, 0.5, 1); // 枪长条形
-                } else if(r < 0.6) {
+                    mesh = createWeaponMesh(itemData, 1.5); // 地面武器放大一点更容易看清
+                    mesh.rotation.x = Math.PI / 2; // 平躺在地上
+                } else if(r < 0.65) {
                     type = "ammo";
-                    color = 0x27ae60;
-                    geo = new THREE.BoxGeometry(1.5, 1, 1); // 弹药盒
+                    let color = 0x27ae60;
+                    let geo = new THREE.BoxGeometry(1.5, 1, 1);
+                    let mat = new THREE.MeshLambertMaterial({color: color, emissive: color, emissiveIntensity: 0.4});
+                    mesh = new THREE.Mesh(geo, mat);
                     itemData = { name: "弹药箱 (60发)", amount: 60 };
-                } else if(r < 0.7) {
-                    type = "health";
-                    color = 0xe74c3c;
                 } else if(r < 0.75) {
+                    type = "health";
+                    let color = 0xe74c3c;
+                    let geo = new THREE.BoxGeometry(2, 2, 2);
+                    let mat = new THREE.MeshLambertMaterial({color: color, emissive: color, emissiveIntensity: 0.4});
+                    mesh = new THREE.Mesh(geo, mat);
+                } else if(r < 0.85) { // 10% 倍镜
                     type = "scope";
                     itemData = scopes[Math.floor(Math.random() * scopes.length)];
-                    color = itemData.color;
-                    geo = new THREE.CylinderGeometry(0.5, 0.5, 2, 8); // 瞄准镜圆柱体
-                } else if(r < 0.85) {
+                    let color = itemData.color;
+                    let geo = new THREE.CylinderGeometry(0.5, 0.5, 2, 8);
+                    let mat = new THREE.MeshLambertMaterial({color: color, emissive: color, emissiveIntensity: 0.4});
+                    mesh = new THREE.Mesh(geo, mat);
+                } else if(r < 0.92) {
                     type = "helmet";
-                    let lvls = [0, 0, 1, 1, 2]; // 偏向低级
+                    let lvls = [0, 0, 1, 1, 2];
                     itemData = equipments.filter(e => e.type === "helmet")[lvls[Math.floor(Math.random()*lvls.length)]];
-                    color = itemData.color;
-                    geo = new THREE.SphereGeometry(1.5, 8, 8); // 头盔球形
+                    let color = itemData.color;
+                    let geo = new THREE.SphereGeometry(1.5, 8, 8);
+                    let mat = new THREE.MeshLambertMaterial({color: color, emissive: color, emissiveIntensity: 0.4});
+                    mesh = new THREE.Mesh(geo, mat);
                 } else {
                     type = "armor";
                     let lvls = [0, 0, 1, 1, 2];
                     itemData = equipments.filter(e => e.type === "armor")[lvls[Math.floor(Math.random()*lvls.length)]];
-                    color = itemData.color;
-                    geo = new THREE.BoxGeometry(3, 3, 0.5); // 防弹衣扁平
+                    let color = itemData.color;
+                    let geo = new THREE.BoxGeometry(3, 3, 0.5);
+                    let mat = new THREE.MeshLambertMaterial({color: color, emissive: color, emissiveIntensity: 0.4});
+                    mesh = new THREE.Mesh(geo, mat);
                 }
 
-                const mat = new THREE.MeshLambertMaterial({color: color, emissive: color, emissiveIntensity: 0.4});
-                const mesh = new THREE.Mesh(geo, mat);
                 mesh.position.set(lx, ly, lz);
 
                 // 添加 3D 浮动文字标签
@@ -930,7 +1079,6 @@
                 labelSprite.position.set(0, 1.8, 0);
                 mesh.add(labelSprite);
 
-                // 移除 PointLight，避免光源数量超出 WebGL 极限导致所有模型不可见（玩空气bug）
                 scene.add(mesh);
 
                 lootItems.push({ mesh: mesh, type: type, data: itemData });
