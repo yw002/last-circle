@@ -13,13 +13,20 @@
         #weapon-info { position: absolute; bottom: 65px; left: 50%; transform: translateX(-50%); color: white; text-shadow: 2px 2px 4px black; font-size: 28px; font-weight: bold; text-align: center; font-style: italic; }
         #equip-info { position: absolute; bottom: 105px; left: 50%; transform: translateX(-50%); color: white; text-shadow: 1px 1px 3px black; font-size: 20px; font-weight: bold; text-align: center; background: rgba(0,0,0,0.4); padding: 4px 15px; border-radius: 8px; }
         #kill-feed { position: absolute; top: 20px; right: 20px; color: white; text-shadow: 1px 1px 3px black; font-size: 16px; text-align: right; line-height: 1.6; }
-        #overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.75); display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: auto; z-index: 10; }
-        #title { color: #f39c12; font-size: 72px; font-weight: bold; text-shadow: 3px 3px 6px black; margin-bottom: 10px; font-style: italic; letter-spacing: 2px; text-align: center; }
-        #subtitle { color: #fff; font-size: 24px; margin-bottom: 40px; text-shadow: 1px 1px 2px black; }
-        #start-btn { padding: 18px 50px; font-size: 28px; cursor: pointer; background: linear-gradient(180deg, #f39c12, #d68910); border: 2px solid #fff; color: white; font-weight: bold; border-radius: 8px; transition: 0.2s; box-shadow: 0 4px 10px rgba(0,0,0,0.5); text-transform: uppercase; }
-        #start-btn:hover { background: linear-gradient(180deg, #f1c40f, #f39c12); transform: scale(1.05); }
-        .instructions { color: #ddd; margin-top: 40px; text-align: center; line-height: 1.8; font-size: 18px; text-shadow: 1px 1px 2px black; background: rgba(0,0,0,0.5); padding: 20px; border-radius: 8px; }
-        .key { display: inline-block; background: #333; color: white; padding: 2px 8px; border-radius: 4px; border: 1px solid #555; font-family: monospace; font-weight: bold; }
+        #overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle, #2a0000 0%, #030000 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: auto; z-index: 10; }
+        @keyframes bloodGlitch {
+            0% { transform: translate(0, 0) skew(0deg); text-shadow: 3px 3px 0 #aa0000, -3px -3px 0 #330000; }
+            12% { transform: translate(-2px, 1px) skew(-2deg); text-shadow: 4px -2px 0 #dd0000, -4px 1px 0 #550000; }
+            24% { transform: translate(1px, -2px) skew(1deg); text-shadow: -2px 4px 0 #880000, 3px -2px 0 #220000; }
+            36% { transform: translate(0, 0) skew(0deg); text-shadow: 3px 3px 0 #aa0000, -3px -3px 0 #330000; }
+            100% { transform: translate(0, 0) skew(0deg); text-shadow: 3px 3px 0 #aa0000, -3px -3px 0 #330000; }
+        }
+        #title { color: #8b0000; font-size: 76px; font-weight: 900; letter-spacing: 4px; text-transform: uppercase; margin-bottom: 5px; text-align: center; font-family: "Impact", "Georgia", serif; animation: bloodGlitch 1.6s infinite linear; }
+        #subtitle { color: #f39c12; font-size: 25px; margin-bottom: 40px; text-shadow: 2px 2px 4px black; font-weight: bold; font-family: "Trebuchet MS", sans-serif; letter-spacing: 1px; }
+        #start-btn { padding: 18px 55px; font-size: 28px; cursor: pointer; background: linear-gradient(180deg, #900, #400); border: 2px solid #b00; color: #fff; font-weight: bold; border-radius: 8px; transition: 0.2s; box-shadow: 0 0 15px #900; text-transform: uppercase; font-family: "Impact", sans-serif; letter-spacing: 1px; }
+        #start-btn:hover { background: linear-gradient(180deg, #c00, #600); transform: scale(1.05); box-shadow: 0 0 25px #f00, inset 0 0 10px rgba(0,0,0,0.5); }
+        .instructions { color: #ddd; margin-top: 40px; text-align: center; line-height: 1.8; font-size: 17px; text-shadow: 1px 1px 2px black; background: rgba(0,0,0,0.7); border: 1px solid #4a0000; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
+        .key { display: inline-block; background: #222; color: #ff3333; padding: 2px 8px; border-radius: 4px; border: 1px solid #4a0000; font-family: monospace; font-weight: bold; }
         #hit-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle, transparent 50%, rgba(255,0,0,0.4) 100%); opacity: 0; transition: opacity 0.15s; pointer-events: none; z-index: 5; }
         #zone-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,255,0.2); opacity: 0; transition: opacity 0.5s; pointer-events: none; z-index: 4; }
         #interact-prompt { position: absolute; top: 60%; left: 50%; transform: translate(-50%, -50%); color: white; text-shadow: 2px 2px 4px black; font-size: 20px; font-weight: bold; background: rgba(0,0,0,0.5); padding: 8px 16px; border-radius: 4px; display: none; }
@@ -62,14 +69,7 @@
     <div id="zone-overlay"></div>
     <div id="overlay">
         <div id="title">WEB PUBG</div>
-        <div id="subtitle">Erangel Island Survival</div>
-        <div id="difficulty-select" style="margin: 15px 0; display: flex; align-items: center; justify-content: center;">
-            <span style="color: #fff; font-size: 18px; margin-right: 15px;">难度:</span>
-            <button class="diff-btn active" data-diff="easy" style="margin: 3px; padding: 6px 16px; font-size: 14px; cursor: pointer; background: #27ae60; border: 4px solid #f1c40f; color: white; border-radius: 5px;">简单</button>
-            <button class="diff-btn" data-diff="normal" style="margin: 3px; padding: 6px 16px; font-size: 14px; cursor: pointer; background: #f39c12; border: 2px solid #fff; color: white; border-radius: 5px;">普通</button>
-            <button class="diff-btn" data-diff="hard" style="margin: 3px; padding: 6px 16px; font-size: 14px; cursor: pointer; background: #e74c3c; border: 2px solid #fff; color: white; border-radius: 5px;">困难</button>
-            <button class="diff-btn" data-diff="nightmare" style="margin: 3px; padding: 6px 16px; font-size: 14px; cursor: pointer; background: #8e44ad; border: 2px solid #fff; color: white; border-radius: 5px;">噩梦</button>
-        </div>
+        <div id="subtitle">末日求生：丧尸感染爆发 (WASTELAND SURVIVAL: ZOMBIE OUTBREAK)</div>
         <button id="start-btn">跳伞开始 (Deploy)</button>
         <div class="instructions">
             <b>操作说明 (Controls)</b><br>
@@ -92,15 +92,27 @@
         let camera, scene, renderer, controls;
         let objects = [];
         let raycaster;
+        let ambLight, dirLight;
+        let lightningFlashTime = 0;
+        let lightningBoltLine = null;
+        let isLightningFlashing = false;
         const mapSize = 5000; // 地图增大2倍
-        const botCount = 99;
+        const botCount = 149;
         let bots = [];
         let aliveCount = botCount + 1;
         let killFeed = [];
         let lootItems = [];
+        let birds = [];
+        let deers = [];
+        let zombies = [];
+        let boars = [];
+        let housePositions = [];
+        let doors = [];
+        let rockPositions = [];
+        let gameStarted = false; // 极其关键：游戏是否已正式初始化启动状态锁，彻底解决切回窗口时触发重复生成的卡死Bug
         let parachuteGroup;
         let viewWeaponMesh; // 第一人称武器模型
-        let muzzleFlash; // 枪口火花
+        let muzzleFlash, muzzleLight; // 枪口火花与光源
 
         // --- 天气系统 ---
         let clouds = [];
@@ -110,12 +122,18 @@
         const RAIN_START_ENEMIES_MIN = 40; // 至少40个敌人时开始下雨
         const RAIN_START_ENEMIES_MAX = 30; // 最多30个敌人时开始下雨
 
-        // --- 难度系统 ---
+        // --- 统一平衡难度系统 (全面削弱敌人的射击精准度、伤害和开火速度，解决瞬间暴毙、体验太难的痛点)
         const difficulties = {
-            easy: { name: "简单", botDamageMultiplier: 0.5, botHealth: 150, botAccuracy: 0.3 },
-            normal: { name: "普通", botDamageMultiplier: 1, botHealth: 250, botAccuracy: 0.6 },
-            hard: { name: "困难", botDamageMultiplier: 1.5, botHealth: 350, botAccuracy: 0.8 },
-            nightmare: { name: "噩梦", botDamageMultiplier: 2, botHealth: 500, botAccuracy: 1.0 }
+            easy: {
+                name: "末日生存",
+                botDamageMultiplier: 0.6, // 基础伤害系数从1.0降至0.6
+                botHealth: 130, // 机器人血量从180降至130，更容易击杀
+                botAccuracy: 0.28, // 命中率从0.6大幅降低至0.28，子弹会大量打偏描边，给玩家充足的射击反击和战术躲避空间
+                botTargetRange: 350, // 侦测距离从450调小到350
+                botToPlayerDamageFactor: 0.35, // 撞击对玩家伤害降至0.35 (单发AKM仅造成8-12伤害)，再也不会瞬间暴毙！
+                botSpeed: 18, // 速度降低到18
+                botFireRateMultiplier: 3.5 // 射击间隔提升到3.5倍，开火更慢更笨拙
+            }
         };
         let currentDifficulty = 'easy';
 
@@ -138,17 +156,85 @@
 
         function spawnMuzzleFlash() {
             if(!muzzleFlash) {
-                const flashGeo = new THREE.SphereGeometry(0.4, 8, 8);
-                const flashMat = new THREE.MeshBasicMaterial({color: 0xffaa00, transparent: true, opacity: 1});
-                muzzleFlash = new THREE.Mesh(flashGeo, flashMat);
+                muzzleFlash = new THREE.Group();
+
+                // 1. 中心高亮亮白核心
+                const coreMat = new THREE.MeshBasicMaterial({color: 0xffffff, transparent: true, opacity: 1});
+                const core = new THREE.Mesh(new THREE.SphereGeometry(0.24, 6, 6), coreMat);
+                muzzleFlash.add(core);
+
+                // 2. 5个散射的高反差橙黄色尖锐小锥体，组成十字星芒特效
+                const spikeMat = new THREE.MeshBasicMaterial({color: 0xff8800, transparent: true, opacity: 0.95});
+                const spikeGeo = new THREE.ConeGeometry(0.12, 1.2, 5);
+                spikeGeo.translate(0, 0.6, 0); // 将原点平移到锥体底部，方便缩放
+
+                // 向上散射
+                const spikeU = new THREE.Mesh(spikeGeo, spikeMat);
+                muzzleFlash.add(spikeU);
+
+                // 向下散射
+                const spikeD = new THREE.Mesh(spikeGeo, spikeMat);
+                spikeD.rotation.z = Math.PI;
+                muzzleFlash.add(spikeD);
+
+                // 向左散射
+                const spikeL = new THREE.Mesh(spikeGeo, spikeMat);
+                spikeL.rotation.z = Math.PI / 2;
+                muzzleFlash.add(spikeL);
+
+                // 向右散射
+                const spikeR = new THREE.Mesh(spikeGeo, spikeMat);
+                spikeR.rotation.z = -Math.PI / 2;
+                muzzleFlash.add(spikeR);
+
+                // 向前喷射 (枪管前方)
+                const spikeF = new THREE.Mesh(spikeGeo, spikeMat);
+                spikeF.rotation.x = Math.PI / 2;
+                muzzleFlash.add(spikeF);
+
                 muzzleFlash.visible = false;
-                camera.add(muzzleFlash);
+                viewWeaponMesh.add(muzzleFlash); // 挂载到第一人称枪械网格上，绑定物理后坐力抖动
+
+                // 3. 在枪口核心加入动态 PointLight 点光源，瞬间点亮枪体、双手和四周地表
+                muzzleLight = new THREE.PointLight(0xffaa00, 5.0, 45);
+                muzzleLight.visible = false;
+                viewWeaponMesh.add(muzzleLight);
             }
-            // 火花在枪口位置（枪的远端）
-            muzzleFlash.position.set(0.5, -0.5, -1.8);
+
+            // 依据不同武器设置精确的局部坐标系枪口偏移
+            let offsetZ = -0.8;
+            let offsetY = 0.15;
+            if (player.weapon.name === 'M1911') {
+                offsetZ = -0.45;
+                offsetY = 0.1;
+            } else if (player.weapon.name === 'S686') {
+                offsetZ = -1.0;
+                offsetY = 0.1;
+            } else if (player.weapon.name === 'Kar98k') {
+                offsetZ = -1.25;
+                offsetY = 0.1;
+            }
+
+            // 定位在武器枪口尖端 (局部坐标 x=0 是枪管中轴线)
+            muzzleFlash.position.set(0, offsetY, offsetZ);
+            muzzleLight.position.set(0, offsetY, offsetZ);
+
+            // 随机旋转星芒 Z 轴，让每次开枪的火光星芒都不一样 (极具细节)
+            muzzleFlash.rotation.z = Math.random() * Math.PI;
+
+            // 随机整体大小
+            let scaleVal = 0.8 + Math.random() * 0.6;
+            muzzleFlash.scale.set(scaleVal, scaleVal, scaleVal * 1.3);
+
+            // 瞬间开启火光与局部点光源
             muzzleFlash.visible = true;
-            muzzleFlash.scale.set(1 + Math.random() * 0.8, 0.5 + Math.random() * 0.3, 1 + Math.random() * 0.8);
-            setTimeout(() => { if(muzzleFlash) muzzleFlash.visible = false; }, 60);
+            muzzleLight.visible = true;
+
+            // 60毫秒后自动关闭，形成瞬态火花
+            setTimeout(() => {
+                if(muzzleFlash) muzzleFlash.visible = false;
+                if(muzzleLight) muzzleLight.visible = false;
+            }, 60);
 
             // 抛壳效果
             spawnBulletCasing();
@@ -305,13 +391,119 @@
             }
         }
 
+        // --- Web Audio 丧尸惊悚声效动态合成器 ---
+        function playZombieSound(type, sourcePos = null) {
+            if(!audioCtx || audioCtx.state === 'suspended') return;
+            const now = audioCtx.currentTime;
+
+            const osc = audioCtx.createOscillator();
+            const lfo = audioCtx.createOscillator();
+            const lfoGain = audioCtx.createGain();
+            const gain = audioCtx.createGain();
+            const filter = audioCtx.createBiquadFilter();
+
+            osc.type = 'sawtooth';
+            // 极低频喉音基准 (咆哮 65Hz，撕咬 120Hz)
+            osc.frequency.setValueAtTime(type === 'growl' ? 65 : 120, now);
+            if (type === 'growl') {
+                osc.frequency.linearRampToValueAtTime(45, now + 1.2); // 音调下坠
+            } else {
+                osc.frequency.linearRampToValueAtTime(80, now + 0.4);
+            }
+
+            // LFO 低频调制器：产生喉咙颤动、咯咯作响的惊悚效果
+            lfo.type = 'sine';
+            lfo.frequency.setValueAtTime(type === 'growl' ? 12 : 25, now); // 12Hz 或 25Hz 调幅
+            lfoGain.gain.setValueAtTime(type === 'growl' ? 25 : 45, now);
+
+            lfo.connect(lfoGain);
+            lfoGain.connect(osc.frequency); // 频率调频调制
+
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(220, now); // 闷重闷重的声音效果
+
+            osc.connect(filter);
+            filter.connect(gain);
+
+            if (sourcePos) {
+                const panner = audioCtx.createPanner();
+                panner.panningModel = 'HRTF';
+                panner.distanceModel = 'exponential';
+                panner.refDistance = 15;
+                panner.maxDistance = 1000;
+                panner.rolloffFactor = 1.5;
+
+                panner.positionX.value = sourcePos.x;
+                panner.positionY.value = sourcePos.y;
+                panner.positionZ.value = sourcePos.z;
+
+                gain.connect(panner);
+                panner.connect(audioCtx.destination);
+            } else {
+                gain.connect(audioCtx.destination);
+            }
+
+            let vol = sourcePos ? 3.0 : 0.6;
+            gain.gain.setValueAtTime(0, now);
+            gain.gain.linearRampToValueAtTime(vol, now + 0.1);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + (type === 'growl' ? 1.4 : 0.5));
+
+            lfo.start(now);
+            osc.start(now);
+            lfo.stop(now + 1.5);
+            osc.stop(now + 1.5);
+        }
+
+        function getHouseObjectIsInside(position) {
+            if (!position) return null;
+            for(let i=0; i<doors.length; i++) {
+                let d = doors[i];
+                let hPos = d.housePos;
+                let dx = Math.abs(position.x - hPos.x);
+                let dz = Math.abs(position.z - hPos.z);
+                let dy = position.y - hPos.y;
+                // 洋房高度加深至 24，检查任意坐标水平与高度范围，判定其是否处于中空大厅内部
+                if (dx < 14.5 && dz < 14.5 && dy > 0 && dy < 24) {
+                    return d; // 返回所处洋房大厅的门引用，唯一指代洋房实体
+                }
+            }
+            return null;
+        }
+
+        function getHousePlayerIsInside() {
+            return getHouseObjectIsInside(controls.getObject().position);
+        }
+
         // --- 地形生成算法 ---
-        function getTerrainHeight(x, z) {
+        function getBaseTerrainHeight(x, z) {
             let dist = Math.sqrt(x*x + z*z);
             let height = 80 - (dist / (mapSize/2)) * 80;
             height += Math.sin(x/150)*30 + Math.cos(z/150)*30;
             height += Math.sin(x/30)*8 + Math.cos(z/30)*8;
             return Math.max(-10, height);
+        }
+
+        function getTerrainHeight(x, z) {
+            // 平铺地基平整算法：如果坐标靠近任何一栋房屋，将其平整至该房地基高度，防止穿模悬空
+            for (let i = 0; i < housePositions.length; i++) {
+                let h = housePositions[i];
+                let dx = x - h.x;
+                let dz = z - h.z;
+                let distSq = dx*dx + dz*dz;
+
+                // 24x24以内的正方形地基地表平滑/强制铺平
+                if (distSq < 26 * 26) {
+                    let baseH = h.baseHeight;
+                    if (distSq < 18 * 18) {
+                        return baseH; // 核心区域100%水平平整
+                    }
+                    // 18到26之间做平滑线性过渡，避免出现陡峭断崖
+                    let dist = Math.sqrt(distSq);
+                    let t = (dist - 18) / 8;
+                    return THREE.MathUtils.lerp(baseH, getBaseTerrainHeight(x, z), t);
+                }
+            }
+            return getBaseTerrainHeight(x, z);
         }
 
         function initClouds() {
@@ -352,53 +544,212 @@
             }
         }
 
+        function playThunderSound() {
+            if(!audioCtx || audioCtx.state === 'suspended') return;
+            const now = audioCtx.currentTime;
+
+            const osc = audioCtx.createOscillator();
+            const oscLow = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            const filter = audioCtx.createBiquadFilter();
+
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(80, now);
+            osc.frequency.exponentialRampToValueAtTime(15, now + 1.8);
+
+            oscLow.type = 'square';
+            oscLow.frequency.setValueAtTime(45, now);
+            oscLow.frequency.exponentialRampToValueAtTime(10, now + 1.5);
+
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(120, now);
+            filter.frequency.exponentialRampToValueAtTime(25, now + 1.8);
+
+            osc.connect(filter);
+            oscLow.connect(filter);
+            filter.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            // 雷鸣声的动态音量包络 (有来回滚荡的效果)
+            gain.gain.setValueAtTime(0, now);
+            gain.gain.linearRampToValueAtTime(2.2, now + 0.15); // 快速上升
+            gain.gain.setValueAtTime(2.2, now + 0.3);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 2.0); // 指数衰减
+
+            osc.start(now);
+            oscLow.start(now);
+            osc.start(now + 2.0);
+            oscLow.stop(now + 2.0);
+        }
+
+        function createLightningBolt() {
+            if (lightningBoltLine) {
+                scene.remove(lightningBoltLine);
+            }
+
+            let playerPos = controls.getObject().position;
+            // 随机在玩家前方 150 - 300 距离内生成
+            let angle = Math.random() * Math.PI * 2;
+            let dist = 150 + Math.random() * 150;
+            let startX = playerPos.x + Math.cos(angle) * dist;
+            let startZ = playerPos.z + Math.sin(angle) * dist;
+            let startY = 300; // 天空高度
+
+            let endX = startX + (Math.random() - 0.5) * 50;
+            let endZ = startZ + (Math.random() - 0.5) * 50;
+            let endY = getTerrainHeight(endX, endZ);
+
+            // 建立12段劈向地面的折线节点
+            const points = [];
+            let segments = 12;
+            let currentX = startX;
+            let currentY = startY;
+            let currentZ = startZ;
+            points.push(new THREE.Vector3(currentX, currentY, currentZ));
+
+            for(let i = 1; i <= segments; i++) {
+                let t = i / segments;
+                let targetX = THREE.MathUtils.lerp(startX, endX, t);
+                let targetY = THREE.MathUtils.lerp(startY, endY, t);
+                let targetZ = THREE.MathUtils.lerp(startZ, endZ, t);
+
+                if (i < segments) {
+                    currentX = targetX + (Math.random() - 0.5) * 22;
+                    currentY = targetY;
+                    currentZ = targetZ + (Math.random() - 0.5) * 22;
+                } else {
+                    currentX = endX;
+                    currentY = endY;
+                    currentZ = endZ;
+                }
+                points.push(new THREE.Vector3(currentX, currentY, currentZ));
+            }
+
+            const geo = new THREE.BufferGeometry().setFromPoints(points);
+            const mat = new THREE.LineBasicMaterial({
+                color: 0xffffff,
+                linewidth: 4 // 虽然大部分WebGL实现不支持加粗，但依然安全
+            });
+
+            lightningBoltLine = new THREE.Line(geo, mat);
+            scene.add(lightningBoltLine);
+        }
+
         function updateWeather(delta) {
-            // 更新白云位置
+            let playerPos = controls.getObject().position;
+
+            // 1. 更新白云位置
             clouds.forEach(cloud => {
-                cloud.position.x += cloud.userData.speed * delta * 10;
-                // 循环移动
+                // 狂风暴雨下云彩飞移速度提升 4 倍
+                let cloudSpeedMultiplier = isRaining ? 4.0 : 1.0;
+                cloud.position.x += cloud.userData.speed * delta * 10 * cloudSpeedMultiplier;
                 if (cloud.position.x > mapSize) {
                     cloud.position.x = -mapSize;
                 }
             });
 
-            // 检查是否开始下雨（根据剩余敌人数量）
+            // 2. 暴风雨天空颜色、浓雾平滑过渡
+            if (isRaining && !isLightningFlashing) {
+                scene.background.lerp(new THREE.Color(0x1a212a), 0.05); // 暗灰蓝色暴风雨天空
+                scene.fog.color.lerp(new THREE.Color(0x1a212a), 0.05);
+                scene.fog.density = THREE.MathUtils.lerp(scene.fog.density, 0.0016, 0.05); // 更浓稠的暴雨雾气
+            }
+
+            // 3. 检查是否开始下雨
             if (!isRaining && player.alive && aliveCount <= RAIN_START_ENEMIES_MIN) {
-                // 随机决定是否开始下雨
                 if (aliveCount <= RAIN_START_ENEMIES_MAX || Math.random() < 0.02) {
                     isRaining = true;
-                    addKillFeed("<span style='color:#3498db'>开始下雨了！</span>");
-                    // 创建雨滴
-                    const rainGeo = new THREE.BufferGeometry();
-                    const rainCount = 5000;
-                    const positions = new Float32Array(rainCount * 3);
-                    for (let i = 0; i < rainCount; i++) {
-                        positions[i * 3] = (Math.random() - 0.5) * 500;
-                        positions[i * 3 + 1] = Math.random() * 500;
-                        positions[i * 3 + 2] = (Math.random() - 0.5) * 500;
-                    }
-                    rainGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+                    addKillFeed("<span style='color:#e74c3c; font-weight: bold;'>⚠️ 警告：雷暴天气即将来临，狂风大作！</span>");
+
+                    // 创建更密集的雨滴粒子系统 (3块交错高度的雨云，确保降雨连贯无脉冲空洞)
                     const rainMat = new THREE.PointsMaterial({
-                        color: 0xaaaaff,
-                        size: 2,
+                        color: 0x90a9e1, // 偏蓝冷的雨水颜色
+                        size: 0.9, // 雨滴细化至 0.9，消除方块颗粒感，呈现真实斜落雨丝效果
                         transparent: true,
-                        opacity: 0.6
+                        opacity: 0.7,
+                        depthWrite: false // 极其关键：防止半透明雨滴写入深度缓存，一举根治背景丧尸、敌人被裁剪穿透变透明的经典 3D Bug！
                     });
-                    const rain = new THREE.Points(rainGeo, rainMat);
-                    rain.position.y = 100;
-                    rainParticles.push(rain);
-                    scene.add(rain);
+
+                    for (let c = 0; c < 3; c++) {
+                        const rainGeo = new THREE.BufferGeometry();
+                        const rainCount = 3000; // 每层 3000 粒子，总计 9000 粒子，细密紧实
+                        const positions = new Float32Array(rainCount * 3);
+                        for (let i = 0; i < rainCount; i++) {
+                            positions[i * 3] = (Math.random() - 0.5) * 500;
+                            positions[i * 3 + 1] = Math.random() * 300; // 单层雨柱高度覆盖
+                            positions[i * 3 + 2] = (Math.random() - 0.5) * 500;
+                        }
+                        rainGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+                        const rain = new THREE.Points(rainGeo, rainMat);
+                        // 交错初始高度：100, 200, 300
+                        rain.position.y = 100 + c * 100;
+                        rainParticles.push(rain);
+                        scene.add(rain);
+                    }
                 }
             }
 
-            // 更新雨滴位置
-            rainParticles.forEach(rain => {
-                rain.position.y -= 200 * delta;
-                rain.position.x -= 30 * delta;
-                if (rain.position.y < 0) {
-                    rain.position.y = 300;
+            // 4. 更新雨滴位置 (狂风卷着暴雨斜飘下落，交错层层下落重置，形成无断断续续感的完美暴雨)
+            rainParticles.forEach((rain, idx) => {
+                // 雨滴始终笼罩和跟随着玩家移动 (修复原先玩家走出雨区的Bug)
+                rain.position.x = playerPos.x;
+                rain.position.z = playerPos.z;
+
+                rain.position.y -= 380 * delta; // 下落速度大幅提升 (200 -> 380)
+
+                // 粒子整体因风力沿X和Z轴横移，产生倾斜落雨效果
+                // 各自下落到不同阈值时，独立回到高空重置，消除整块重置的脉冲虚假感
+                if (rain.position.y < -150) {
+                    rain.position.y = 180;
                 }
             });
+
+            // 5. 闪电电闪雷鸣逻辑
+            if (isRaining) {
+                // 每帧有 0.04% 的极微小概率触发闪电，降低频率至 35-45 秒一次，体验极其自然舒服
+                if (!isLightningFlashing && Math.random() < 0.0004) {
+                    isLightningFlashing = true;
+                    lightningFlashTime = Date.now();
+
+                    // 释放撕碎天空的炸雷声
+                    playThunderSound();
+
+                    // procedural 生成劈向近处地面的3D折线闪电
+                    createLightningBolt();
+                }
+
+                if (isLightningFlashing) {
+                    let elapsed = Date.now() - lightningFlashTime;
+                    if (elapsed < 120) {
+                        // 阶段1：闪电强光，天空和浓雾变成刺眼的亮白蓝色，亮度大增
+                        scene.background.setHex(0xd0ebff);
+                        scene.fog.color.setHex(0xd0ebff);
+                        if (ambLight) ambLight.intensity = 3.0;
+                        if (dirLight) dirLight.intensity = 3.0;
+                    } else if (elapsed < 220) {
+                        // 阶段2：瞬间变暗 (电弧间歇)
+                        scene.background.setHex(0x1a212a);
+                        scene.fog.color.setHex(0x1a212a);
+                        if (ambLight) ambLight.intensity = 0.4;
+                        if (dirLight) dirLight.intensity = 0.3;
+                    } else if (elapsed < 300) {
+                        // 阶段3：二次闪烁 (余闪/复电)
+                        scene.background.setHex(0xb5e0ff);
+                        scene.fog.color.setHex(0xb5e0ff);
+                        if (ambLight) ambLight.intensity = 2.4;
+                        if (dirLight) dirLight.intensity = 2.4;
+                    } else {
+                        // 阶段4：闪电结束，移除闪电线，渐进恢复暴雨阴暗亮度
+                        isLightningFlashing = false;
+                        if (lightningBoltLine) {
+                            scene.remove(lightningBoltLine);
+                            lightningBoltLine = null;
+                        }
+                        if (ambLight) ambLight.intensity = 0.7;
+                        if (dirLight) dirLight.intensity = 0.6;
+                    }
+                }
+            }
         }
 
         function initTerrain() {
@@ -469,6 +820,51 @@
             scene.add(water);
         }
 
+        function createTextSprite(text, color) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+
+            // 绘制圆角半透明黑底
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+            ctx.beginPath();
+            if (ctx.roundRect) {
+                ctx.roundRect(4, 4, 248, 56, 12);
+            } else {
+                ctx.rect(4, 4, 248, 56);
+            }
+            ctx.fill();
+
+            // 绘制白边
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // 绘制文字
+            ctx.font = 'bold 24px "Segoe UI", sans-serif';
+            ctx.fillStyle = color || '#ffffff';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            // 阴影
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+            ctx.shadowBlur = 4;
+            ctx.shadowOffsetX = 2;
+            ctx.shadowOffsetY = 2;
+
+            ctx.fillText(text, 128, 32);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.minFilter = THREE.LinearFilter;
+            texture.magFilter = THREE.LinearFilter;
+
+            const mat = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: true });
+            const sprite = new THREE.Sprite(mat);
+            sprite.scale.set(7, 1.75, 1);
+            return sprite;
+        }
+
         function spawnLoot(bx, by, bz) {
             // 物资生成在建筑物旁边，而不是在建筑物内部
             for(let i=0; i<4; i++) {
@@ -520,6 +916,19 @@
                 const mesh = new THREE.Mesh(geo, mat);
                 mesh.position.set(lx, ly, lz);
 
+                // 添加 3D 浮动文字标签
+                let labelName = itemData ? itemData.name : (type === "health" ? "急救包" : "物资");
+                let labelColor = "#ffffff";
+                if (type === "weapon") labelColor = "#f1c40f";
+                else if (type === "ammo") labelColor = "#2ecc71";
+                else if (type === "health") labelColor = "#e74c3c";
+                else if (type === "scope") labelColor = "#9b59b6";
+                else if (type === "helmet" || type === "armor") labelColor = "#3498db";
+
+                const labelSprite = createTextSprite(labelName, labelColor);
+                labelSprite.position.set(0, 1.8, 0);
+                mesh.add(labelSprite);
+
                 // 移除 PointLight，避免光源数量超出 WebGL 极限导致所有模型不可见（玩空气bug）
                 scene.add(mesh);
 
@@ -528,45 +937,136 @@
         }
 
         function initEnvironment() {
-            // 巨大树木 - 像真实森林
-            const trunkGeo = new THREE.CylinderGeometry(5, 8, 60, 8);
-            const trunkMat = new THREE.MeshLambertMaterial({color: 0x5c4033});
-            const leavesMat = new THREE.MeshLambertMaterial({color: 0x274e13});
-            const cone1 = new THREE.ConeGeometry(35, 70, 8);
-            const cone2 = new THREE.ConeGeometry(28, 60, 8);
-            const cone3 = new THREE.ConeGeometry(20, 50, 8);
+            // 巨大树木 - 像真实森林 (预先创建材质和几何体以提升性能)
+            const trunkMatPine = new THREE.MeshLambertMaterial({color: 0x5c4033});
+            const leavesMatPine = new THREE.MeshLambertMaterial({color: 0x274e13});
+            const trunkGeoPine = new THREE.CylinderGeometry(5, 8, 60, 8);
+            const cone1Geo = new THREE.ConeGeometry(35, 70, 8);
+            const cone2Geo = new THREE.ConeGeometry(28, 60, 8);
+            const cone3Geo = new THREE.ConeGeometry(20, 50, 8);
 
-            for(let i=0; i<2000; i++) {
-                let x = (Math.random() - 0.5) * mapSize * 0.9;
-                let z = (Math.random() - 0.5) * mapSize * 0.9;
-                let y = getTerrainHeight(x, z);
-                if(y < 2) continue;
+            // 阔叶橡树
+            const trunkMatOak = new THREE.MeshLambertMaterial({color: 0x4d2f1d});
+            const leavesMatOak = new THREE.MeshLambertMaterial({color: 0x194d19});
+            const trunkGeoOak = new THREE.CylinderGeometry(6, 10, 45, 8);
+            const sphere1Geo = new THREE.SphereGeometry(22, 8, 8);
+            const sphere2Geo = new THREE.SphereGeometry(18, 8, 8);
+            const sphere3Geo = new THREE.SphereGeometry(14, 8, 8);
 
-                const tree = new THREE.Group();
-                const trunk = new THREE.Mesh(trunkGeo, trunkMat); trunk.position.y = 30;
-                const l1 = new THREE.Mesh(cone1, leavesMat); l1.position.y = 65;
-                const l2 = new THREE.Mesh(cone2, leavesMat); l2.position.y = 95;
-                const l3 = new THREE.Mesh(cone3, leavesMat); l3.position.y = 120;
+            // 秋叶白桦树
+            const trunkMatBirch = new THREE.MeshLambertMaterial({color: 0xdddddd}); // 白灰色树干
+            const leavesMatBirch = new THREE.MeshLambertMaterial({color: 0xd4ac0d}); // 金黄色秋叶
+            const trunkGeoBirch = new THREE.CylinderGeometry(3.5, 5.5, 60, 8);
+            const birch1Geo = new THREE.ConeGeometry(28, 54, 8);
+            const birch2Geo = new THREE.ConeGeometry(22, 46, 8);
+            const birch3Geo = new THREE.ConeGeometry(16, 38, 8);
 
-                tree.add(trunk); tree.add(l1); tree.add(l2); tree.add(l3);
-                tree.position.set(x, y, z);
-                scene.add(tree);
-                objects.push(trunk);
-                objects.push(l1); objects.push(l2); objects.push(l3);
+            // 抖动网格森林生成算法：大地图划分为 45x45 个单元格，每个网格内只随机抖动偏移产生一棵大树
+            // 这样既能实现2000棵树的饱满森林，又100%绝无大树重合交叉，且避开洋房
+            const cells = 45;
+            const cellSize = 4500 / cells; // 地图核心游玩范围 4500
 
-                // 添加树干碰撞盒，并将其加入 objects 以便子弹检测
-                const colliderBox = new THREE.Box3().setFromObject(trunk);
-                colliders.push(colliderBox);
+            for(let col = 0; col < cells; col++) {
+                for(let row = 0; row < cells; row++) {
+                    let cellMinX = -2250 + col * cellSize;
+                    let cellMinZ = -2250 + row * cellSize;
+
+                    // 局部微调偏移
+                    let x = cellMinX + 10 + Math.random() * (cellSize - 20);
+                    let z = cellMinZ + 10 + Math.random() * (cellSize - 20);
+                    let y = getTerrainHeight(x, z);
+
+                    if(y < 2) continue; // 避免在深水区生成大树
+
+                    // 距离检测：确保大树绝不生成在任何一栋洋房内部或紧贴大门 (35米避让)
+                    let tooCloseToHouse = false;
+                    for (let h of housePositions) {
+                        let dx = x - h.x;
+                        let dz = z - h.z;
+                        if (dx*dx + dz*dz < 35 * 35) {
+                            tooCloseToHouse = true;
+                            break;
+                        }
+                    }
+                    if(tooCloseToHouse) continue;
+
+                    // 互斥避让检测：防止大树与刚才生成的天然岩石发生重叠堆叠 (保持至少 20 米间距)
+                    let tooCloseToRock = false;
+                    for (let j = 0; j < rockPositions.length; j++) {
+                        let r = rockPositions[j];
+                        let dx = x - r.x;
+                        let dz = z - r.z;
+                        if (dx*dx + dz*dz < 20 * 20) {
+                            tooCloseToRock = true;
+                            break;
+                        }
+                    }
+                    if(tooCloseToRock) continue;
+
+                    const tree = new THREE.Group();
+                    let treeType = Math.floor(Math.random() * 3);
+                    let trunk;
+
+                    if (treeType === 0) { // 松树
+                        trunk = new THREE.Mesh(trunkGeoPine, trunkMatPine); trunk.position.y = 30;
+                        const l1 = new THREE.Mesh(cone1Geo, leavesMatPine); l1.position.y = 65;
+                        const l2 = new THREE.Mesh(cone2Geo, leavesMatPine); l2.position.y = 95;
+                        const l3 = new THREE.Mesh(cone3Geo, leavesMatPine); l3.position.y = 120;
+                        tree.add(trunk, l1, l2, l3);
+                        objects.push(trunk, l1, l2, l3);
+                    } else if (treeType === 1) { // 阔叶橡树
+                        trunk = new THREE.Mesh(trunkGeoOak, trunkMatOak); trunk.position.y = 22.5;
+                        const l1 = new THREE.Mesh(sphere1Geo, leavesMatOak); l1.position.y = 48;
+                        const l2 = new THREE.Mesh(sphere2Geo, leavesMatOak); l2.position.y = 64;
+                        const l3 = new THREE.Mesh(sphere3Geo, leavesMatOak); l3.position.y = 78;
+                        tree.add(trunk, l1, l2, l3);
+                        objects.push(trunk, l1, l2, l3);
+                    } else { // 白桦树
+                        trunk = new THREE.Mesh(trunkGeoBirch, trunkMatBirch); trunk.position.y = 30;
+                        const l1 = new THREE.Mesh(birch1Geo, leavesMatBirch); l1.position.y = 62;
+                        const l2 = new THREE.Mesh(birch2Geo, leavesMatBirch); l2.position.y = 84;
+                        const l3 = new THREE.Mesh(birch3Geo, leavesMatBirch); l3.position.y = 104;
+                        tree.add(trunk, l1, l2, l3);
+                        objects.push(trunk, l1, l2, l3);
+                    }
+
+                    tree.position.set(x, y - 6, z); // 整体下凹 6 坐标，让树根深埋入地，防止在陡峭山坡上悬浮穿模
+                    scene.add(tree);
+
+                    // 强行触发世界变换矩阵更新，解决 setFromObject(trunk) 碰撞盒堆叠在 (0,30,0) 的百年 Bug！
+                    tree.updateMatrixWorld(true);
+
+                    // 添加树干碰撞盒，并将其加入 objects 以便子弹检测
+                    const colliderBox = new THREE.Box3().setFromObject(trunk);
+                    colliders.push(colliderBox);
+                }
             }
 
             // 石头 (新增掩体) - 放到地面上
             const rockGeo = new THREE.DodecahedronGeometry(8, 1);
             const rockMat = new THREE.MeshLambertMaterial({color: 0x7f8c8d});
+            rockPositions = []; // 清空重置
+
             for(let i=0; i<600; i++) {
                 let x = (Math.random() - 0.5) * mapSize * 0.9;
                 let z = (Math.random() - 0.5) * mapSize * 0.9;
                 let y = getTerrainHeight(x, z);
                 if(y < 0) continue;
+
+                // 避让检测：防止石头穿插到洋房的地基或内部 (保持至少 30 米间距)
+                let tooCloseToHouse = false;
+                for (let j = 0; j < housePositions.length; j++) {
+                    let h = housePositions[j];
+                    let dx = x - h.x;
+                    let dz = z - h.z;
+                    if (dx*dx + dz*dz < 30 * 30) {
+                        tooCloseToHouse = true;
+                        break;
+                    }
+                }
+                if (tooCloseToHouse) {
+                    continue;
+                }
 
                 const rock = new THREE.Mesh(rockGeo, rockMat);
                 rock.scale.set(1 + Math.random()*2, 0.5 + Math.random()*0.5, 1 + Math.random()*2);
@@ -575,49 +1075,146 @@
                 scene.add(rock);
                 objects.push(rock); // 石头可以挡子弹
 
+                // 保存石头位置用于树木互斥生成
+                rockPositions.push({ x, z });
+
+                // 强制要求更新石头世界位置矩阵，解决 setFromObject(rock) 碰撞盒扎堆在原点的 Bug！
+                rock.updateMatrixWorld(true);
+
                 const colliderBox = new THREE.Box3().setFromObject(rock);
                 colliders.push(colliderBox);
             }
 
-            // 高楼大厦
-            const skyscraperColors = [0x8899aa, 0x99aabb, 0x778899, 0x667788, 0x556677];
-            for(let i=0; i<80; i++) {
-                let x = (Math.random() - 0.5) * mapSize * 0.7;
-                let z = (Math.random() - 0.5) * mapSize * 0.7;
-                let y = getTerrainHeight(x, z);
-                if(y < 3) continue;
+            // 普通房屋 (升级为中空房屋架构，利用 10 块薄壁板拼装中空大门道与开阔窗洞；升级窗体为半透明亮蓝玻璃，铺设高质感实木地板，杜绝杂草与白墙外皮)
+            const bldgBaseMat = new THREE.MeshLambertMaterial({color: 0xf5f5dc, side: THREE.DoubleSide}); // 米黄色墙面双面渲染
+            const roofMat = new THREE.MeshLambertMaterial({color: 0xc0392b, side: THREE.DoubleSide}); // 鲜红斜屋顶双面渲染
+            const roofGeo = new THREE.ConeGeometry(22, 14, 4, 1, true); // 锥底设为 openEnded = true (无底圆盖)，一举根治屋顶闪烁 Z-Fighting
+            const windowMat = new THREE.MeshLambertMaterial({
+                color: 0x5dade2,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.35, // 35% 不透明度，高清晰的半透明冷蓝钢化玻璃，可以极具真实感看清窗内窗外！
+                depthWrite: false // 极其关键：防止半透明窗口玻璃写入深度缓存，彻底解决隔着窗户观察时背景丧尸、机器人和野外场景变透明、被遮挡透视的 3D 经典 Bug！
+            });
+            const windowGeo = new THREE.BoxGeometry(0.1, 4.5, 6.0); // 窗户
+            const doorMat = new THREE.MeshLambertMaterial({color: 0x5c4033, side: THREE.DoubleSide}); // 门
+            const doorGeo = new THREE.BoxGeometry(6.5, 14, 0.1); // 大门加高
 
-                // 随机高度的高楼
-                let height = 40 + Math.random() * 80;
-                let width = 12 + Math.random() * 8;
-                let bldgGeo = new THREE.BoxGeometry(width, height, width);
-                let bldgMat = new THREE.MeshLambertMaterial({color: skyscraperColors[Math.floor(Math.random() * skyscraperColors.length)]});
-                const bldg = new THREE.Mesh(bldgGeo, bldgMat);
-                bldg.position.set(x, y + height/2, z);
-                scene.add(bldg);
-                objects.push(bldg);
+            // 拼装墙板几何体
+            const sideSegmentGeo = new THREE.BoxGeometry(0.5, 24, 12); // 左右侧墙的前/后段墙板 (厚0.5，高24，深12)
+            const sideBottomGeo = new THREE.BoxGeometry(0.5, 10, 6); // 窗洞底下挡墙
+            const sideTopGeo = new THREE.BoxGeometry(0.5, 9.5, 6); // 窗洞上过梁
+            const backWallGeo = new THREE.BoxGeometry(30, 24, 0.5); // 后壁
+            const frontSegmentGeo = new THREE.BoxGeometry(11.75, 24, 0.5); // 正面左右短墙
+            const frontHeaderGeo = new THREE.BoxGeometry(6.5, 10, 0.5); // 正门上方横梁
 
-                const colliderBox = new THREE.Box3().setFromObject(bldg);
-                colliders.push(colliderBox);
-            }
+            // 洋房实木地板 (清除原有泥地杂草，展现完美的末日安全屋质感)
+            const floorMat = new THREE.MeshLambertMaterial({color: 0x512e10, side: THREE.DoubleSide}); // 深褐色实木地板
+            const floorGeo = new THREE.BoxGeometry(30, 0.4, 30);
 
-            // 普通房屋
-            const bldgGeo = new THREE.BoxGeometry(20, 10, 20);
-            const bldgMat = new THREE.MeshLambertMaterial({color: 0xbdc3c7});
-            for(let i=0; i<200; i++) {
-                let x = (Math.random() - 0.5) * mapSize * 0.8;
-                let z = (Math.random() - 0.5) * mapSize * 0.8;
-                let y = getTerrainHeight(x, z);
-                if(y < 2) continue;
+            for(let i=0; i<housePositions.length; i++) {
+                let h = housePositions[i];
+                let x = h.x;
+                let z = h.z;
+                let y = h.baseHeight;
 
-                const bldg = new THREE.Mesh(bldgGeo, bldgMat);
-                bldg.position.set(x, y + 5, z);
-                scene.add(bldg);
-                objects.push(bldg);
+                const houseGroup = new THREE.Group();
 
-                const colliderBox = new THREE.Box3().setFromObject(bldg);
-                colliders.push(colliderBox);
+                // 1. 左侧外墙 (由前段、后段、底段、顶段 4 块薄板拼接出高 4.5、深 6.0 的真实中空窗洞)
+                const leftWallF = new THREE.Mesh(sideSegmentGeo, bldgBaseMat);
+                leftWallF.position.set(-15, 12, 9);
+                const leftWallB = new THREE.Mesh(sideSegmentGeo, bldgBaseMat);
+                leftWallB.position.set(-15, 12, -9);
+                const leftWallBot = new THREE.Mesh(sideBottomGeo, bldgBaseMat);
+                leftWallBot.position.set(-15, 5, 0);
+                const leftWallTop = new THREE.Mesh(sideTopGeo, bldgBaseMat);
+                leftWallTop.position.set(-15, 19.25, 0);
 
+                // 2. 右侧外墙 (由前段、后段、底段、顶段 4 块薄板拼接出高 4.5、深 6.0 的真实中空窗洞)
+                const rightWallF = new THREE.Mesh(sideSegmentGeo, bldgBaseMat);
+                rightWallF.position.set(15, 12, 9);
+                const rightWallB = new THREE.Mesh(sideSegmentGeo, bldgBaseMat);
+                rightWallB.position.set(15, 12, -9);
+                const rightWallBot = new THREE.Mesh(sideBottomGeo, bldgBaseMat);
+                rightWallBot.position.set(15, 5, 0);
+                const rightWallTop = new THREE.Mesh(sideTopGeo, bldgBaseMat);
+                rightWallTop.position.set(15, 19.25, 0);
+
+                // 3. 后侧大外墙
+                const backWall = new THREE.Mesh(backWallGeo, bldgBaseMat);
+                backWall.position.set(0, 12, -15);
+
+                // 4. 正面左侧段墙 (盖住 x 从 -15 到 -3.25)
+                const frontWallL = new THREE.Mesh(frontSegmentGeo, bldgBaseMat);
+                frontWallL.position.set(-9.125, 12, 15);
+
+                // 5. 正面右侧段墙 (盖住 x 从 3.25 到 15)
+                const frontWallR = new THREE.Mesh(frontSegmentGeo, bldgBaseMat);
+                frontWallR.position.set(9.125, 12, 15);
+
+                // 6. 正门上方横过梁 (高10，覆盖高度 14 到 24 米，形成高 14、宽 6.5 的空门洞)
+                const frontHeader = new THREE.Mesh(frontHeaderGeo, bldgBaseMat);
+                frontHeader.position.set(0, 19, 15);
+
+                // 7. 铺设深色实木底地板 (高度0.2 完美贴合泥土，杜绝草叶穿出)
+                const floor = new THREE.Mesh(floorGeo, floorMat);
+                floor.position.set(0, 0.2, 0);
+
+                houseGroup.add(
+                    leftWallF, leftWallB, leftWallBot, leftWallTop,
+                    rightWallF, rightWallB, rightWallBot, rightWallTop,
+                    backWall, frontWallL, frontWallR, frontHeader, floor
+                );
+
+                // 红色斜屋顶 (高14)
+                const roof = new THREE.Mesh(roofGeo, roofMat);
+                roof.position.y = 31.1; // 基座高24 + 屋顶半高7 + 0.1像素微调，完全杜绝面重合闪烁！
+                roof.rotation.y = Math.PI / 4; // 旋转对齐
+                houseGroup.add(roof);
+
+                // 窗户 (大窗户精准安装在左右侧墙开好的中空窗眼内，高度 12.25)
+                const winL = new THREE.Mesh(windowGeo, windowMat);
+                winL.position.set(-15, 12.25, 0);
+                const winR = new THREE.Mesh(windowGeo, windowMat);
+                winR.position.set(15, 12.25, 0);
+                houseGroup.add(winL, winR);
+
+                // 门轴旋转系统 (门轴放在正面 z=15 墙体的左侧 x=-3.25 铰链处)
+                const doorPivot = new THREE.Group();
+                doorPivot.position.set(-3.25, 7.0, 15); // 大门中心高度 (14/2 = 7.0)
+
+                // 门板网格相对于门轴向右平移半宽度
+                const door = new THREE.Mesh(doorGeo, doorMat);
+                door.position.set(3.25, 0, 0);
+                doorPivot.add(door);
+                houseGroup.add(doorPivot);
+
+                houseGroup.position.set(x, y, z);
+                scene.add(houseGroup);
+
+                // 存储门引用，用于开合交互与防线阻挡
+                doors.push({
+                    pivot: doorPivot,
+                    housePos: new THREE.Vector3(x, y, z),
+                    isOpen: false,
+                    targetAngle: 0,
+                    currentAngle: 0
+                });
+
+                // 注册各薄墙体面板以及木门、屋顶、地板供射线射击检测，防止子弹穿门、穿板
+                leftWallF.userData = { isBuilding: true };
+                leftWallB.userData = { isBuilding: true };
+                rightWallF.userData = { isBuilding: true };
+                rightWallB.userData = { isBuilding: true };
+                backWall.userData = { isBuilding: true };
+                frontWallL.userData = { isBuilding: true };
+                frontWallR.userData = { isBuilding: true };
+                door.userData = { isBuilding: true }; // 门板挡子弹
+                roof.userData = { isBuilding: true }; // 屋顶挡子弹
+                floor.userData = { isBuilding: true }; // 地板挡子弹
+                objects.push(leftWallF, leftWallB, rightWallF, rightWallB, backWall, frontWallL, frontWallR, door, roof, floor);
+
+                // 玩家物理碰撞由 updatePlayer 的 custom AABB 精密墙壁碰撞数学算法代劳，此处无需压入 colliders 盒子，实现真正进入中空室内！
                 spawnLoot(x, y, z);
             }
         }
@@ -712,6 +1309,729 @@
                     state: 'wander', target: null, lastFire: 0, vx: 0, vz: 0, changeDirTime: 0
                 });
             }
+        }
+
+        function initAnimals() {
+            // 1. 初始化飞鸟 (Birds)
+            const wingMat = new THREE.MeshLambertMaterial({color: 0x222222, side: THREE.DoubleSide});
+            const birdBodyGeo = new THREE.ConeGeometry(0.5, 2, 4);
+            const wingGeo = new THREE.BoxGeometry(0.08, 0.15, 3.5);
+
+            for(let i=0; i<30; i++) {
+                const birdGroup = new THREE.Group();
+                const body = new THREE.Mesh(birdBodyGeo, wingMat);
+                body.rotation.x = Math.PI / 2; // 鸟头朝前
+
+                const wingL = new THREE.Mesh(wingGeo, wingMat);
+                wingL.position.set(-1.75, 0, 0);
+
+                const wingR = new THREE.Mesh(wingGeo, wingMat);
+                wingR.position.set(1.75, 0, 0);
+
+                birdGroup.add(body, wingL, wingR);
+
+                // 飞行中心点、半径、高度、速度、初始角度
+                let cx = (Math.random() - 0.5) * mapSize * 0.8;
+                let cz = (Math.random() - 0.5) * mapSize * 0.8;
+                let cy = 180 + Math.random() * 120;
+                let radius = 60 + Math.random() * 120;
+                let speed = 0.4 + Math.random() * 0.8;
+                let angle = Math.random() * Math.PI * 2;
+
+                birdGroup.position.set(cx + Math.cos(angle)*radius, cy, cz + Math.sin(angle)*radius);
+                scene.add(birdGroup);
+
+                birds.push({
+                    mesh: birdGroup, wingL, wingR, cx, cz, cy, radius, speed, angle
+                });
+            }
+
+            // 2. 初始化方块梅花鹿 (Deer)
+            const deerBodyGeo = new THREE.BoxGeometry(3, 3, 5);
+            const deerHeadGeo = new THREE.BoxGeometry(1.4, 2.2, 1.8);
+            const deerNeckGeo = new THREE.BoxGeometry(1.0, 2.8, 1.0);
+            const deerLegGeo = new THREE.BoxGeometry(0.7, 3.6, 0.7);
+
+            const deerBodyMat = new THREE.MeshLambertMaterial({color: 0x8b5a2b}); // 棕色
+            const deerLegMat = new THREE.MeshLambertMaterial({color: 0x5a3a1a}); // 深棕四肢
+            const deerDetailMat = new THREE.MeshLambertMaterial({color: 0xffffff}); // 鹿角白色
+
+            for(let i=0; i<25; i++) {
+                const deerGroup = new THREE.Group();
+
+                const body = new THREE.Mesh(deerBodyGeo, deerBodyMat);
+                body.position.y = 3.6;
+
+                const neck = new THREE.Mesh(deerNeckGeo, deerBodyMat);
+                neck.position.set(0, 4.8, 1.8);
+                neck.rotation.x = -Math.PI / 6;
+
+                const head = new THREE.Mesh(deerHeadGeo, deerBodyMat);
+                head.position.set(0, 6.2, 2.5);
+
+                // 给一半的鹿加上精美白色小角 (公鹿)
+                if (Math.random() > 0.5) {
+                    const antlerL = new THREE.Mesh(new THREE.BoxGeometry(0.15, 1.8, 0.15), deerDetailMat);
+                    antlerL.position.set(-0.6, 7.5, 2.5);
+                    antlerL.rotation.z = -0.3;
+                    const antlerR = new THREE.Mesh(new THREE.BoxGeometry(0.15, 1.8, 0.15), deerDetailMat);
+                    antlerR.position.set(0.6, 7.5, 2.5);
+                    antlerR.rotation.z = 0.3;
+                    deerGroup.add(antlerL, antlerR);
+                }
+
+                const legFL = new THREE.Mesh(deerLegGeo, deerLegMat); legFL.position.set(-0.9, 1.8, 1.6);
+                const legFR = new THREE.Mesh(deerLegGeo, deerLegMat); legFR.position.set(0.9, 1.8, 1.6);
+                const legBL = new THREE.Mesh(deerLegGeo, deerLegMat); legBL.position.set(-0.9, 1.8, -1.6);
+                const legBR = new THREE.Mesh(deerLegGeo, deerLegMat); legBR.position.set(0.9, 1.8, -1.6);
+
+                deerGroup.add(body, neck, head, legFL, legFR, legBL, legBR);
+
+                let x = (Math.random() - 0.5) * mapSize * 0.8;
+                let z = (Math.random() - 0.5) * mapSize * 0.8;
+                let y = getTerrainHeight(x, z);
+
+                // 避免在深水区出生
+                if (y < 2) {
+                    continue;
+                }
+
+                deerGroup.position.set(x, y, z);
+                scene.add(deerGroup);
+
+                // 注册到射线击中 objects 中
+                body.userData = { isAnimal: true, animalType: 'deer', index: i, isHeadshot: false };
+                head.userData = { isAnimal: true, animalType: 'deer', index: i, isHeadshot: true };
+                objects.push(body, head);
+
+                deers.push({
+                    id: i,
+                    mesh: deerGroup,
+                    bodyMesh: body,
+                    headMesh: head,
+                    legFL, legFR, legBL, legBR,
+                    vx: (Math.random() - 0.5) * 12,
+                    vz: (Math.random() - 0.5) * 12,
+                    state: 'wander',
+                    health: 60, // 60生命值
+                    alive: true,
+                    changeDirTime: 0,
+                    fearCooldown: 0
+                });
+            }
+
+            // 3. 初始化野猪 (Boar)
+            const boarBodyGeo = new THREE.BoxGeometry(3.2, 2.6, 4.6);
+            const boarHeadGeo = new THREE.BoxGeometry(1.6, 1.8, 2.0);
+            const boarLegGeo = new THREE.BoxGeometry(0.8, 2.2, 0.8);
+
+            const boarBodyMat = new THREE.MeshLambertMaterial({color: 0x3a3a3a}); // 粗糙暗灰色
+            const boarLegMat = new THREE.MeshLambertMaterial({color: 0x222222}); // 四肢暗黑
+            const boarTuskMat = new THREE.MeshLambertMaterial({color: 0xeeeeee}); // 弯曲獠牙
+
+            for(let i=0; i<20; i++) {
+                const boarGroup = new THREE.Group();
+
+                const body = new THREE.Mesh(boarBodyGeo, boarBodyMat);
+                body.position.y = 1.3; // 缩矮底盘
+
+                const head = new THREE.Mesh(boarHeadGeo, boarBodyMat);
+                head.position.set(0, 2.0, 2.3);
+
+                // 白色向前呲出的尖牙
+                const tuskL = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.45, 0.6), boarTuskMat);
+                tuskL.position.set(-0.8, 1.6, 3.2);
+                tuskL.rotation.x = -Math.PI / 4;
+                const tuskR = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.45, 0.6), boarTuskMat);
+                tuskR.position.set(0.8, 1.6, 3.2);
+                tuskR.rotation.x = -Math.PI / 4;
+
+                const legFL = new THREE.Mesh(boarLegGeo, boarLegMat); legFL.position.set(-1, 1.1, 1.5);
+                const legFR = new THREE.Mesh(boarLegGeo, boarLegMat); legFR.position.set(1, 1.1, 1.5);
+                const legBL = new THREE.Mesh(boarLegGeo, boarLegMat); legBL.position.set(-1, 1.1, -1.5);
+                const legBR = new THREE.Mesh(boarLegGeo, boarLegMat); legBR.position.set(1, 1.1, -1.5);
+
+                boarGroup.add(body, head, tuskL, tuskR, legFL, legFR, legBL, legBR);
+
+                let x = (Math.random() - 0.5) * mapSize * 0.8;
+                let z = (Math.random() - 0.5) * mapSize * 0.8;
+                let y = getTerrainHeight(x, z);
+
+                if (y < 2) {
+                    continue;
+                }
+
+                boarGroup.position.set(x, y, z);
+                scene.add(boarGroup);
+
+                // 注册到 objects 列表中
+                body.userData = { isAnimal: true, animalType: 'boar', index: i, isHeadshot: false };
+                head.userData = { isAnimal: true, animalType: 'boar', index: i, isHeadshot: true };
+                objects.push(body, head);
+
+                boars.push({
+                    id: i,
+                    mesh: boarGroup,
+                    bodyMesh: body,
+                    headMesh: head,
+                    legFL, legFR, legBL, legBR,
+                    vx: (Math.random() - 0.5) * 10,
+                    vz: (Math.random() - 0.5) * 10,
+                    state: 'wander', // wander or charge (冲撞)
+                    health: 80, // 比鹿稍厚一些
+                    alive: true,
+                    changeDirTime: 0,
+                    chargeCooldown: 0
+                });
+            }
+        }
+
+        function spawnSingleLoot(lx, ly, lz, forceType = null) {
+            let type = forceType || "ammo";
+            let itemData = null;
+            let color = 0xffffff;
+            let geo = new THREE.BoxGeometry(2, 2, 2);
+
+            if (type === "health") {
+                color = 0xe74c3c;
+            } else if (type === "ammo") {
+                color = 0x27ae60;
+                geo = new THREE.BoxGeometry(1.5, 1, 1);
+                itemData = { name: "弹药箱 (60发)", amount: 60 };
+            }
+
+            const mat = new THREE.MeshLambertMaterial({color: color, emissive: color, emissiveIntensity: 0.4});
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.set(lx, ly + 1.0, lz);
+
+            let labelName = type === 'health' ? '急救包' : '弹药箱 (60发)';
+            const labelSprite = createTextSprite(labelName, type === 'health' ? '#e74c3c' : '#2ecc71');
+            labelSprite.position.set(0, 1.8, 0);
+            mesh.add(labelSprite);
+
+            scene.add(mesh);
+            lootItems.push({ mesh: mesh, type: type, data: itemData });
+        }
+
+        function initZombies() {
+            const bodyGeo = new THREE.BoxGeometry(3.2, 4.5, 2.2);
+            const headGeo = new THREE.BoxGeometry(2.0, 2.0, 2.0);
+            const armGeo = new THREE.BoxGeometry(1.0, 3.5, 1.0);
+            const legGeo = new THREE.BoxGeometry(1.1, 3.5, 1.1);
+
+            // 皮肤墨绿，衣服带有血污，不规则鲜红撕裂伤口 (采用自发光 Emissive 材质，防止在雷暴雨黑影下隐形透明)
+            const zombieSkinMat = new THREE.MeshLambertMaterial({
+                color: 0x2d3b2a,
+                emissive: 0x182617, // 墨绿色自发光，在阴影暗光中依然清晰可见，且极具惊悚荧光质感！
+                emissiveIntensity: 0.5,
+                side: THREE.DoubleSide
+            });
+            const zombieClothMat = new THREE.MeshLambertMaterial({
+                color: 0x5a1818,
+                emissive: 0x2a0c0c, // 暗红衣服自发光
+                emissiveIntensity: 0.5,
+                side: THREE.DoubleSide
+            });
+            const zombieDetailMat = new THREE.MeshLambertMaterial({
+                color: 0x8b0000,
+                emissive: 0x4a0000, // 爆血口部/伤口自发光，十分吓人！
+                emissiveIntensity: 0.6,
+                side: THREE.DoubleSide
+            });
+            const eyeMat = new THREE.MeshBasicMaterial({color: 0xeeff77}); // 昏黄惊悚双眼
+
+            // 丧尸总数增加到 100 只，大幅提升战斗张力
+            for(let i=0; i<100; i++) {
+                const zombieGroup = new THREE.Group();
+
+                let x, z;
+                if (i < 75 && housePositions.length > 0) {
+                    // 75% 的大半丧尸会锚定并扎堆在随机一座洋房周围 15 - 45 距离内 (丧尸城镇感染区)
+                    let house = housePositions[Math.floor(Math.random() * housePositions.length)];
+                    let angle = Math.random() * Math.PI * 2;
+                    let dist = 15 + Math.random() * 30;
+                    x = house.x + Math.cos(angle) * dist;
+                    z = house.z + Math.sin(angle) * dist;
+                } else {
+                    // 25% 散落在大森林里
+                    x = (Math.random() - 0.5) * mapSize * 0.75;
+                    z = (Math.random() - 0.5) * mapSize * 0.75;
+                }
+
+                let y = getTerrainHeight(x, z);
+                if (y < 2) {
+                    i--; // 水中避开，重新生成选点
+                    continue;
+                }
+
+                // 墙体 base
+                const body = new THREE.Mesh(bodyGeo, zombieClothMat);
+                body.position.y = 4.5;
+
+                // 头部
+                const head = new THREE.Mesh(headGeo, zombieSkinMat);
+                head.position.y = 7.75;
+
+                // 贴在脸颊上的恐怖伤口
+                const bloodWound = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.2), zombieDetailMat);
+                bloodWound.position.set(0.4, 7.75, 1.0);
+
+                // 发光的恐怖眼睛
+                const eyeL = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.15, 0.2), eyeMat);
+                eyeL.position.set(-0.5, 8.2, 0.95);
+                const eyeR = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.15, 0.2), eyeMat);
+                eyeR.position.set(0.5, 8.2, 0.95);
+
+                // 丧尸前平伸双手 (经典惊悚姿态)
+                const armL = new THREE.Mesh(armGeo, zombieSkinMat);
+                armL.position.set(-2.2, 4.5, 1.25);
+                armL.rotation.x = -Math.PI / 2.2;
+                const armR = new THREE.Mesh(armGeo, zombieSkinMat);
+                armR.position.set(2.2, 4.5, 1.25);
+                armR.rotation.x = -Math.PI / 1.8;
+
+                const legL = new THREE.Mesh(legGeo, zombieClothMat);
+                legL.position.set(-0.9, 1.75, 0);
+                const legR = new THREE.Mesh(legGeo, zombieClothMat);
+                legR.position.set(0.9, 1.75, 0);
+
+                // 双层嵌套 Group 架构：建立子组 zombieModel，专门负责跑动中的欧拉角 .rotation.z 左右晃动
+                const zombieModel = new THREE.Group();
+                zombieModel.add(body, head, bloodWound, eyeL, eyeR, armL, armR, legL, legR);
+                zombieGroup.add(zombieModel); // 外层父组 zombieGroup 专门负责 .lookAt 朝向旋转，两者互不穿干扰，从图学数学上彻底消灭万向锁 Euler Singularity 奇异点隐形Bug！
+
+                zombieGroup.position.set(x, y, z);
+                scene.add(zombieGroup);
+
+                // 100% 禁用所有子网格的视锥裁剪，防止 WebGL 在特定边缘观察角度下将丧尸裁切过滤导致隐形
+                zombieGroup.traverse(child => {
+                    if (child.isMesh) {
+                        child.frustumCulled = false;
+                    }
+                });
+
+                // 注册到射线射击检测中 (精确绑定数组长度，修复由于 continue 导致的隔空瞬移消失 Bug)
+                body.userData = { isZombie: true, zombieIndex: zombies.length, isHeadshot: false };
+                head.userData = { isZombie: true, zombieIndex: zombies.length, isHeadshot: true };
+                bloodWound.userData = { isZombie: true, zombieIndex: zombies.length, isHeadshot: true };
+                objects.push(body, head, bloodWound);
+
+                zombies.push({
+                    id: zombies.length,
+                    mesh: zombieGroup,
+                    modelMesh: zombieModel, // 存储内层模型子组引用
+                    bodyMesh: body,
+                    headMesh: head,
+                    bloodWound: bloodWound,
+                    legL, legR,
+                    health: 110, // 血量从180下调至110，击杀难度降低，更爽快
+                    alive: true,
+                    speed: 18 + Math.random() * 5, // 速度下调 (原本26+8)，玩家按Shift加速奔跑可以甩开
+                    lastAttack: 0,
+                    changeDirTime: 0,
+                    target: null,
+                    vx: 0, vz: 0
+                });
+            }
+        }
+
+        function updateZombies(delta) {
+            let now = Date.now();
+            let playerPos = controls.getObject().position;
+
+            zombies.forEach(zombie => {
+                if (!zombie.alive) return;
+
+                let zPos = zombie.mesh.position;
+
+                // 如果当前追捕玩家，而玩家躲进了关着门的避难屋里，丧尸立刻失去目标并游走
+                if (zombie.target === 'player') {
+                    let insideHouse = getHousePlayerIsInside();
+                    if (insideHouse && !insideHouse.isOpen) {
+                        zombie.target = null;
+                        zombie.changeDirTime = 0; // 瞬间进入漫游/搜寻其他Bot状态
+                    }
+                }
+
+                // 轮询搜索 400 码内的目标
+                if (now > zombie.changeDirTime) {
+                    zombie.changeDirTime = now + 1000 + Math.random() * 1000;
+
+                    let minDistSq = 400 * 400;
+                    let closestTarget = null;
+
+                    if (player.alive && !player.isParachuting) {
+                        let insideHouse = getHousePlayerIsInside();
+                        let targetable = true;
+                        if (insideHouse && !insideHouse.isOpen) {
+                            targetable = false; // 门关着，玩家在屋内，丧尸完全看不见也听不着玩家！
+                        }
+                        if (targetable) {
+                            let dSq = zPos.distanceToSquared(playerPos);
+                            if (dSq < minDistSq) {
+                                minDistSq = dSq;
+                                closestTarget = 'player';
+                            }
+                        }
+                    }
+
+                    bots.forEach(bot => {
+                        if (bot.alive && !bot.isParachuting) {
+                            let dSq = zPos.distanceToSquared(bot.mesh.position);
+                            if (dSq < minDistSq) {
+                                minDistSq = dSq;
+                                closestTarget = bot;
+                            }
+                        }
+                    });
+
+                    zombie.target = closestTarget;
+
+                    if (!zombie.target) {
+                        // 迷路游走
+                        let angle = Math.random() * Math.PI * 2;
+                        let s = 10 + Math.random() * 5;
+                        zombie.vx = Math.cos(angle) * s;
+                        zombie.vz = Math.sin(angle) * s;
+                    }
+                }
+
+                // 惊悚追逐
+                if (zombie.target) {
+                    let targetPos = zombie.target === 'player' ? playerPos : zombie.target.mesh.position;
+                    let dir = new THREE.Vector3().subVectors(targetPos, zPos);
+                    dir.y = 0;
+                    let dist = dir.length();
+                    dir.normalize();
+
+                    zombie.vx = dir.x * zombie.speed;
+                    zombie.vz = dir.z * zombie.speed;
+
+                    zombie.mesh.lookAt(targetPos.x, zPos.y, targetPos.z);
+
+                    // 左右颠簸挣扎跑姿 (由内层子组 modelMesh 控制，100% 杜绝与父组 lookAt 四元数产生 Euler 万向锁翻转奇异点！)
+                    zombie.modelMesh.rotation.z = Math.sin(now * 0.015) * 0.08;
+
+                    // 惊悚追逐时，有 0.4% 的微小概率发出喉咙里咔咔颤抖的 3D 恐怖怒吼声
+                    if (Math.random() < 0.004) {
+                        playZombieSound('growl', {x: zPos.x, y: zPos.y, z: zPos.z});
+                    }
+
+                    // 咬人抓挠
+                    if (dist < 6.0) {
+                        zombie.vx = 0; zombie.vz = 0; // 站定撕咬
+
+                        // 隔墙攻击拦截逻辑：计算丧尸和啃咬目标分别身处哪栋房屋内部
+                        let targetHouse = zombie.target === 'player' ? getHousePlayerIsInside() : getHouseObjectIsInside(zombie.target.mesh.position);
+                        let zombieHouse = getHouseObjectIsInside(zPos);
+                        if (targetHouse !== zombieHouse) {
+                            return; // 隔墙咬人阻断！如果一个在屋外，另一个在屋内，绝对不允许穿墙撕咬！
+                        }
+
+                        if (now - zombie.lastAttack > 1400) { // 啃咬频率从 0.8s 下调至 1.4s，给玩家反应余地
+                            zombie.lastAttack = now;
+
+                            // 喷溅大红血粒子
+                            spawnBlood(zPos.clone().add(new THREE.Vector3(0, 4.5, 1)), new THREE.Vector3(0, 1, 0));
+
+                            if (zombie.target === 'player') {
+                                playerHit(12); // 啃咬伤害从35下调至12，生存体验大大好转！
+                                playZombieSound('bite'); // 播放撕咬音效
+                                showNotice("⚠️ 您被丧尸抓咬了！(-12 HP)", "#e74c3c");
+                            } else {
+                                zombie.target.health -= 15; // 撕咬机器人的伤害调至 15
+                                playZombieSound('bite', { x: zombie.target.mesh.position.x, y: zombie.target.mesh.position.y, z: zombie.target.mesh.position.z });
+                                spawnBlood(zombie.target.mesh.position.clone().add(new THREE.Vector3(0, 4, 0)), new THREE.Vector3(0, 1, 0));
+                                if (zombie.target.health <= 0) {
+                                    botDied(zombie.target, "丧尸 (Zombie)");
+                                    zombie.target = null;
+                                    zombie.changeDirTime = 0;
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    zombie.modelMesh.rotation.z = 0;
+                }
+
+                // 物理位移 (带有大洋房墙体、门板 AABB 碰撞阻拦判定)
+                let oldZx = zPos.x, oldZz = zPos.z;
+                zPos.x += zombie.vx * delta;
+                zPos.z += zombie.vz * delta;
+                zPos.y = getTerrainHeight(zPos.x, zPos.z);
+
+                // 丧尸绝对空间结界拦截：任何洋房内部均为丧尸物理禁区，100% 禁止任何丧尸跨过门槛或穿入室内
+                let inHouse = getHouseObjectIsInside(zPos);
+                if (inHouse) {
+                    zPos.x = oldZx;
+                    zPos.z = oldZz;
+                    zPos.y = getTerrainHeight(zPos.x, zPos.z);
+                }
+
+                // 丧尸与所有洋房墙体、门板的 AABB 盒子物理碰撞阻挡 (防线阻断)
+                for (let i = 0; i < doors.length; i++) {
+                    let d = doors[i];
+                    let hPos = d.housePos;
+                    let dx = zPos.x - hPos.x;
+                    let dz = zPos.z - hPos.z;
+                    let dy = zPos.y - hPos.y;
+
+                    if (dy > 0 && dy < 24) {
+                        let absX = Math.abs(dx);
+                        let absZ = Math.abs(dz);
+
+                        if (absX < 16.2 && absZ < 16.2) {
+                            let wallHit = false;
+
+                            if ((dx >= -16.2 && dx <= -13.5 && dz >= -16.2 && dz <= 16.2) || // 左侧墙壁
+                                (dx >= 13.5 && dx <= 16.2 && dz >= -16.2 && dz <= 16.2) ||  // 右侧墙壁
+                                (dz >= -16.2 && dz <= -13.5 && dx >= -16.2 && dx <= 16.2) || // 后侧墙壁
+                                (dz >= 13.5 && dz <= 16.2 && dx >= -16.2 && dx <= -3.1) ||  // 正面左门框
+                                (dz >= 13.5 && dz <= 16.2 && dx >= 3.1 && dx <= 16.2) ||   // 正面右门框
+                                (!d.isOpen && dz >= 13.5 && dz <= 16.2 && dx >= -3.25 && dx <= 3.25)) { // 关门阻拦
+                                wallHit = true;
+                            }
+
+                            if (wallHit) {
+                                zPos.x = oldZx;
+                                zPos.z = oldZz;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // 摆腿
+                let moveSpeedSq = zombie.vx * zombie.vx + zombie.vz * zombie.vz;
+                if (moveSpeedSq > 1) {
+                    let freq = zombie.target ? 0.02 : 0.01;
+                    let swing = Math.sin(now * freq) * 0.55;
+                    zombie.legL.rotation.x = swing;
+                    zombie.legR.rotation.x = -swing;
+                } else {
+                    zombie.legL.rotation.x = 0;
+                    zombie.legR.rotation.x = 0;
+                }
+            });
+        }
+
+        function zombieDied(zombie) {
+            if (!zombie.alive) return;
+            zombie.alive = false;
+            scene.remove(zombie.mesh);
+
+            // 从 objects 射线检测列表中移除
+            let idx1 = objects.indexOf(zombie.bodyMesh);
+            if(idx1 > -1) objects.splice(idx1, 1);
+            let idx2 = objects.indexOf(zombie.headMesh);
+            if(idx2 > -1) objects.splice(idx2, 1);
+            let idx3 = objects.indexOf(zombie.bloodWound);
+            if(idx3 > -1) objects.splice(idx3, 1);
+
+            player.kills++;
+            showNotice("击杀血腥丧尸！(+1 击杀)", "#e74c3c");
+
+            // 原地 80% 掉落医疗包或弹药箱
+            let r = Math.random();
+            if (r < 0.4) {
+                spawnSingleLoot(zombie.mesh.position.x, zombie.mesh.position.y, zombie.mesh.position.z, 'health');
+            } else if (r < 0.8) {
+                spawnSingleLoot(zombie.mesh.position.x, zombie.mesh.position.y, zombie.mesh.position.z, 'ammo');
+            }
+
+            addKillFeed(`[You] 击杀了一只 [血腥丧尸]`);
+            updateUI();
+        }
+
+        function updateAnimals(delta) {
+            let now = Date.now();
+            let playerPos = controls.getObject().position;
+
+            // 1. 更新飞鸟动画与运动
+            birds.forEach(bird => {
+                bird.angle += bird.speed * delta;
+                let bx = bird.cx + Math.cos(bird.angle) * bird.radius;
+                let bz = bird.cz + Math.sin(bird.angle) * bird.radius;
+
+                bird.mesh.position.set(bx, bird.cy, bz);
+                // 沿着切线方向面向
+                bird.mesh.rotation.y = -bird.angle;
+
+                // 翅膀扇动 (正弦上下振动)
+                let wingAngle = Math.sin(now * 0.016) * 0.55;
+                bird.wingL.rotation.z = wingAngle;
+                bird.wingR.rotation.z = -wingAngle;
+            });
+
+            // 2. 更新梅花鹿游走与避险 AI
+            deers.forEach(deer => {
+                if (!deer.alive) return;
+
+                let dPos = deer.mesh.position;
+                let distToPlayerSq = dPos.distanceToSquared(playerPos);
+
+                if (distToPlayerSq < 55 * 55) { // 55 米感知圈，玩家一靠近就疯狂逃窜
+                    deer.state = 'flee';
+                    deer.fearCooldown = now + 4000; // 受到惊吓至少逃跑4秒
+                } else if (now > deer.fearCooldown) {
+                    deer.state = 'wander';
+                }
+
+                if (deer.state === 'flee') {
+                    // 朝玩家相反方向奔跑
+                    let dir = new THREE.Vector3().subVectors(dPos, playerPos);
+                    dir.y = 0;
+                    dir.normalize();
+                    let fleeSpeed = 48; // 极其迅猛
+
+                    deer.vx = dir.x * fleeSpeed;
+                    deer.vz = dir.z * fleeSpeed;
+
+                    deer.mesh.lookAt(dPos.x + deer.vx, dPos.y, dPos.z + deer.vz);
+                } else { // wander
+                    if (now > deer.changeDirTime) {
+                        deer.changeDirTime = now + 2000 + Math.random() * 4500;
+                        let angle = Math.random() * Math.PI * 2;
+                        let wanderSpeed = 4 + Math.random() * 8;
+                        deer.vx = Math.cos(angle) * wanderSpeed;
+                        deer.vz = Math.sin(angle) * wanderSpeed;
+                    }
+                    if (Math.abs(deer.vx) > 0.1 || Math.abs(deer.vz) > 0.1) {
+                        deer.mesh.lookAt(dPos.x + deer.vx, dPos.y, dPos.z + deer.vz);
+                    }
+                }
+
+                // 物理坐标更新
+                dPos.x += deer.vx * delta;
+                dPos.z += deer.vz * delta;
+                dPos.y = getTerrainHeight(dPos.x, dPos.z);
+
+                // 越界保护
+                if (Math.abs(dPos.x) > mapSize/2 || Math.abs(dPos.z) > mapSize/2) {
+                    dPos.x = (Math.random() - 0.5) * mapSize * 0.4;
+                    dPos.z = (Math.random() - 0.5) * mapSize * 0.4;
+                    dPos.y = getTerrainHeight(dPos.x, dPos.z);
+                }
+
+                // 梅花鹿跑步摆腿动画
+                let moveSpeedSq = deer.vx * deer.vx + deer.vz * deer.vz;
+                if (moveSpeedSq > 1) {
+                    let swingFreq = deer.state === 'flee' ? 0.024 : 0.012;
+                    let swing = Math.sin(now * swingFreq) * 0.65;
+                    deer.legFL.rotation.x = swing;
+                    deer.legFR.rotation.x = -swing;
+                    deer.legBL.rotation.x = -swing;
+                    deer.legBR.rotation.x = swing;
+                } else {
+                    deer.legFL.rotation.x = 0;
+                    deer.legFR.rotation.x = 0;
+                    deer.legBL.rotation.x = 0;
+                    deer.legBR.rotation.x = 0;
+                }
+            });
+
+            // 3. 更新野猪冲锋与撞击 AI
+            boars.forEach(boar => {
+                if (!boar.alive) return;
+
+                let bPos = boar.mesh.position;
+                let distToPlayer = bPos.distanceTo(playerPos);
+
+                if (distToPlayer < 35 && now > boar.chargeCooldown) {
+                    boar.state = 'charge';
+                } else if (boar.state === 'charge' && distToPlayer > 80) {
+                    boar.state = 'wander';
+                }
+
+                if (boar.state === 'charge') {
+                    // 愤怒冲向玩家
+                    let dir = new THREE.Vector3().subVectors(playerPos, bPos);
+                    dir.y = 0;
+                    dir.normalize();
+                    let chargeSpeed = 38; // 愤怒暴冲
+
+                    boar.vx = dir.x * chargeSpeed;
+                    boar.vz = dir.z * chargeSpeed;
+
+                    boar.mesh.lookAt(playerPos.x, bPos.y, playerPos.z);
+
+                    // 冲撞到玩家
+                    if (distToPlayer < 5.0) {
+                        boar.state = 'wander';
+                        boar.chargeCooldown = now + 4000; // 冲锋击中后进入4秒冷却
+                        boar.vx = -dir.x * 15; // 撞人后反弹
+                        boar.vz = -dir.z * 15;
+
+                        playerHit(12); // 造成12点伤害
+                        showNotice("💥 警告！您被愤怒的野猪狠狠撞击！(-12 HP)", "#f39c12");
+                    }
+                } else { // wander
+                    if (now > boar.changeDirTime) {
+                        boar.changeDirTime = now + 1500 + Math.random() * 3500;
+                        let angle = Math.random() * Math.PI * 2;
+                        let wanderSpeed = 3 + Math.random() * 6;
+                        boar.vx = Math.cos(angle) * wanderSpeed;
+                        boar.vz = Math.sin(angle) * wanderSpeed;
+                    }
+                    if (Math.abs(boar.vx) > 0.1 || Math.abs(boar.vz) > 0.1) {
+                        boar.mesh.lookAt(bPos.x + boar.vx, bPos.y, bPos.z + boar.vz);
+                    }
+                }
+
+                // 物理坐标更新
+                bPos.x += boar.vx * delta;
+                bPos.z += boar.vz * delta;
+                bPos.y = getTerrainHeight(bPos.x, bPos.z);
+
+                // 越界保护
+                if (Math.abs(bPos.x) > mapSize/2 || Math.abs(bPos.z) > mapSize/2) {
+                    bPos.x = (Math.random() - 0.5) * mapSize * 0.4;
+                    bPos.z = (Math.random() - 0.5) * mapSize * 0.4;
+                    bPos.y = getTerrainHeight(bPos.x, bPos.z);
+                }
+
+                // 野猪跑腿动画
+                let moveSpeedSq = boar.vx * boar.vx + boar.vz * boar.vz;
+                if (moveSpeedSq > 1) {
+                    let swingFreq = boar.state === 'charge' ? 0.022 : 0.012;
+                    let swing = Math.sin(now * swingFreq) * 0.55;
+                    boar.legFL.rotation.x = swing;
+                    boar.legFR.rotation.x = -swing;
+                    boar.legBL.rotation.x = -swing;
+                    boar.legBR.rotation.x = swing;
+                } else {
+                    boar.legFL.rotation.x = 0;
+                    boar.legFR.rotation.x = 0;
+                    boar.legBL.rotation.x = 0;
+                    boar.legBR.rotation.x = 0;
+                }
+            });
+        }
+
+        function killAnimal(animal, animalType) {
+            if (!animal.alive) return;
+            animal.alive = false;
+            scene.remove(animal.mesh);
+
+            // 从 objects 射线检测列表中移除
+            let idx1 = objects.indexOf(animal.bodyMesh);
+            if(idx1 > -1) objects.splice(idx1, 1);
+            let idx2 = objects.indexOf(animal.headMesh);
+            if(idx2 > -1) objects.splice(idx2, 1);
+
+            let animalCN = animalType === 'deer' ? '梅花鹿' : '野生野猪';
+            showNotice(`击杀了 [${animalCN}]！生存补给已掉落！`, "#2ecc71");
+
+            // 100% 掉落包
+            let r = Math.random();
+            if (r < 0.5) {
+                spawnSingleLoot(animal.mesh.position.x, animal.mesh.position.y, animal.mesh.position.z, 'health');
+            } else {
+                spawnSingleLoot(animal.mesh.position.x, animal.mesh.position.y, animal.mesh.position.z, 'ammo');
+            }
+
+            addKillFeed(`[You] 击杀了一只 [${animalCN}]`);
+            updateUI();
         }
 
         // --- 控制逻辑 ---
@@ -913,37 +2233,119 @@
                 if (moveForward || moveBackward) velocity.z -= direction.z * speed * delta;
                 if (moveLeft || moveRight) velocity.x -= direction.x * speed * delta;
 
-                let oldX = pPos.x, oldZ = pPos.z;
+                let oldX = pPos.x, oldY = pPos.y, oldZ = pPos.z;
+
                 // 限制最大速度防止抖动
                 velocity.x = Math.max(-300, Math.min(300, velocity.x));
                 velocity.z = Math.max(-300, Math.min(300, velocity.z));
+
+                // --- 阶段一：水平 X/Z 物理位移与碰撞拦截 ---
                 controls.moveRight(velocity.x * delta);
                 controls.moveForward(-velocity.z * delta);
 
-                // 玩家与掩体碰撞检测
-                let pBox = new THREE.Box3().setFromCenterAndSize(pPos, new THREE.Vector3(3, 10, 3));
-                let hitCollider = false;
+                // 1. 玩家与树木、石头世界碰撞盒的 水平 X/Z 阻碍拦截
+                let pBoxXZ = new THREE.Box3().setFromCenterAndSize(pPos, new THREE.Vector3(3, 10, 3));
+                let hitColliderXZ = false;
                 for(let box of colliders) {
-                    if(pBox.intersectsBox(box)) {
-                        hitCollider = true;
-                        break;
+                    if(pBoxXZ.intersectsBox(box)) {
+                        // 仅当玩家的高度处于障碍物顶部以下时（即玩家撞击的是树干或石头侧面），才进行水平物理拦截
+                        // 玩家高度 10 米，眼睛中心在 y 轴中点，脚底相当于 pPos.y - 5.0。box.max.y 为障碍物顶部高度
+                        if (pPos.y - 4.5 < box.max.y) {
+                            hitColliderXZ = true;
+                            break;
+                        }
                     }
                 }
 
-                if (hitCollider || Math.abs(pPos.x) > mapSize/2 || Math.abs(pPos.z) > mapSize/2) {
-                    pPos.x = oldX; pPos.z = oldZ;
+                if (hitColliderXZ || Math.abs(pPos.x) > mapSize/2 || Math.abs(pPos.z) > mapSize/2) {
+                    pPos.x = oldX;
+                    pPos.z = oldZ; // 仅仅在水平方向上被推回阻挡，不再对 Y 轴锁死，彻底解除卡顿！
                 }
 
-                let groundY = getTerrainHeight(pPos.x, pPos.z) + 10;
-                // 只有当玩家在地面上且正在下落（或静止）时才能跳跃
-                if (pPos.y <= groundY + 0.5 && velocity.y <= 0) {
-                    velocity.y = 0;
-                    pPos.y = groundY;
-                    canJump = true;
-                } else if (pPos.y > groundY + 0.5) {
-                    canJump = false;
+                // 2. 玩家与所有房屋墙体、门板的 AABB 盒子物理碰撞判定 (30x24x30 尺寸，水平阻挡)
+                for (let i = 0; i < doors.length; i++) {
+                    let d = doors[i];
+                    let hPos = d.housePos;
+                    let dx = pPos.x - hPos.x;
+                    let dz = pPos.z - hPos.z;
+                    let dy = pPos.y - hPos.y;
+
+                    // 仅当玩家处于房屋高度（0 到 24 米）内，才进行碰撞阻拦
+                    if (dy > 0 && dy < 24) {
+                        let absX = Math.abs(dx);
+                        let absZ = Math.abs(dz);
+
+                        // 30x30 房屋尺寸，碰撞判定判定外廓为 16.2
+                        if (absX < 16.2 && absZ < 16.2) {
+                            let wallHit = false;
+
+                            // 1. 左侧墙壁 AABB 碰撞体
+                            if (dx >= -16.2 && dx <= -13.5 && dz >= -16.2 && dz <= 16.2) {
+                                wallHit = true;
+                            }
+                            // 2. 右侧墙壁 AABB 碰撞体
+                            else if (dx >= 13.5 && dx <= 16.2 && dz >= -16.2 && dz <= 16.2) {
+                                wallHit = true;
+                            }
+                            // 3. 后侧墙壁 AABB 碰撞体
+                            else if (dz >= -16.2 && dz <= -13.5 && dx >= -16.2 && dx <= 16.2) {
+                                wallHit = true;
+                            }
+                            // 4. 正面左侧门框段墙 AABB 碰撞体
+                            else if (dz >= 13.5 && dz <= 16.2 && dx >= -16.2 && dx <= -3.1) {
+                                wallHit = true;
+                            }
+                            // 5. 正面右侧门框段墙 AABB 碰撞体
+                            else if (dz >= 13.5 && dz <= 16.2 && dx >= 3.1 && dx <= 16.2) {
+                                wallHit = true;
+                            }
+                            // 6. 木门门板区域 (大门关闭 !isOpen 时作为碰撞实体阻挡，开门时则虚空通行)
+                            else if (!d.isOpen && dz >= 13.5 && dz <= 16.2 && dx >= -3.25 && dx <= 3.25) {
+                                wallHit = true;
+                            }
+
+                            if (wallHit) {
+                                pPos.x = oldX;
+                                pPos.z = oldZ;
+                                break;
+                            }
+                        }
+                    }
                 }
+
+                // --- 阶段二：垂直 Y 轴物理位移 (重力坠落/起跳) 与踩立判定 ---
                 pPos.y += velocity.y * delta;
+
+                // 3. 玩家与树顶、石头顶部的垂直落足、踩立判定
+                let pBoxY = new THREE.Box3().setFromCenterAndSize(pPos, new THREE.Vector3(3, 10, 3));
+                let hitColliderY = false;
+                let landingY = 0;
+                for(let box of colliders) {
+                    if(pBoxY.intersectsBox(box)) {
+                        // 判定是否是从上往下踩在石头顶表面：前一帧脚底高度 (oldY - 4.5) 必须在石头顶盖 (box.max.y) 以上或附近
+                        if (oldY - 4.5 >= box.max.y - 1.2) {
+                            hitColliderY = true;
+                            landingY = box.max.y + 5.0; // 踩立在表面 (眼睛中轴在 box.max.y + 5)
+                            break;
+                        }
+                    }
+                }
+
+                if (hitColliderY) {
+                    pPos.y = landingY;
+                    velocity.y = 0;
+                    canJump = true; // 允许站在石头和树顶表面正常活动和再次起跳！
+                } else {
+                    // 若未落在大石头顶盖上，则判定降落到草地形地面、或洋房实木地板上
+                    let groundY = getTerrainHeight(pPos.x, pPos.z) + 10;
+                    if (pPos.y <= groundY + 0.5 && velocity.y <= 0) {
+                        velocity.y = 0;
+                        pPos.y = groundY;
+                        canJump = true;
+                    } else if (pPos.y > groundY + 0.5) {
+                        canJump = false;
+                    }
+                }
 
                 // 拾取物资检测
                 let nearbyLoot = null;
@@ -953,6 +2355,17 @@
                     if(pPos.distanceToSquared(lootItems[i].mesh.position) < 225) { // 15 * 15 = 225
                         nearbyLoot = lootItems[i];
                         nearbyIndex = i;
+                        break;
+                    }
+                }
+
+                // 门板交互检测 (16*16 = 256 是 4米内开门，极为灵敏和适中)
+                let nearbyDoor = null;
+                for(let i=0; i<doors.length; i++) {
+                    let d = doors[i];
+                    let doorWorldPos = d.housePos.clone().add(new THREE.Vector3(0, 4.75, 15)); // 门铰链世界坐标位置
+                    if (pPos.distanceToSquared(doorWorldPos) < 256) {
+                        nearbyDoor = d;
                         break;
                     }
                 }
@@ -994,12 +2407,12 @@
                             // 如果不是替换当前武器，瞄准镜转移到新武器上
                             if (targetSlot !== player.currentWeaponIndex) {
                                 let oldScope = player.weapon.scope;
-                                weaponData = { ...nearbyLoot.data, ammo: 0, scope: oldScope };
+                                weaponData = { ...nearbyLoot.data, ammo: nearbyLoot.data.maxAmmo, scope: oldScope };
                             } else {
                                 // 替换当前槽位，瞄准镜在两把武器之间交换
                                 let oldWeapon = player.weapon;
                                 let newScope = oldWeapon.scope;
-                                weaponData = { ...nearbyLoot.data, ammo: 0, scope: newScope };
+                                weaponData = { ...nearbyLoot.data, ammo: nearbyLoot.data.maxAmmo, scope: newScope };
                             }
 
                             player.sharedAmmo += 60;
@@ -1035,6 +2448,18 @@
                             lootItems.splice(nearbyIndex, 1);
                             updateUI();
                         }
+                    }
+                } else if(nearbyDoor) {
+                    promptEl.innerText = `按 F ${nearbyDoor.isOpen ? '关门' : '开门'}`;
+                    promptEl.style.display = 'block';
+
+                    if (interactKey) {
+                        interactKey = false; // 消费按键事件
+                        nearbyDoor.isOpen = !nearbyDoor.isOpen;
+                        nearbyDoor.targetAngle = nearbyDoor.isOpen ? Math.PI / 1.8 : 0; // 展开约100度
+                        showNotice(nearbyDoor.isOpen ? "🚪 避难屋大门已被拉开" : "🚪 避难屋大门已被反锁紧闭", "#2ecc71");
+                        // 播放开门/关门质感木头声音
+                        playSound('hit', {x: nearbyDoor.housePos.x, y: nearbyDoor.housePos.y, z: nearbyDoor.housePos.z});
                     }
                 } else {
                     promptEl.style.display = 'none';
@@ -1084,23 +2509,24 @@
             raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
             const intersects = raycaster.intersectObjects(objects);
 
-            // 找到第一个非bot障碍物和第一个bot命中
+            // 找到第一个障碍物(建筑/树木/石头)以及第一个射击目标(Bot/丧尸)
             let coverHit = null;
-            let botHit = null;
+            let targetHit = null;
 
             for(let i = 0; i < intersects.length; i++) {
                 let hit = intersects[i];
                 if(hit.distance > player.weapon.range) break;
 
-                if(hit.object.userData.isBot) {
-                    if(!botHit) botHit = hit;
+                let ud = hit.object.userData;
+                if(ud.isBot || ud.isZombie || ud.isAnimal) {
+                    if(!targetHit) targetHit = hit;
                 } else {
                     if(!coverHit) coverHit = hit;
                 }
             }
 
-            // 如果掩体比bot更近，子弹被掩体挡住
-            if(coverHit && (!botHit || coverHit.distance < botHit.distance)) {
+            // 如果障碍物比目标更近，子弹被障碍物挡住
+            if(coverHit && (!targetHit || coverHit.distance < targetHit.distance)) {
                 let n = coverHit.face ? coverHit.face.normal : new THREE.Vector3(0,1,0);
                 for(let i=0; i<3; i++) {
                     const dust = new THREE.Mesh(new THREE.BoxGeometry(0.5,0.5,0.5), new THREE.MeshBasicMaterial({color: 0x7f8c8d}));
@@ -1108,24 +2534,67 @@
                     scene.add(dust);
                     bloodParticles.push({mesh: dust, vx: n.x*5+(Math.random()-0.5)*10, vy: n.y*5+Math.random()*10, vz: n.z*5+(Math.random()-0.5)*10, age: 0});
                 }
-            } else if(botHit) {
-                let bot = bots[botHit.object.userData.botIndex];
-                if(bot.alive) {
-                    let dmg = calcDamage(player.weapon.damage, botHit.object.userData.isHeadshot, bot);
-                    bot.health -= dmg;
-                    playSound('hit');
+            } else if(targetHit) {
+                let ud = targetHit.object.userData;
+                if (ud.isBot) {
+                    let bot = bots[ud.botIndex];
+                    if(bot.alive) {
+                        let dmg = calcDamage(player.weapon.damage, ud.isHeadshot, bot);
+                        bot.health -= dmg;
+                        playSound('hit');
 
-                    let n = botHit.face ? botHit.face.normal : new THREE.Vector3(0,1,0);
-                    spawnBlood(botHit.point, n);
+                        let n = targetHit.face ? targetHit.face.normal : new THREE.Vector3(0,1,0);
+                        spawnBlood(targetHit.point, n);
 
-                    document.getElementById('crosshair').style.background = 'red';
-                    document.getElementById('crosshair').style.transform = 'translate(-50%, -50%) scale(1.5)';
-                    setTimeout(()=>{
-                        document.getElementById('crosshair').style.background = 'rgba(0,255,0,0.8)';
-                        document.getElementById('crosshair').style.transform = 'translate(-50%, -50%) scale(1)';
-                    }, 100);
+                        document.getElementById('crosshair').style.background = 'red';
+                        document.getElementById('crosshair').style.transform = 'translate(-50%, -50%) scale(1.5)';
+                        setTimeout(()=>{
+                            document.getElementById('crosshair').style.background = 'rgba(0,255,0,0.8)';
+                            document.getElementById('crosshair').style.transform = 'translate(-50%, -50%) scale(1)';
+                        }, 100);
 
-                    if(bot.health <= 0) botDied(bot, "You");
+                        if(bot.health <= 0) botDied(bot, "You");
+                    }
+                } else if (ud.isZombie) {
+                    let zombie = zombies[ud.zombieIndex];
+                    if (zombie && zombie.alive) {
+                        let dmg = calcDamage(player.weapon.damage, ud.isHeadshot, zombie);
+                        zombie.health -= dmg;
+                        playSound('hit');
+
+                        let n = targetHit.face ? targetHit.face.normal : new THREE.Vector3(0,1,0);
+                        spawnBlood(targetHit.point, n);
+
+                        document.getElementById('crosshair').style.background = 'red';
+                        document.getElementById('crosshair').style.transform = 'translate(-50%, -50%) scale(1.5)';
+                        setTimeout(()=>{
+                            document.getElementById('crosshair').style.background = 'rgba(0,255,0,0.8)';
+                            document.getElementById('crosshair').style.transform = 'translate(-50%, -50%) scale(1)';
+                        }, 100);
+
+                        if(zombie.health <= 0) zombieDied(zombie);
+                    }
+                } else if (ud.isAnimal) {
+                    let animal = ud.animalType === 'deer' ? deers[ud.index] : boars[ud.index];
+                    if (animal && animal.alive) {
+                        // 动物不计爆头，承受普通武器伤害
+                        animal.health -= player.weapon.damage;
+                        playSound('hit');
+
+                        let n = targetHit.face ? targetHit.face.normal : new THREE.Vector3(0,1,0);
+                        spawnBlood(targetHit.point, n);
+
+                        document.getElementById('crosshair').style.background = 'red';
+                        document.getElementById('crosshair').style.transform = 'translate(-50%, -50%) scale(1.5)';
+                        setTimeout(()=>{
+                            document.getElementById('crosshair').style.background = 'rgba(0,255,0,0.8)';
+                            document.getElementById('crosshair').style.transform = 'translate(-50%, -50%) scale(1)';
+                        }, 100);
+
+                        if (animal.health <= 0) {
+                            killAnimal(animal, ud.animalType);
+                        }
+                    }
                 }
             }
         }
@@ -1133,6 +2602,7 @@
         function updateBots(delta) {
             let now = Date.now();
             let playerPos = controls.getObject().position;
+            let diff = difficulties[currentDifficulty];
 
             // 限制每帧最多只更新一部分机器人的 AI 逻辑，大幅度减少卡顿
             // 将机器人们分批处理，但运动状态每帧都更新
@@ -1157,12 +2627,13 @@
                 }
 
                 let bPos = bot.mesh.position;
+                let oldBx = bPos.x, oldBz = bPos.z; // 记录移动前的旧位置
 
                 // 仅仅是当前帧选中的机器人，且过了变向时间的，才进行复杂的距离运算
                 if((idx % 5) === currentTick && now > bot.changeDirTime) {
                     bot.changeDirTime = now + 1500 + Math.random()*2500;
                     let closestTarget = null;
-                    let minDistSq = 150 * 150; // 优化：使用距离平方比较代替开方
+                    let minDistSq = diff.botTargetRange * diff.botTargetRange; // 优化：使用难度动态索敌范围
 
                     if(player.alive && !player.isParachuting) {
                         let dSq = bPos.distanceToSquared(playerPos);
@@ -1192,7 +2663,6 @@
                         }
                     } else {
                         bot.state = 'attack';
-                        bot.vx = 0; bot.vz = 0;
                     }
                 }
 
@@ -1206,7 +2676,31 @@
                     bot.mesh.lookAt(targetPos.x, bPos.y, targetPos.z);
                     if(bot.laserMesh) bot.laserMesh.visible = true;
 
-                    if(now - bot.lastFire > bot.weapon.fireRate * 5) {
+                    // 攻击状态下的灵活战术移动 (身法)
+                    let speed = diff.botSpeed || 20;
+                    let dir = new THREE.Vector3().subVectors(targetPos, bPos);
+                    dir.y = 0;
+                    let dist = dir.length();
+                    dir.normalize();
+
+                    if(dist > 80) {
+                        // 距离较远，全力朝目标奔跑缩短距离
+                        bPos.x += dir.x * speed * delta;
+                        bPos.z += dir.z * speed * delta;
+                    } else if(dist < 30) {
+                        // 距离太近，朝目标反方向倒车拉开距离
+                        bPos.x -= dir.x * speed * delta;
+                        bPos.z -= dir.z * speed * delta;
+                    } else {
+                        // 处于极佳射击距离，左右侧移 (Strafe) 躲避子弹
+                        let strafeDir = (Math.floor(now / 2000) + bot.id) % 2 === 0 ? 1 : -1;
+                        let perp = new THREE.Vector3(-dir.z, 0, dir.x);
+                        bPos.x += perp.x * speed * 0.85 * strafeDir * delta;
+                        bPos.z += perp.z * speed * 0.85 * strafeDir * delta;
+                    }
+                    bPos.y = getTerrainHeight(bPos.x, bPos.z);
+
+                    if(now - bot.lastFire > bot.weapon.fireRate * diff.botFireRateMultiplier) {
                         bot.lastFire = now;
                         // 这里传入带有真实坐标的对象给播放器，如果声音太大可能要考虑限制播放数量
                         playSound(bot.weapon.sound, {x: bPos.x, y: bPos.y, z: bPos.z});
@@ -1228,7 +2722,12 @@
                                 const intersects = ray.intersectObjects(objects);
 
                                 let isBlocked = false;
-                                if (intersects.length > 0) {
+
+                                // 绝对视线掩体防护：如果玩家身处洋房内部，且该洋房的大门关闭（!isOpen）时，外部射击100%直接格挡！
+                                let insideHouse = getHousePlayerIsInside();
+                                if (insideHouse && !insideHouse.isOpen) {
+                                    isBlocked = true; // 大门紧闭，100% 免疫屋外子弹
+                                } else if (intersects.length > 0) {
                                     // 如果射线第一个命中的物体比到玩家的距离还近，说明视线被阻挡
                                     if (intersects[0].distance < botHeadPos.distanceTo(playerPos)) {
                                         // 确保射线不是击中了开火者自己
@@ -1239,7 +2738,7 @@
                                 }
 
                                 if (!isBlocked) {
-                                    let dmg = calcDamage(bot.weapon.damage * 0.25, isHeadshot, player);
+                                    let dmg = calcDamage(bot.weapon.damage * diff.botToPlayerDamageFactor, isHeadshot, player);
                                     playerHit(dmg);
                                 }
                             } else {
@@ -1254,6 +2753,39 @@
                                     bot.target = null;
                                     bot.changeDirTime = 0;
                                 }
+                            }
+                        }
+                    }
+                }
+
+                // 机器人与所有洋房墙体、门板的 AABB 盒子物理碰撞阻挡 (防止机器人穿模)
+                for (let i = 0; i < doors.length; i++) {
+                    let d = doors[i];
+                    let hPos = d.housePos;
+                    let dx = bPos.x - hPos.x;
+                    let dz = bPos.z - hPos.z;
+                    let dy = bPos.y - hPos.y;
+
+                    if (dy > 0 && dy < 24) {
+                        let absX = Math.abs(dx);
+                        let absZ = Math.abs(dz);
+
+                        if (absX < 16.2 && absZ < 16.2) {
+                            let wallHit = false;
+
+                            if ((dx >= -16.2 && dx <= -13.5 && dz >= -16.2 && dz <= 16.2) || // 左侧墙壁
+                                (dx >= 13.5 && dx <= 16.2 && dz >= -16.2 && dz <= 16.2) ||  // 右侧墙壁
+                                (dz >= -16.2 && dz <= -13.5 && dx >= -16.2 && dx <= 16.2) || // 后侧墙壁
+                                (dz >= 13.5 && dz <= 16.2 && dx >= -16.2 && dx <= -3.1) ||  // 正面左门框
+                                (dz >= 13.5 && dz <= 16.2 && dx >= 3.1 && dx <= 16.2) ||   // 正面右门框
+                                (!d.isOpen && dz >= 13.5 && dz <= 16.2 && dx >= -3.25 && dx <= 3.25)) { // 门关着阻拦
+                                wallHit = true;
+                            }
+
+                            if (wallHit) {
+                                bPos.x = oldBx;
+                                bPos.z = oldBz;
+                                break;
                             }
                         }
                     }
@@ -1304,20 +2836,17 @@
             updateUI();
 
             if(aliveCount === 1 && player.alive) {
-                // 只有当玩家击杀了最后一个敌人时才显示吃鸡
-                if (killerName === "You") {
-                    // 延迟显示胜利画面，让玩家看到最后的击杀信息
-                    setTimeout(() => {
-                        controls.unlock();
-                        document.getElementById('title').innerText = "大吉大利，今晚吃鸡！";
-                        document.getElementById('title').style.color = "#f1c40f";
-                        document.getElementById('subtitle').innerText = `WINNER WINNER CHICKEN DINNER! 击杀数: ${player.kills}`;
-                        document.getElementById('start-btn').innerText = "再玩一局";
-                        document.getElementById('start-btn').style.display = "block";
-                        document.getElementById('start-btn').onclick = () => location.reload();
-                        document.getElementById('overlay').style.display = "flex";
-                    }, 800);
-                }
+                // 当存活总数变为 1 且玩家活着，直接宣告玩家胜利吃鸡！(修复由于最后一人死于毒圈/内斗导致无法吃鸡的严重 Bug)
+                setTimeout(() => {
+                    controls.unlock();
+                    document.getElementById('title').innerText = "大吉大利，今晚吃鸡！";
+                    document.getElementById('title').style.color = "#f1c40f";
+                    document.getElementById('subtitle').innerText = `WINNER WINNER CHICKEN DINNER! 击杀数: ${player.kills}`;
+                    document.getElementById('start-btn').innerText = "再玩一局";
+                    document.getElementById('start-btn').style.display = "block";
+                    document.getElementById('start-btn').onclick = () => location.reload();
+                    document.getElementById('overlay').style.display = "flex";
+                }, 800);
             }
         }
 
@@ -1460,7 +2989,35 @@
             }, 30);
         }
 
-        // --- 主循环与初始化 ---
+        function preGenerateHouses() {
+            housePositions = [];
+            for(let i=0; i<200; i++) {
+                let x = (Math.random() - 0.5) * mapSize * 0.8;
+                let z = (Math.random() - 0.5) * mapSize * 0.8;
+                let baseHeight = getBaseTerrainHeight(x, z);
+                if(baseHeight < 2) {
+                    continue; // 水中不生成，重新选点
+                }
+
+                // 建筑防重合检测：确保每座房子之间保持至少 80 米的安全间距，彻底防止重叠穿模
+                let tooClose = false;
+                for (let j = 0; j < housePositions.length; j++) {
+                    let h = housePositions[j];
+                    let dx = x - h.x;
+                    let dz = z - h.z;
+                    if (dx*dx + dz*dz < 80 * 80) {
+                        tooClose = true;
+                        break;
+                    }
+                }
+                if (tooClose) {
+                    continue;
+                }
+
+                housePositions.push({ x, z, baseHeight });
+            }
+        }
+
         let prevTime = performance.now();
 
         function init() {
@@ -1471,9 +3028,9 @@
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.5, 3000);
             camera.position.set(0, 400, 0);
 
-            const ambLight = new THREE.AmbientLight(0xffffff, 0.7);
+            ambLight = new THREE.AmbientLight(0xffffff, 0.7);
             scene.add(ambLight);
-            const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+            dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
             dirLight.position.set(1000, 2000, 1000);
             scene.add(dirLight);
 
@@ -1487,27 +3044,15 @@
 
             controls = new THREE.PointerLockControls(camera, document.body);
 
-            // 难度选择按钮
-            document.querySelectorAll('.diff-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    currentDifficulty = e.target.dataset.diff;
-                    // 更新按钮样式
-                    document.querySelectorAll('.diff-btn').forEach(b => {
-                        b.classList.remove('active');
-                        b.style.border = '2px solid #fff';
-                        b.style.padding = '8px 20px';
-                    });
-                    e.target.classList.add('active');
-                    e.target.style.border = '4px solid #f1c40f';
-                    e.target.style.padding = '6px 18px';
-                });
-            });
-
             document.getElementById('start-btn').addEventListener('click', () => {
-                document.getElementById('difficulty-select').style.display = 'none';
                 document.getElementById('overlay').style.display = 'none';
                 controls.lock();
                 if(audioCtx.state === 'suspended') audioCtx.resume();
+                if (!gameStarted) {
+                    gameStarted = true;
+                    initBots();
+                    initZombies();
+                }
             });
 
             controls.addEventListener('unlock', () => {
@@ -1550,9 +3095,10 @@
 
             raycaster = new THREE.Raycaster();
 
+            preGenerateHouses(); // 预生成所有房屋位置以让地形在渲染前平整铺平
             initTerrain();
             initEnvironment();
-            initBots();
+            initAnimals();
 
             const zoneGeo = new THREE.CylinderGeometry(1, 1, 2000, 48, 1, true);
             const zoneMat = new THREE.MeshBasicMaterial({color: 0x0000ff, transparent: true, opacity: 0.15, side: THREE.DoubleSide});
@@ -1640,6 +3186,12 @@
 
             lootItems.forEach(l => l.mesh.rotation.y += delta);
 
+            // 平滑缓动开合所有大门旋转
+            doors.forEach(d => {
+                d.currentAngle += (d.targetAngle - d.currentAngle) * 10 * delta;
+                d.pivot.rotation.y = d.currentAngle;
+            });
+
             if (controls.isLocked && player.alive) {
                 // 瞄准镜缩放
                 let targetFov = 75;
@@ -1686,6 +3238,8 @@
 
                 updatePlayer(delta);
                 updateBots(delta);
+                updateZombies(delta);
+                updateAnimals(delta);
                 updateZone(delta);
                 updateWeather(delta);
 
