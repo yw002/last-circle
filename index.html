@@ -1294,6 +1294,10 @@
             const limbGeo = new THREE.BoxGeometry(1.2, 3.5, 1.2);
             const gunGeo = new THREE.BoxGeometry(0.5, 0.8, 4);
 
+            const skinColors = [0xffdfc4, 0xd0a37e, 0x8d5524, 0xc68642, 0xe0ac69, 0x4a2a18, 0xf1c27d, 0x3d2314];
+            const shirtColors = [0x95a5a6, 0x34495e, 0x27ae60, 0x8e44ad, 0xc0392b, 0xd35400, 0xf39c12, 0x2c3e50, 0x111111, 0xecf0f1, 0x1abc9c, 0xf1c40f];
+            const pantsColors = [0x2c3e50, 0xbdc3c7, 0x34495e, 0x7f8c8d, 0x222222, 0x8b4513, 0x2e4053, 0x17202a];
+
             for(let i=0; i<botCount; i++) {
                 let x = (Math.random() - 0.5) * mapSize * 0.8;
                 let z = (Math.random() - 0.5) * mapSize * 0.8;
@@ -1301,18 +1305,37 @@
 
                 const botGroup = new THREE.Group();
 
-                const bodyMat = new THREE.MeshLambertMaterial({color: 0x95a5a6});
-                const headMat = new THREE.MeshLambertMaterial({color: 0xe0ac69});
-                const limbMat = new THREE.MeshLambertMaterial({color: 0x2c3e50});
+                // 随机多样化外观：皮肤、衣服、裤子
+                let skinC = skinColors[Math.floor(Math.random() * skinColors.length)];
+                let shirtC = shirtColors[Math.floor(Math.random() * shirtColors.length)];
+                let pantsC = pantsColors[Math.floor(Math.random() * pantsColors.length)];
+
+                const bodyMat = new THREE.MeshLambertMaterial({color: shirtC});
+                const headMat = new THREE.MeshLambertMaterial({color: skinC});
+                const limbMat = new THREE.MeshLambertMaterial({color: pantsC}); // 腿部用裤子颜色
+                const armMat = new THREE.MeshLambertMaterial({color: shirtC});  // 胳膊用衣服颜色
 
                 const body = new THREE.Mesh(bodyGeo, bodyMat); body.position.y = 4.5;
                 const head = new THREE.Mesh(headGeo, headMat); head.position.y = 8;
-                const pack = new THREE.Mesh(packGeo, new THREE.MeshLambertMaterial({color: 0x333333})); pack.position.set(0, 5, -1.5);
+
+                // 30%概率有背包
+                let pack = null;
+                if (Math.random() > 0.3) {
+                    pack = new THREE.Mesh(packGeo, new THREE.MeshLambertMaterial({color: 0x333333}));
+                    pack.position.set(0, 5, -1.5);
+                    botGroup.add(pack);
+                }
 
                 const legL = new THREE.Mesh(limbGeo, limbMat); legL.position.set(-1, 1.75, 0);
                 const legR = new THREE.Mesh(limbGeo, limbMat); legR.position.set(1, 1.75, 0);
-                const armL = new THREE.Mesh(limbGeo, bodyMat); armL.position.set(-2.5, 4.5, 0);
-                const armR = new THREE.Mesh(limbGeo, bodyMat); armR.position.set(2.5, 4.5, 0.5); armR.rotation.x = -Math.PI / 4; // 右手抬起持枪
+                const armL = new THREE.Mesh(limbGeo, armMat); armL.position.set(-2.5, 4.5, 0);
+                const armR = new THREE.Mesh(limbGeo, armMat); armR.position.set(2.5, 4.5, 0.5); armR.rotation.x = -Math.PI / 4; // 右手抬起持枪
+
+                // 随机体型大小 (高矮胖瘦)
+                let scaleX = 0.85 + Math.random() * 0.3; // 胖瘦
+                let scaleY = 0.85 + Math.random() * 0.35; // 高矮
+                let scaleZ = 0.85 + Math.random() * 0.3; // 胸厚度
+                botGroup.scale.set(scaleX, scaleY, scaleZ);
 
                 const botGun = new THREE.Mesh(gunGeo, new THREE.MeshLambertMaterial({color: 0x111111}));
                 botGun.position.set(2.5, 4.5, 2.5); // 枪在右手前方
@@ -1326,7 +1349,7 @@
                 botLaser.position.copy(botGun.position);
                 botLaser.visible = false; // 只有在开火/瞄准时显示
 
-                botGroup.add(body, head, pack, legL, legR, armL, armR, botGun, botLaser);
+                botGroup.add(body, head, legL, legR, armL, armR, botGun, botLaser);
 
                 // 机器人降落伞
                 const bParaGroup = new THREE.Group();
@@ -1346,8 +1369,11 @@
 
                 body.userData = { isBot: true, botIndex: i, isHeadshot: false };
                 head.userData = { isBot: true, botIndex: i, isHeadshot: true };
-                pack.userData = { isBot: true, botIndex: i, isHeadshot: false };
-                objects.push(body, head, pack);
+                objects.push(body, head);
+                if (pack) {
+                    pack.userData = { isBot: true, botIndex: i, isHeadshot: false };
+                    objects.push(pack);
+                }
 
                 // 给机器人随机配备装甲（让他们更抗揍）
                 let rH = Math.random();
@@ -1384,7 +1410,8 @@
             const birdBodyGeo = new THREE.ConeGeometry(0.5, 2, 4);
             const wingGeo = new THREE.BoxGeometry(0.08, 0.15, 3.5);
 
-            for(let i=0; i<30; i++) {
+            // 增加鸟群数量
+            for(let i=0; i<80; i++) {
                 const birdGroup = new THREE.Group();
                 const body = new THREE.Mesh(birdBodyGeo, wingMat);
                 body.rotation.x = Math.PI / 2; // 鸟头朝前
@@ -1413,7 +1440,7 @@
                 });
             }
 
-            // 2. 初始化方块梅花鹿 (Deer)
+            // 2. 初始化方块梅花鹿群体 (Deer Herds)
             const deerBodyGeo = new THREE.BoxGeometry(3, 3, 5);
             const deerHeadGeo = new THREE.BoxGeometry(1.4, 2.2, 1.8);
             const deerNeckGeo = new THREE.BoxGeometry(1.0, 2.8, 1.0);
@@ -1423,71 +1450,81 @@
             const deerLegMat = new THREE.MeshLambertMaterial({color: 0x5a3a1a}); // 深棕四肢
             const deerDetailMat = new THREE.MeshLambertMaterial({color: 0xffffff}); // 鹿角白色
 
-            for(let i=0; i<25; i++) {
-                const deerGroup = new THREE.Group();
+            // 大量生成鹿群 (25 个鹿群，每个鹿群 4-8 只)
+            const numDeerHerds = 25;
+            for (let h = 0; h < numDeerHerds; h++) {
+                let herdCX = (Math.random() - 0.5) * mapSize * 0.8;
+                let herdCZ = (Math.random() - 0.5) * mapSize * 0.8;
+                let herdSize = 4 + Math.floor(Math.random() * 5);
 
-                const body = new THREE.Mesh(deerBodyGeo, deerBodyMat);
-                body.position.y = 3.6;
+                for(let i=0; i<herdSize; i++) {
+                    let x = herdCX + (Math.random() - 0.5) * 40;
+                    let z = herdCZ + (Math.random() - 0.5) * 40;
+                    let y = getTerrainHeight(x, z);
+                    if (y < 2) continue; // 避免在深水区出生
 
-                const neck = new THREE.Mesh(deerNeckGeo, deerBodyMat);
-                neck.position.set(0, 4.8, 1.8);
-                neck.rotation.x = -Math.PI / 6;
+                    const deerGroup = new THREE.Group();
 
-                const head = new THREE.Mesh(deerHeadGeo, deerBodyMat);
-                head.position.set(0, 6.2, 2.5);
+                    // 让鹿的体型有随机微小差异
+                    let scale = 0.85 + Math.random() * 0.3;
+                    deerGroup.scale.set(scale, scale, scale);
 
-                // 给一半的鹿加上精美白色小角 (公鹿)
-                if (Math.random() > 0.5) {
-                    const antlerL = new THREE.Mesh(new THREE.BoxGeometry(0.15, 1.8, 0.15), deerDetailMat);
-                    antlerL.position.set(-0.6, 7.5, 2.5);
-                    antlerL.rotation.z = -0.3;
-                    const antlerR = new THREE.Mesh(new THREE.BoxGeometry(0.15, 1.8, 0.15), deerDetailMat);
-                    antlerR.position.set(0.6, 7.5, 2.5);
-                    antlerR.rotation.z = 0.3;
-                    deerGroup.add(antlerL, antlerR);
+                    const body = new THREE.Mesh(deerBodyGeo, deerBodyMat);
+                    body.position.y = 3.6;
+
+                    const neck = new THREE.Mesh(deerNeckGeo, deerBodyMat);
+                    neck.position.set(0, 4.8, 1.8);
+                    neck.rotation.x = -Math.PI / 6;
+
+                    const head = new THREE.Mesh(deerHeadGeo, deerBodyMat);
+                    head.position.set(0, 6.2, 2.5);
+
+                    // 给一半的鹿加上精美白色小角 (公鹿)
+                    if (Math.random() > 0.5) {
+                        const antlerL = new THREE.Mesh(new THREE.BoxGeometry(0.15, 1.8, 0.15), deerDetailMat);
+                        antlerL.position.set(-0.6, 7.5, 2.5);
+                        antlerL.rotation.z = -0.3;
+                        const antlerR = new THREE.Mesh(new THREE.BoxGeometry(0.15, 1.8, 0.15), deerDetailMat);
+                        antlerR.position.set(0.6, 7.5, 2.5);
+                        antlerR.rotation.z = 0.3;
+                        deerGroup.add(antlerL, antlerR);
+                    }
+
+                    const legFL = new THREE.Mesh(deerLegGeo, deerLegMat); legFL.position.set(-0.9, 1.8, 1.6);
+                    const legFR = new THREE.Mesh(deerLegGeo, deerLegMat); legFR.position.set(0.9, 1.8, 1.6);
+                    const legBL = new THREE.Mesh(deerLegGeo, deerLegMat); legBL.position.set(-0.9, 1.8, -1.6);
+                    const legBR = new THREE.Mesh(deerLegGeo, deerLegMat); legBR.position.set(0.9, 1.8, -1.6);
+
+                    deerGroup.add(body, neck, head, legFL, legFR, legBL, legBR);
+                    deerGroup.position.set(x, y, z);
+
+                    // 初始朝向一致性（鹿群感）
+                    deerGroup.rotation.y = Math.random() * Math.PI * 2;
+                    scene.add(deerGroup);
+
+                    let deerIdx = deers.length;
+                    body.userData = { isAnimal: true, animalType: 'deer', index: deerIdx, isHeadshot: false };
+                    head.userData = { isAnimal: true, animalType: 'deer', index: deerIdx, isHeadshot: true };
+                    objects.push(body, head);
+
+                    deers.push({
+                        id: deerIdx,
+                        mesh: deerGroup,
+                        bodyMesh: body,
+                        headMesh: head,
+                        legFL, legFR, legBL, legBR,
+                        vx: (Math.random() - 0.5) * 12,
+                        vz: (Math.random() - 0.5) * 12,
+                        state: 'wander',
+                        health: 60,
+                        alive: true,
+                        changeDirTime: 0,
+                        fearCooldown: 0
+                    });
                 }
-
-                const legFL = new THREE.Mesh(deerLegGeo, deerLegMat); legFL.position.set(-0.9, 1.8, 1.6);
-                const legFR = new THREE.Mesh(deerLegGeo, deerLegMat); legFR.position.set(0.9, 1.8, 1.6);
-                const legBL = new THREE.Mesh(deerLegGeo, deerLegMat); legBL.position.set(-0.9, 1.8, -1.6);
-                const legBR = new THREE.Mesh(deerLegGeo, deerLegMat); legBR.position.set(0.9, 1.8, -1.6);
-
-                deerGroup.add(body, neck, head, legFL, legFR, legBL, legBR);
-
-                let x = (Math.random() - 0.5) * mapSize * 0.8;
-                let z = (Math.random() - 0.5) * mapSize * 0.8;
-                let y = getTerrainHeight(x, z);
-
-                // 避免在深水区出生
-                if (y < 2) {
-                    continue;
-                }
-
-                deerGroup.position.set(x, y, z);
-                scene.add(deerGroup);
-
-                // 注册到射线击中 objects 中
-                body.userData = { isAnimal: true, animalType: 'deer', index: i, isHeadshot: false };
-                head.userData = { isAnimal: true, animalType: 'deer', index: i, isHeadshot: true };
-                objects.push(body, head);
-
-                deers.push({
-                    id: i,
-                    mesh: deerGroup,
-                    bodyMesh: body,
-                    headMesh: head,
-                    legFL, legFR, legBL, legBR,
-                    vx: (Math.random() - 0.5) * 12,
-                    vz: (Math.random() - 0.5) * 12,
-                    state: 'wander',
-                    health: 60, // 60生命值
-                    alive: true,
-                    changeDirTime: 0,
-                    fearCooldown: 0
-                });
             }
 
-            // 3. 初始化野猪 (Boar)
+            // 3. 初始化野猪群 (Boar Herds)
             const boarBodyGeo = new THREE.BoxGeometry(3.2, 2.6, 4.6);
             const boarHeadGeo = new THREE.BoxGeometry(1.6, 1.8, 2.0);
             const boarLegGeo = new THREE.BoxGeometry(0.8, 2.2, 0.8);
@@ -1496,60 +1533,68 @@
             const boarLegMat = new THREE.MeshLambertMaterial({color: 0x222222}); // 四肢暗黑
             const boarTuskMat = new THREE.MeshLambertMaterial({color: 0xeeeeee}); // 弯曲獠牙
 
-            for(let i=0; i<20; i++) {
-                const boarGroup = new THREE.Group();
+            // 20 个野猪群，每个群 3-6 只
+            const numBoarHerds = 20;
+            for (let h = 0; h < numBoarHerds; h++) {
+                let herdCX = (Math.random() - 0.5) * mapSize * 0.8;
+                let herdCZ = (Math.random() - 0.5) * mapSize * 0.8;
+                let herdSize = 3 + Math.floor(Math.random() * 4);
 
-                const body = new THREE.Mesh(boarBodyGeo, boarBodyMat);
-                body.position.y = 1.3; // 缩矮底盘
+                for(let i=0; i<herdSize; i++) {
+                    let x = herdCX + (Math.random() - 0.5) * 30;
+                    let z = herdCZ + (Math.random() - 0.5) * 30;
+                    let y = getTerrainHeight(x, z);
+                    if (y < 2) continue;
 
-                const head = new THREE.Mesh(boarHeadGeo, boarBodyMat);
-                head.position.set(0, 2.0, 2.3);
+                    const boarGroup = new THREE.Group();
 
-                // 白色向前呲出的尖牙
-                const tuskL = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.45, 0.6), boarTuskMat);
-                tuskL.position.set(-0.8, 1.6, 3.2);
-                tuskL.rotation.x = -Math.PI / 4;
-                const tuskR = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.45, 0.6), boarTuskMat);
-                tuskR.position.set(0.8, 1.6, 3.2);
-                tuskR.rotation.x = -Math.PI / 4;
+                    let scale = 0.8 + Math.random() * 0.4;
+                    boarGroup.scale.set(scale, scale, scale);
 
-                const legFL = new THREE.Mesh(boarLegGeo, boarLegMat); legFL.position.set(-1, 1.1, 1.5);
-                const legFR = new THREE.Mesh(boarLegGeo, boarLegMat); legFR.position.set(1, 1.1, 1.5);
-                const legBL = new THREE.Mesh(boarLegGeo, boarLegMat); legBL.position.set(-1, 1.1, -1.5);
-                const legBR = new THREE.Mesh(boarLegGeo, boarLegMat); legBR.position.set(1, 1.1, -1.5);
+                    const body = new THREE.Mesh(boarBodyGeo, boarBodyMat);
+                    body.position.y = 1.3; // 缩矮底盘
 
-                boarGroup.add(body, head, tuskL, tuskR, legFL, legFR, legBL, legBR);
+                    const head = new THREE.Mesh(boarHeadGeo, boarBodyMat);
+                    head.position.set(0, 2.0, 2.3);
 
-                let x = (Math.random() - 0.5) * mapSize * 0.8;
-                let z = (Math.random() - 0.5) * mapSize * 0.8;
-                let y = getTerrainHeight(x, z);
+                    // 白色向前呲出的尖牙
+                    const tuskL = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.45, 0.6), boarTuskMat);
+                    tuskL.position.set(-0.8, 1.6, 3.2);
+                    tuskL.rotation.x = -Math.PI / 4;
+                    const tuskR = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.45, 0.6), boarTuskMat);
+                    tuskR.position.set(0.8, 1.6, 3.2);
+                    tuskR.rotation.x = -Math.PI / 4;
 
-                if (y < 2) {
-                    continue;
+                    const legFL = new THREE.Mesh(boarLegGeo, boarLegMat); legFL.position.set(-1, 1.1, 1.5);
+                    const legFR = new THREE.Mesh(boarLegGeo, boarLegMat); legFR.position.set(1, 1.1, 1.5);
+                    const legBL = new THREE.Mesh(boarLegGeo, boarLegMat); legBL.position.set(-1, 1.1, -1.5);
+                    const legBR = new THREE.Mesh(boarLegGeo, boarLegMat); legBR.position.set(1, 1.1, -1.5);
+
+                    boarGroup.add(body, head, tuskL, tuskR, legFL, legFR, legBL, legBR);
+                    boarGroup.position.set(x, y, z);
+                    boarGroup.rotation.y = Math.random() * Math.PI * 2;
+                    scene.add(boarGroup);
+
+                    let boarIdx = boars.length;
+                    body.userData = { isAnimal: true, animalType: 'boar', index: boarIdx, isHeadshot: false };
+                    head.userData = { isAnimal: true, animalType: 'boar', index: boarIdx, isHeadshot: true };
+                    objects.push(body, head);
+
+                    boars.push({
+                        id: boarIdx,
+                        mesh: boarGroup,
+                        bodyMesh: body,
+                        headMesh: head,
+                        legFL, legFR, legBL, legBR,
+                        vx: (Math.random() - 0.5) * 10,
+                        vz: (Math.random() - 0.5) * 10,
+                        state: 'wander',
+                        health: 80,
+                        alive: true,
+                        changeDirTime: 0,
+                        chargeCooldown: 0
+                    });
                 }
-
-                boarGroup.position.set(x, y, z);
-                scene.add(boarGroup);
-
-                // 注册到 objects 列表中
-                body.userData = { isAnimal: true, animalType: 'boar', index: i, isHeadshot: false };
-                head.userData = { isAnimal: true, animalType: 'boar', index: i, isHeadshot: true };
-                objects.push(body, head);
-
-                boars.push({
-                    id: i,
-                    mesh: boarGroup,
-                    bodyMesh: body,
-                    headMesh: head,
-                    legFL, legFR, legBL, legBR,
-                    vx: (Math.random() - 0.5) * 10,
-                    vz: (Math.random() - 0.5) * 10,
-                    state: 'wander', // wander or charge (冲撞)
-                    health: 80, // 比鹿稍厚一些
-                    alive: true,
-                    changeDirTime: 0,
-                    chargeCooldown: 0
-                });
             }
         }
 
@@ -3104,8 +3149,10 @@
             if(idx1 > -1) objects.splice(idx1, 1);
             let idx2 = objects.indexOf(bot.headMesh);
             if(idx2 > -1) objects.splice(idx2, 1);
-            let idx3 = objects.indexOf(bot.packMesh);
-            if(idx3 > -1) objects.splice(idx3, 1);
+            if (bot.packMesh) {
+                let idx3 = objects.indexOf(bot.packMesh);
+                if(idx3 > -1) objects.splice(idx3, 1);
+            }
 
             if(killerName === "You") {
                 player.kills++;
