@@ -1,8 +1,40 @@
-// Terrain generation and height functions
+// Terrain generation and height functions - Optimized with spatial grid
 
 import * as THREE from 'three';
 import { state } from '../state.js';
 import { MAP_SIZE } from '../config.js';
+
+// Spatial grid for house proximity checks
+const GRID_CELL_SIZE = 50;
+let houseGrid = {};
+
+function buildHouseGrid() {
+  houseGrid = {};
+  state.housePositions.forEach(h => {
+    let cx = Math.floor(h.x / GRID_CELL_SIZE);
+    let cz = Math.floor(h.z / GRID_CELL_SIZE);
+    let key = `${cx},${cz}`;
+    if (!houseGrid[key]) houseGrid[key] = [];
+    houseGrid[key].push(h);
+  });
+}
+
+function getNearbyHouses(x, z) {
+  let cx = Math.floor(x / GRID_CELL_SIZE);
+  let cz = Math.floor(z / GRID_CELL_SIZE);
+  let result = [];
+
+  // Check 3x3 grid cells
+  for (let dx = -1; dx <= 1; dx++) {
+    for (let dz = -1; dz <= 1; dz++) {
+      let key = `${cx + dx},${cz + dz}`;
+      if (houseGrid[key]) {
+        result.push(...houseGrid[key]);
+      }
+    }
+  }
+  return result;
+}
 
 export function getBaseTerrainHeight(x, z) {
   let dist = Math.sqrt(x * x + z * z);
@@ -13,9 +45,11 @@ export function getBaseTerrainHeight(x, z) {
 }
 
 export function getTerrainHeight(x, z) {
-  // Flatten terrain near houses
-  for (let i = 0; i < state.housePositions.length; i++) {
-    let h = state.housePositions[i];
+  // Use spatial grid to only check nearby houses
+  let nearbyHouses = getNearbyHouses(x, z);
+
+  for (let i = 0; i < nearbyHouses.length; i++) {
+    let h = nearbyHouses[i];
     let dx = x - h.x;
     let dz = z - h.z;
     let distSq = dx * dx + dz * dz;
@@ -34,7 +68,10 @@ export function getTerrainHeight(x, z) {
 }
 
 export function initTerrain() {
-  const geometry = new THREE.PlaneGeometry(MAP_SIZE, MAP_SIZE, 200, 200);
+  // Build spatial grid after houses are generated
+  buildHouseGrid();
+
+  const geometry = new THREE.PlaneGeometry(MAP_SIZE, MAP_SIZE, 150, 150);
   geometry.rotateX(-Math.PI / 2);
   const vertices = geometry.attributes.position.array;
   const colors = [];
@@ -65,13 +102,6 @@ export function initTerrain() {
     }
     for (let rz = -MAP_SIZE / 2; rz < MAP_SIZE / 2; rz += 500) {
       if (Math.abs(z - rz) < 20) roadFactor = 0.5;
-    }
-    for (let rx = -MAP_SIZE / 2; rx < MAP_SIZE / 2; rx += 500) {
-      for (let rz = -MAP_SIZE / 2; rz < MAP_SIZE / 2; rz += 500) {
-        if (Math.abs(x - rx) < 25 && Math.abs(z - rz) < 25) {
-          roadFactor = 0.7;
-        }
-      }
     }
 
     if (roadFactor > 0) {

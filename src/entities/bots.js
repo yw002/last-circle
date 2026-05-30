@@ -1,4 +1,4 @@
-// Bot AI subsystem
+// Bot AI subsystem - Performance optimized with shared resources
 
 import * as THREE from 'three';
 import { state } from '../state.js';
@@ -13,12 +13,54 @@ import { addKillFeed } from '../ui/notices.js';
 import { updateUI } from '../ui/hud.js';
 import { showNotice } from '../ui/notices.js';
 
-export function initBots() {
-  // Shared geometries for performance
-  const skinColors = [0xffdfc4, 0xd0a37e, 0x8d5524, 0xc68642, 0xe0ac69, 0x4a2a18, 0xf1c27d, 0x3d2314];
-  const shirtColors = [0x95a5a6, 0x34495e, 0x27ae60, 0x8e44ad, 0xc0392b, 0xd35400, 0xf39c12, 0x2c3e50, 0x111111, 0xecf0f1, 0x1abc9c, 0xf1c40f];
-  const pantsColors = [0x2c3e50, 0xbdc3c7, 0x34495e, 0x7f8c8d, 0x222222, 0x8b4513, 0x2e4053, 0x17202a];
+// ========== SHARED RESOURCES (created once) ==========
+const skinColors = [0xffdfc4, 0xd0a37e, 0x8d5524, 0xc68642, 0xe0ac69, 0x4a2a18, 0xf1c27d, 0x3d2314];
+const shirtColors = [0x95a5a6, 0x34495e, 0x27ae60, 0x8e44ad, 0xc0392b, 0xd35400, 0xf39c12, 0x2c3e50, 0x111111, 0xecf0f1, 0x1abc9c, 0xf1c40f];
+const pantsColors = [0x2c3e50, 0xbdc3c7, 0x34495e, 0x7f8c8d, 0x222222, 0x8b4513, 0x2e4053, 0x17202a];
 
+// Shared geometries - created once, reused for all bots (reduced segments for performance)
+const sharedGeos = {
+  torsoLower: new THREE.SphereGeometry(1.8, 8, 6),
+  torsoUpper: new THREE.SphereGeometry(1.6, 8, 6),
+  head: new THREE.SphereGeometry(1.2, 8, 8),
+  hair: new THREE.SphereGeometry(1.25, 8, 4),
+  neck: new THREE.CylinderGeometry(0.4, 0.5, 0.6, 6),
+  eye: new THREE.SphereGeometry(0.22, 6, 6),
+  pupil: new THREE.SphereGeometry(0.12, 6, 6),
+  nose: new THREE.SphereGeometry(0.15, 6, 6),
+  mouth: new THREE.BoxGeometry(0.4, 0.08, 0.1),
+  shoulder: new THREE.SphereGeometry(0.5, 6, 6),
+  belt: new THREE.TorusGeometry(1.5, 0.15, 6, 12),
+  armUpper: new THREE.CylinderGeometry(0.4, 0.35, 2.0, 6),
+  elbow: new THREE.SphereGeometry(0.35, 6, 6),
+  armLower: new THREE.CylinderGeometry(0.35, 0.3, 1.8, 6),
+  hand: new THREE.SphereGeometry(0.3, 6, 6),
+  legUpper: new THREE.CylinderGeometry(0.5, 0.45, 2.2, 6),
+  legLower: new THREE.CylinderGeometry(0.45, 0.4, 2.0, 6),
+  boot: new THREE.BoxGeometry(0.6, 0.4, 1.0),
+  gunBody: new THREE.BoxGeometry(0.15, 0.15, 1.5),
+  gunBarrel: new THREE.CylinderGeometry(0.04, 0.05, 0.8, 6),
+  pack: new THREE.BoxGeometry(1.5, 2.0, 0.8),
+  parachute: new THREE.SphereGeometry(10, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2)
+};
+
+// Shared materials - created once
+const sharedMats = {
+  dark: new THREE.MeshLambertMaterial({ color: 0x222222 }),
+  boot: new THREE.MeshLambertMaterial({ color: 0x111111 }),
+  belt: new THREE.MeshLambertMaterial({ color: 0x333333 }),
+  eyeWhite: new THREE.MeshBasicMaterial({ color: 0xffffff }),
+  pupil: new THREE.MeshBasicMaterial({ color: 0x222222 }),
+  mouth: new THREE.MeshLambertMaterial({ color: 0xcc8888 }),
+  hair: new THREE.MeshLambertMaterial({ color: 0x222222 }),
+  parachute: new THREE.MeshLambertMaterial({ color: 0xe74c3c, side: THREE.DoubleSide }),
+  laser: new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.6 })
+};
+
+// Reusable Vector3 for calculations
+const _tempVec3 = new THREE.Vector3();
+
+export function initBots() {
   for (let i = 0; i < BOT_COUNT; i++) {
     let x = (Math.random() - 0.5) * MAP_SIZE * 0.8;
     let z = (Math.random() - 0.5) * MAP_SIZE * 0.8;
@@ -26,146 +68,114 @@ export function initBots() {
 
     const botGroup = new THREE.Group();
 
+    // Get random colors
     let skinC = skinColors[Math.floor(Math.random() * skinColors.length)];
     let shirtC = shirtColors[Math.floor(Math.random() * shirtColors.length)];
     let pantsC = pantsColors[Math.floor(Math.random() * pantsColors.length)];
 
+    // Create per-bot color materials (only color differs)
     const bodyMat = new THREE.MeshLambertMaterial({ color: shirtC });
     const headMat = new THREE.MeshLambertMaterial({ color: skinC });
     const limbMat = new THREE.MeshLambertMaterial({ color: pantsC });
-    const armMat = new THREE.MeshLambertMaterial({ color: shirtC });
-    const darkMat = new THREE.MeshLambertMaterial({ color: 0x222222 });
-    const bootMat = new THREE.MeshLambertMaterial({ color: 0x111111 });
-    const beltMat = new THREE.MeshLambertMaterial({ color: 0x333333 });
 
-    // Torso - detailed rounded shape
-    const torsoLower = new THREE.Mesh(new THREE.SphereGeometry(1.8, 16, 12), bodyMat);
+    // Build bot using shared geometries
+    const torsoLower = new THREE.Mesh(sharedGeos.torsoLower, bodyMat);
     torsoLower.scale.set(1, 0.8, 0.7);
     torsoLower.position.y = 4.0;
 
-    const torsoUpper = new THREE.Mesh(new THREE.SphereGeometry(1.6, 16, 12), bodyMat);
+    const torsoUpper = new THREE.Mesh(sharedGeos.torsoUpper, bodyMat);
     torsoUpper.scale.set(1, 1.0, 0.7);
     torsoUpper.position.y = 5.5;
 
-    // Shoulders
-    const shoulderL = new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 8), bodyMat);
+    const head = new THREE.Mesh(sharedGeos.head, headMat);
+    head.position.y = 7.5;
+
+    const hair = new THREE.Mesh(sharedGeos.hair, sharedMats.hair);
+    hair.position.y = 7.6;
+
+    const neck = new THREE.Mesh(sharedGeos.neck, headMat);
+    neck.position.y = 6.8;
+
+    const eyeL = new THREE.Mesh(sharedGeos.eye, sharedMats.eyeWhite);
+    eyeL.position.set(-0.45, 7.7, 0.9);
+    const eyeR = new THREE.Mesh(sharedGeos.eye, sharedMats.eyeWhite);
+    eyeR.position.set(0.45, 7.7, 0.9);
+    const pupilL = new THREE.Mesh(sharedGeos.pupil, sharedMats.pupil);
+    pupilL.position.set(-0.45, 7.7, 1.05);
+    const pupilR = new THREE.Mesh(sharedGeos.pupil, sharedMats.pupil);
+    pupilR.position.set(0.45, 7.7, 1.05);
+
+    const nose = new THREE.Mesh(sharedGeos.nose, headMat);
+    nose.position.set(0, 7.4, 1.1);
+
+    const shoulderL = new THREE.Mesh(sharedGeos.shoulder, bodyMat);
     shoulderL.position.set(-1.8, 6.0, 0);
-    const shoulderR = new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 8), bodyMat);
+    const shoulderR = new THREE.Mesh(sharedGeos.shoulder, bodyMat);
     shoulderR.position.set(1.8, 6.0, 0);
 
-    // Belt
-    const belt = new THREE.Mesh(new THREE.TorusGeometry(1.5, 0.15, 8, 16), beltMat);
+    const belt = new THREE.Mesh(sharedGeos.belt, sharedMats.belt);
     belt.position.y = 3.5;
     belt.rotation.x = Math.PI / 2;
 
-    // Head - sphere with details
-    const head = new THREE.Mesh(new THREE.SphereGeometry(1.2, 16, 16), headMat);
-    head.position.y = 7.5;
-
-    // Hair
-    const hairMat = new THREE.MeshLambertMaterial({ color: 0x222222 });
-    const hair = new THREE.Mesh(new THREE.SphereGeometry(1.25, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), hairMat);
-    hair.position.y = 7.6;
-
-    // Neck
-    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.5, 0.6, 12), headMat);
-    neck.position.y = 6.8;
-
-    // Eyes
-    const eyeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-    const pupilMat = new THREE.MeshBasicMaterial({ color: 0x222222 });
-    const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 12), eyeMat);
-    eyeL.position.set(-0.45, 7.7, 0.9);
-    const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 12), eyeMat);
-    eyeR.position.set(0.45, 7.7, 0.9);
-    const pupilL = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 12), pupilMat);
-    pupilL.position.set(-0.45, 7.7, 1.05);
-    const pupilR = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 12), pupilMat);
-    pupilR.position.set(0.45, 7.7, 1.05);
-
-    // Nose
-    const nose = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 8), headMat);
-    nose.position.set(0, 7.4, 1.1);
-
-    // Mouth
-    const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.08, 0.1), new THREE.MeshLambertMaterial({ color: 0xcc8888 }));
-    mouth.position.set(0, 7.1, 1.05);
-
-    // Arms - detailed with joints
-    const armUpperL = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.35, 2.0, 12), armMat);
+    const armUpperL = new THREE.Mesh(sharedGeos.armUpper, bodyMat);
     armUpperL.position.set(-2.2, 5.5, 0);
     armUpperL.rotation.z = 0.2;
+    const armLowerL = new THREE.Mesh(sharedGeos.armLower, bodyMat);
+    armLowerL.position.set(-2.8, 4.0, 0.3);
+    const handL = new THREE.Mesh(sharedGeos.hand, headMat);
+    handL.position.set(-3.0, 3.2, 0.5);
 
-    const elbowL = new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 8), armMat);
-    elbowL.position.set(-2.6, 4.5, 0.2);
-
-    const armLowerL = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.3, 1.8, 12), armMat);
-    armLowerL.position.set(-2.8, 3.5, 0.3);
-    armLowerL.rotation.z = 0.1;
-
-    const armUpperR = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.35, 2.0, 12), armMat);
+    const armUpperR = new THREE.Mesh(sharedGeos.armUpper, bodyMat);
     armUpperR.position.set(2.2, 5.5, 0);
     armUpperR.rotation.z = -0.2;
     armUpperR.rotation.x = -0.5;
-
-    const armLowerR = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.3, 1.8, 8), armMat);
+    const armLowerR = new THREE.Mesh(sharedGeos.armLower, bodyMat);
     armLowerR.position.set(2.8, 4.0, 0.8);
-    armLowerR.rotation.z = -0.1;
-    armLowerR.rotation.x = -0.3;
-
-    // Hands
-    const handL = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 8), headMat);
-    handL.position.set(-3.0, 3.2, 0.5);
-    const handR = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 8), headMat);
+    const handR = new THREE.Mesh(sharedGeos.hand, headMat);
     handR.position.set(3.0, 3.2, 1.0);
 
-    // Legs - rounded
-    const legUpperL = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.45, 2.2, 8), limbMat);
+    const legUpperL = new THREE.Mesh(sharedGeos.legUpper, limbMat);
     legUpperL.position.set(-0.8, 2.5, 0);
-
-    const legLowerL = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.4, 2.0, 8), limbMat);
+    const legLowerL = new THREE.Mesh(sharedGeos.legLower, limbMat);
     legLowerL.position.set(-0.8, 0.8, 0.2);
-
-    const legUpperR = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.45, 2.2, 8), limbMat);
-    legUpperR.position.set(0.8, 2.5, 0);
-
-    const legLowerR = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.4, 2.0, 8), limbMat);
-    legLowerR.position.set(0.8, 0.8, 0.2);
-
-    // Boots
-    const bootL = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.4, 1.0), bootMat);
+    const bootL = new THREE.Mesh(sharedGeos.boot, sharedMats.boot);
     bootL.position.set(-0.8, 0.2, 0.3);
-    const bootR = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.4, 1.0), bootMat);
+
+    const legUpperR = new THREE.Mesh(sharedGeos.legUpper, limbMat);
+    legUpperR.position.set(0.8, 2.5, 0);
+    const legLowerR = new THREE.Mesh(sharedGeos.legLower, limbMat);
+    legLowerR.position.set(0.8, 0.8, 0.2);
+    const bootR = new THREE.Mesh(sharedGeos.boot, sharedMats.boot);
     bootR.position.set(0.8, 0.2, 0.3);
 
     // Backpack
     let pack = null;
     if (Math.random() > 0.3) {
-      pack = new THREE.Mesh(new THREE.BoxGeometry(1.5, 2.0, 0.8), darkMat);
+      pack = new THREE.Mesh(sharedGeos.pack, sharedMats.dark);
       pack.position.set(0, 4.5, -1.5);
       botGroup.add(pack);
     }
 
     // Gun
-    const gunBody = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.15, 1.5), darkMat);
+    const gunBody = new THREE.Mesh(sharedGeos.gunBody, sharedMats.dark);
     gunBody.position.set(3.0, 3.5, 1.5);
-    const gunBarrel = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 0.8, 6), darkMat);
+    const gunBarrel = new THREE.Mesh(sharedGeos.gunBarrel, sharedMats.dark);
     gunBarrel.rotation.x = Math.PI / 2;
     gunBarrel.position.set(3.0, 3.6, 0.8);
 
     // Laser sight
-    const laserMat = new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.6 });
-    const laserGeo = new THREE.CylinderGeometry(0.03, 0.03, 100);
-    laserGeo.translate(0, 50, 0);
+    const laserGeo = new THREE.CylinderGeometry(0.03, 0.03, 80, 4);
+    laserGeo.translate(0, 40, 0);
     laserGeo.rotateX(Math.PI / 2);
-    const botLaser = new THREE.Mesh(laserGeo, laserMat);
+    const botLaser = new THREE.Mesh(laserGeo, sharedMats.laser);
     botLaser.position.set(3.0, 3.6, 0.8);
     botLaser.visible = false;
 
     // Add all parts
     botGroup.add(
-      torsoLower, torsoUpper, neck, head,
-      eyeL, eyeR, pupilL, pupilR,
+      torsoLower, torsoUpper, neck, head, hair,
+      eyeL, eyeR, pupilL, pupilR, nose,
+      shoulderL, shoulderR, belt,
       armUpperL, armLowerL, handL,
       armUpperR, armLowerR, handR,
       legUpperL, legLowerL, bootL,
@@ -173,18 +183,11 @@ export function initBots() {
       gunBody, gunBarrel, botLaser
     );
 
-    // Random scale for variety
-    let scaleX = 0.9 + Math.random() * 0.2;
-    let scaleY = 0.9 + Math.random() * 0.2;
-    let scaleZ = 0.9 + Math.random() * 0.2;
-    botGroup.scale.set(scaleX, scaleY, scaleZ);
-
+    // Parachute
     const bParaGroup = new THREE.Group();
-    const bCanopy = new THREE.Mesh(
-      new THREE.SphereGeometry(10, 12, 12, 0, Math.PI * 2, 0, Math.PI / 2),
-      new THREE.MeshLambertMaterial({ color: 0xe74c3c, side: THREE.DoubleSide })
-    );
-    bCanopy.position.y = 12; bCanopy.scale.y = 0.5;
+    const bCanopy = new THREE.Mesh(sharedGeos.parachute, sharedMats.parachute);
+    bCanopy.position.y = 12;
+    bCanopy.scale.y = 0.5;
     bParaGroup.add(bCanopy);
     const strMat = new THREE.LineBasicMaterial({ color: 0xffffff });
     for (let j = 0; j < 4; j++) {
@@ -196,6 +199,10 @@ export function initBots() {
       bParaGroup.add(new THREE.Line(geo, strMat));
     }
     botGroup.add(bParaGroup);
+
+    // Random scale
+    let scale = 0.9 + Math.random() * 0.2;
+    botGroup.scale.set(scale, scale, scale);
 
     botGroup.position.set(x, y, z);
     state.scene.add(botGroup);
@@ -210,16 +217,15 @@ export function initBots() {
       state.objects.push(pack);
     }
 
-    let rH = Math.random();
+    // Random equipment
     let bHelmet = null;
-    if (rH > 0.3) {
+    if (Math.random() > 0.3) {
       bHelmet = equipments.filter(e => e.type === "helmet")[Math.floor(Math.random() * 3)];
       headMat.color.setHex(bHelmet.color);
     }
 
-    let rA = Math.random();
     let bArmor = null;
-    if (rA > 0.3) {
+    if (Math.random() > 0.3) {
       bArmor = equipments.filter(e => e.type === "armor")[Math.floor(Math.random() * 3)];
       bodyMat.color.setHex(bArmor.color);
     }
@@ -249,6 +255,10 @@ export function updateBots(delta) {
   state.bots.forEach((bot, idx) => {
     if (!bot.alive) return;
 
+    // Distance check - skip detailed updates for far bots
+    let distToPlayer = bot.mesh.position.distanceTo(playerPos);
+    let isNearby = distToPlayer < 400;
+
     if (bot.isParachuting) {
       bot.mesh.position.y -= (25 + Math.random() * 10) * delta;
       let bPos = bot.mesh.position;
@@ -264,9 +274,17 @@ export function updateBots(delta) {
       return;
     }
 
+    // Hide far away bots
+    if (distToPlayer > 600) {
+      bot.mesh.visible = false;
+      return;
+    }
+    bot.mesh.visible = true;
+
     let bPos = bot.mesh.position;
     let oldBx = bPos.x, oldBz = bPos.z;
 
+    // AI targeting (throttled)
     if ((idx % 5) === currentTick && now > bot.changeDirTime) {
       bot.changeDirTime = now + 1500 + Math.random() * 2500;
       let closestTarget = null;
@@ -277,12 +295,15 @@ export function updateBots(delta) {
         if (dSq < minDistSq) { minDistSq = dSq; closestTarget = 'player'; }
       }
 
-      state.bots.forEach(other => {
-        if (other.alive && !other.isParachuting && other.id !== bot.id) {
-          let dSq = bPos.distanceToSquared(other.mesh.position);
-          if (dSq < minDistSq) { minDistSq = dSq; closestTarget = other; }
-        }
-      });
+      // Only check nearby bots for targets
+      if (isNearby) {
+        state.bots.forEach(other => {
+          if (other.alive && !other.isParachuting && other.id !== bot.id) {
+            let dSq = bPos.distanceToSquared(other.mesh.position);
+            if (dSq < minDistSq) { minDistSq = dSq; closestTarget = other; }
+          }
+        });
+      }
 
       bot.target = closestTarget;
 
@@ -314,26 +335,26 @@ export function updateBots(delta) {
       if (bot.laserMesh) bot.laserMesh.visible = true;
 
       let speed = diff.botSpeed || 20;
-      let dir = new THREE.Vector3().subVectors(targetPos, bPos);
-      dir.y = 0;
-      let dist = dir.length();
-      dir.normalize();
+      _tempVec3.subVectors(targetPos, bPos);
+      _tempVec3.y = 0;
+      let dist = _tempVec3.length();
+      _tempVec3.normalize();
 
       if (dist > 80) {
-        bPos.x += dir.x * speed * delta;
-        bPos.z += dir.z * speed * delta;
+        bPos.x += _tempVec3.x * speed * delta;
+        bPos.z += _tempVec3.z * speed * delta;
       } else if (dist < 30) {
-        bPos.x -= dir.x * speed * delta;
-        bPos.z -= dir.z * speed * delta;
+        bPos.x -= _tempVec3.x * speed * delta;
+        bPos.z -= _tempVec3.z * speed * delta;
       } else {
         let strafeDir = (Math.floor(now / 2000) + bot.id) % 2 === 0 ? 1 : -1;
-        let perp = new THREE.Vector3(-dir.z, 0, dir.x);
-        bPos.x += perp.x * speed * 0.85 * strafeDir * delta;
-        bPos.z += perp.z * speed * 0.85 * strafeDir * delta;
+        bPos.x += (-_tempVec3.z) * speed * 0.85 * strafeDir * delta;
+        bPos.z += _tempVec3.x * speed * 0.85 * strafeDir * delta;
       }
       bPos.y = getTerrainHeight(bPos.x, bPos.z);
 
-      if (now - bot.lastFire > bot.weapon.fireRate * diff.botFireRateMultiplier) {
+      // Shooting (only nearby bots shoot)
+      if (isNearby && now - bot.lastFire > bot.weapon.fireRate * diff.botFireRateMultiplier) {
         bot.lastFire = now;
         playSound(bot.weapon.sound, { x: bPos.x, y: bPos.y, z: bPos.z });
 
@@ -345,19 +366,17 @@ export function updateBots(delta) {
         if (Math.random() < bot.accuracy) {
           let isHeadshot = Math.random() > 0.9;
           if (bot.target === 'player') {
-            const botHeadPos = bot.mesh.position.clone().add(new THREE.Vector3(0, 5, 0));
-            const playerPosRef = state.controls.getObject().position;
-            const direction = new THREE.Vector3().subVectors(playerPosRef, botHeadPos).normalize();
+            const botHeadPos = _tempVec3.set(bPos.x, bPos.y + 5, bPos.z);
+            const direction = new THREE.Vector3().subVectors(playerPos, botHeadPos).normalize();
             const ray = new THREE.Raycaster(botHeadPos, direction, 0, 1000);
             const intersects = ray.intersectObjects(state.objects);
 
             let isBlocked = false;
-
             let insideHouse = getHousePlayerIsInside();
             if (insideHouse && !insideHouse.isOpen) {
               isBlocked = true;
             } else if (intersects.length > 0) {
-              if (intersects[0].distance < botHeadPos.distanceTo(playerPosRef)) {
+              if (intersects[0].distance < botHeadPos.distanceTo(playerPos)) {
                 if (intersects[0].object.userData.botIndex !== bot.id) {
                   isBlocked = true;
                 }
@@ -368,13 +387,10 @@ export function updateBots(delta) {
               let dmg = calcDamage(bot.weapon.damage * diff.botToPlayerDamageFactor, isHeadshot, state.player);
               playerHit(dmg);
             }
-          } else {
+          } else if (bot.target.mesh) {
             let dmg = calcDamage(bot.weapon.damage * 0.5, isHeadshot, bot.target);
             bot.target.health -= dmg;
-
-            let n = new THREE.Vector3(0, 1, 0);
-            spawnBlood(bot.target.mesh.position.clone().add(new THREE.Vector3(0, 4, 0)), n);
-
+            spawnBlood(bot.target.mesh.position.clone().add(new THREE.Vector3(0, 4, 0)), new THREE.Vector3(0, 1, 0));
             if (bot.target.health <= 0) {
               botDied(bot.target, "Bot " + bot.id);
               bot.target = null;
@@ -385,34 +401,35 @@ export function updateBots(delta) {
       }
     }
 
-    // House wall collision for bots
-    for (let i = 0; i < state.doors.length; i++) {
-      let d = state.doors[i];
-      let hPos = d.housePos;
-      let dx = bPos.x - hPos.x;
-      let dz = bPos.z - hPos.z;
-      let dy = bPos.y - hPos.y;
+    // House collision (simplified - only check nearby doors)
+    if (isNearby) {
+      for (let i = 0; i < state.doors.length; i++) {
+        let d = state.doors[i];
+        let hPos = d.housePos;
+        let dx = bPos.x - hPos.x;
+        let dz = bPos.z - hPos.z;
 
-      if (dy > 0 && dy < 24) {
-        let absX = Math.abs(dx);
-        let absZ = Math.abs(dz);
+        if (Math.abs(dx) > 20 || Math.abs(dz) > 20) continue;
 
-        if (absX < 16.2 && absZ < 16.2) {
-          let wallHit = false;
-
-          if ((dx >= -16.2 && dx <= -13.5 && dz >= -16.2 && dz <= 16.2) ||
-            (dx >= 13.5 && dx <= 16.2 && dz >= -16.2 && dz <= 16.2) ||
-            (dz >= -16.2 && dz <= -13.5 && dx >= -16.2 && dx <= 16.2) ||
-            (dz >= 13.5 && dz <= 16.2 && dx >= -16.2 && dx <= -3.1) ||
-            (dz >= 13.5 && dz <= 16.2 && dx >= 3.1 && dx <= 16.2) ||
-            (!d.isOpen && dz >= 13.5 && dz <= 16.2 && dx >= -3.25 && dx <= 3.25)) {
-            wallHit = true;
-          }
-
-          if (wallHit) {
-            bPos.x = oldBx;
-            bPos.z = oldBz;
-            break;
+        let dy = bPos.y - hPos.y;
+        if (dy > 0 && dy < 24) {
+          let absX = Math.abs(dx);
+          let absZ = Math.abs(dz);
+          if (absX < 16.2 && absZ < 16.2) {
+            let wallHit = false;
+            if ((dx >= -16.2 && dx <= -13.5 && dz >= -16.2 && dz <= 16.2) ||
+              (dx >= 13.5 && dx <= 16.2 && dz >= -16.2 && dz <= 16.2) ||
+              (dz >= -16.2 && dz <= -13.5 && dx >= -16.2 && dx <= 16.2) ||
+              (dz >= 13.5 && dz <= 16.2 && dx >= -16.2 && dx <= -3.1) ||
+              (dz >= 13.5 && dz <= 16.2 && dx >= 3.1 && dx <= 16.2) ||
+              (!d.isOpen && dz >= 13.5 && dz <= 16.2 && dx >= -3.25 && dx <= 3.25)) {
+              wallHit = true;
+            }
+            if (wallHit) {
+              bPos.x = oldBx;
+              bPos.z = oldBz;
+              break;
+            }
           }
         }
       }

@@ -14,34 +14,59 @@ import { addKillFeed } from '../ui/notices.js';
 import { updateUI } from '../ui/hud.js';
 import { showNotice } from '../ui/notices.js';
 
-export function initZombies() {
-  const zombieSkinMat = new THREE.MeshLambertMaterial({
-    color: 0x2d3b2a,
-    emissive: 0x182617,
-    emissiveIntensity: 0.5,
-    side: THREE.DoubleSide
-  });
-  const zombieClothMat = new THREE.MeshLambertMaterial({
-    color: 0x5a1818,
-    emissive: 0x2a0c0c,
-    emissiveIntensity: 0.5,
-    side: THREE.DoubleSide
-  });
-  const zombieDetailMat = new THREE.MeshLambertMaterial({
-    color: 0x8b0000,
-    emissive: 0x4a0000,
-    emissiveIntensity: 0.6,
-    side: THREE.DoubleSide
-  });
-  const eyeMat = new THREE.MeshBasicMaterial({ color: 0xeeff77 });
-  const darkMat = new THREE.MeshLambertMaterial({ color: 0x111111 });
-  const boneMat = new THREE.MeshLambertMaterial({ color: 0xddccaa });
+// ========== SHARED RESOURCES (created once) ==========
+const zombieSkinMat = new THREE.MeshLambertMaterial({
+  color: 0x2d3b2a,
+  emissive: 0x182617,
+  emissiveIntensity: 0.5,
+  side: THREE.DoubleSide
+});
+const zombieClothMat = new THREE.MeshLambertMaterial({
+  color: 0x5a1818,
+  emissive: 0x2a0c0c,
+  emissiveIntensity: 0.5,
+  side: THREE.DoubleSide
+});
+const zombieDetailMat = new THREE.MeshLambertMaterial({
+  color: 0x8b0000,
+  emissive: 0x4a0000,
+  emissiveIntensity: 0.6,
+  side: THREE.DoubleSide
+});
+const eyeMat = new THREE.MeshBasicMaterial({ color: 0xeeff77 });
+const darkMat = new THREE.MeshLambertMaterial({ color: 0x111111 });
+const boneMat = new THREE.MeshLambertMaterial({ color: 0xddccaa });
+const pupilMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
 
-  for (let i = 0; i < 100; i++) {
+// Shared geometries - reduced segments for performance
+const zGeos = {
+  torsoLower: new THREE.SphereGeometry(1.6, 8, 6),
+  torsoUpper: new THREE.SphereGeometry(1.4, 8, 6),
+  head: new THREE.SphereGeometry(1.1, 8, 8),
+  skull: new THREE.SphereGeometry(0.6, 6, 6),
+  neck: new THREE.CylinderGeometry(0.35, 0.45, 0.5, 6),
+  eye: new THREE.SphereGeometry(0.2, 6, 6),
+  pupil: new THREE.SphereGeometry(0.1, 6, 6),
+  bloodWound: new THREE.SphereGeometry(0.35, 6, 6),
+  jaw: new THREE.SphereGeometry(0.4, 6, 6),
+  rib: new THREE.TorusGeometry(0.8, 0.06, 4, 8, Math.PI),
+  armUpper: new THREE.CylinderGeometry(0.35, 0.3, 1.8, 6),
+  armLower: new THREE.CylinderGeometry(0.3, 0.25, 1.6, 6),
+  bone: new THREE.CylinderGeometry(0.08, 0.08, 1.2, 4),
+  hand: new THREE.SphereGeometry(0.25, 6, 6),
+  legUpper: new THREE.CylinderGeometry(0.45, 0.4, 2.0, 6),
+  legLower: new THREE.CylinderGeometry(0.4, 0.35, 1.8, 6),
+  boot: new THREE.BoxGeometry(0.5, 0.35, 0.9)
+};
+
+const ZOMBIE_COUNT = 60; // Reduced from 100
+
+export function initZombies() {
+  for (let i = 0; i < ZOMBIE_COUNT; i++) {
     const zombieGroup = new THREE.Group();
 
     let x, z;
-    if (i < 75 && state.housePositions.length > 0) {
+    if (i < 45 && state.housePositions.length > 0) {
       let house = state.housePositions[Math.floor(Math.random() * state.housePositions.length)];
       let angle = Math.random() * Math.PI * 2;
       let dist = 15 + Math.random() * 30;
@@ -58,115 +83,111 @@ export function initZombies() {
       continue;
     }
 
-    // Torso - torn clothes with exposed ribs
-    const torsoLower = new THREE.Mesh(new THREE.SphereGeometry(1.6, 12, 10), zombieClothMat);
+    // Build zombie using shared geometries
+    const torsoLower = new THREE.Mesh(zGeos.torsoLower, zombieClothMat);
     torsoLower.scale.set(1, 0.8, 0.7);
     torsoLower.position.y = 4.0;
 
-    const torsoUpper = new THREE.Mesh(new THREE.SphereGeometry(1.4, 12, 10), zombieClothMat);
+    const torsoUpper = new THREE.Mesh(zGeos.torsoUpper, zombieClothMat);
     torsoUpper.scale.set(1, 1.0, 0.7);
     torsoUpper.position.y = 5.5;
 
     // Exposed ribs
     for (let r = 0; r < 3; r++) {
-      const rib = new THREE.Mesh(new THREE.TorusGeometry(0.8 + r * 0.15, 0.06, 6, 12, Math.PI), boneMat);
+      const rib = new THREE.Mesh(zGeos.rib, boneMat);
       rib.position.set(0, 4.8 + r * 0.5, 0.6);
       rib.rotation.x = Math.PI / 2;
       zombieGroup.add(rib);
     }
 
     // Head - sphere with wounds
-    const head = new THREE.Mesh(new THREE.SphereGeometry(1.1, 12, 12), zombieSkinMat);
+    const head = new THREE.Mesh(zGeos.head, zombieSkinMat);
     head.position.y = 7.5;
 
     // Exposed skull
-    const skull = new THREE.Mesh(new THREE.SphereGeometry(0.6, 8, 8), boneMat);
+    const skull = new THREE.Mesh(zGeos.skull, boneMat);
     skull.position.set(-0.3, 8.0, 0.2);
 
     // Neck with exposed tendons
-    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, 0.5, 10), zombieSkinMat);
+    const neck = new THREE.Mesh(zGeos.neck, zombieSkinMat);
     neck.position.y = 6.8;
 
     // Glowing eyes
-    const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 10), eyeMat);
+    const eyeL = new THREE.Mesh(zGeos.eye, eyeMat);
     eyeL.position.set(-0.4, 7.7, 0.85);
-    const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 10), eyeMat);
+    const eyeR = new THREE.Mesh(zGeos.eye, eyeMat);
     eyeR.position.set(0.4, 7.7, 0.85);
 
     // Pupils
-    const pupilMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
-    const pupilL = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), pupilMat);
+    const pupilL = new THREE.Mesh(zGeos.pupil, pupilMat);
     pupilL.position.set(-0.4, 7.7, 1.0);
-    const pupilR = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), pupilMat);
+    const pupilR = new THREE.Mesh(zGeos.pupil, pupilMat);
     pupilR.position.set(0.4, 7.7, 1.0);
 
     // Blood wound on face
-    const bloodWound = new THREE.Mesh(new THREE.SphereGeometry(0.35, 10, 10), zombieDetailMat);
+    const bloodWound = new THREE.Mesh(zGeos.bloodWound, zombieDetailMat);
     bloodWound.position.set(0.3, 7.5, 0.9);
 
     // Jaw hanging
-    const jaw = new THREE.Mesh(new THREE.SphereGeometry(0.4, 8, 8), zombieSkinMat);
+    const jaw = new THREE.Mesh(zGeos.jaw, zombieSkinMat);
     jaw.position.set(0, 6.9, 0.8);
     jaw.scale.set(1, 0.5, 0.8);
 
     // Arms - outstretched zombie pose with exposed bone
-    const armUpperL = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.3, 1.8, 10), zombieSkinMat);
+    const armUpperL = new THREE.Mesh(zGeos.armUpper, zombieSkinMat);
     armUpperL.position.set(-2.0, 5.5, 0.8);
     armUpperL.rotation.z = 0.5;
     armUpperL.rotation.x = -0.8;
 
     // Exposed bone on arm
-    const boneL = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.2, 6), boneMat);
+    const boneL = new THREE.Mesh(zGeos.bone, boneMat);
     boneL.position.set(-2.4, 5.2, 1.3);
     boneL.rotation.z = 0.5;
     boneL.rotation.x = -0.8;
 
-    const armLowerL = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.25, 1.6, 10), zombieSkinMat);
+    const armLowerL = new THREE.Mesh(zGeos.armLower, zombieSkinMat);
     armLowerL.position.set(-2.8, 5.0, 1.8);
     armLowerL.rotation.z = 0.3;
     armLowerL.rotation.x = -1.2;
 
-    const armUpperR = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.3, 1.8, 8), zombieSkinMat);
+    const armUpperR = new THREE.Mesh(zGeos.armUpper, zombieSkinMat);
     armUpperR.position.set(2.0, 5.5, 0.8);
     armUpperR.rotation.z = -0.5;
     armUpperR.rotation.x = -0.8;
 
-    const armLowerR = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.25, 1.6, 8), zombieSkinMat);
+    const armLowerR = new THREE.Mesh(zGeos.armLower, zombieSkinMat);
     armLowerR.position.set(2.8, 5.0, 1.8);
     armLowerR.rotation.z = -0.3;
     armLowerR.rotation.x = -1.2;
 
     // Hands - claws
-    const handL = new THREE.Mesh(new THREE.SphereGeometry(0.25, 8, 8), zombieSkinMat);
+    const handL = new THREE.Mesh(zGeos.hand, zombieSkinMat);
     handL.position.set(-3.2, 4.5, 2.5);
-    const handR = new THREE.Mesh(new THREE.SphereGeometry(0.25, 8, 8), zombieSkinMat);
+    const handR = new THREE.Mesh(zGeos.hand, zombieSkinMat);
     handR.position.set(3.2, 4.5, 2.5);
 
     // Legs - shambling pose
-    const legUpperL = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.4, 2.0, 8), zombieClothMat);
+    const legUpperL = new THREE.Mesh(zGeos.legUpper, zombieClothMat);
     legUpperL.position.set(-0.7, 2.5, 0);
-
-    const legLowerL = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.35, 1.8, 8), zombieClothMat);
+    const legLowerL = new THREE.Mesh(zGeos.legLower, zombieClothMat);
     legLowerL.position.set(-0.7, 0.8, 0.3);
-
-    const legUpperR = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.4, 2.0, 8), zombieClothMat);
+    const legUpperR = new THREE.Mesh(zGeos.legUpper, zombieClothMat);
     legUpperR.position.set(0.7, 2.5, 0);
-
-    const legLowerR = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.35, 1.8, 8), zombieClothMat);
+    const legLowerR = new THREE.Mesh(zGeos.legLower, zombieClothMat);
     legLowerR.position.set(0.7, 0.8, 0.3);
 
     // Torn boots
-    const bootL = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.35, 0.9), darkMat);
+    const bootL = new THREE.Mesh(zGeos.boot, darkMat);
     bootL.position.set(-0.7, 0.2, 0.3);
-    const bootR = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.35, 0.9), darkMat);
+    const bootR = new THREE.Mesh(zGeos.boot, darkMat);
     bootR.position.set(0.7, 0.2, 0.3);
 
     // Add all parts
     const zombieModel = new THREE.Group();
     zombieModel.add(
-      torsoLower, torsoUpper, neck, head,
-      eyeL, eyeR, bloodWound,
-      armUpperL, armLowerL, handL,
+      torsoLower, torsoUpper, neck, head, skull, jaw,
+      eyeL, eyeR, pupilL, pupilR, bloodWound,
+      armUpperL, armLowerL, boneL, handL,
       armUpperR, armLowerR, handR,
       legUpperL, legLowerL, bootL,
       legUpperR, legLowerR, bootR
@@ -176,16 +197,19 @@ export function initZombies() {
     zombieGroup.position.set(x, y, z);
     state.scene.add(zombieGroup);
 
+    // Enable frustum culling for performance
     zombieGroup.traverse(child => {
       if (child.isMesh) {
-        child.frustumCulled = false;
+        child.frustumCulled = true;
       }
     });
 
-    body.userData = { isZombie: true, zombieIndex: state.zombies.length, isHeadshot: false };
+    // Set userData for raycasting
+    torsoLower.userData = { isZombie: true, zombieIndex: state.zombies.length, isHeadshot: false };
+    torsoUpper.userData = { isZombie: true, zombieIndex: state.zombies.length, isHeadshot: false };
     head.userData = { isZombie: true, zombieIndex: state.zombies.length, isHeadshot: true };
     bloodWound.userData = { isZombie: true, zombieIndex: state.zombies.length, isHeadshot: true };
-    state.objects.push(body, head, bloodWound);
+    state.objects.push(torsoLower, torsoUpper, head, bloodWound);
 
     state.zombies.push({
       id: state.zombies.length,
