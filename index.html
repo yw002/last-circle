@@ -6,7 +6,13 @@
 </head>
 <body>
     <div id="ui">
-        <div id="crosshair"></div>
+        <div id="crosshair">
+            <div class="crosshair-line top"></div>
+            <div class="crosshair-line bottom"></div>
+            <div class="crosshair-line left"></div>
+            <div class="crosshair-line right"></div>
+        </div>
+        <div id="fps-counter"></div>
         <div id="info"></div>
         <div id="interact-prompt">按 F 拾取物资</div>
         <div id="scope-overlay">
@@ -30,16 +36,18 @@
     <div id="hit-overlay"></div>
     <div id="zone-overlay"></div>
     <div id="overlay">
-        <div id="title">WEB PUBG</div>
-        <div id="subtitle">末日求生：丧尸感染爆发 (WASTELAND SURVIVAL: ZOMBIE OUTBREAK)</div>
+        <div id="title">ERANGEL</div>
+        <div id="subtitle">阳光海岛大逃杀 🌴 (Sunny Island Battle Royale)</div>
         <button id="start-btn">跳伞开始 (Deploy)</button>
         <div class="instructions">
+            <b>🏝️ 欢迎来到艾伦格！</b><br><br>
             <b>操作说明 (Controls)</b><br>
             <span class="key">W</span> <span class="key">A</span> <span class="key">S</span> <span class="key">D</span> 移动/跳伞控制 &nbsp;|&nbsp; 鼠标移动 视角<br>
             <span class="key">左键</span> 射击 &nbsp;|&nbsp; <span class="key">右键</span> 瞄准开镜 &nbsp;|&nbsp; <span class="key">Space</span> 跳跃 &nbsp;|&nbsp; <span class="key">Shift</span> 奔跑/加速降落<br>
-            <span class="key">R</span> 换弹 &nbsp;|&nbsp; <span class="key">1</span> <span class="key">2</span> 切换武器 &nbsp;|&nbsp; <span class="key">F</span> 拾取物资<br>
-            收集地上的物资以提高生存率：医疗包、护甲、头盔、武器、子弹、倍镜。<br>
-            拾取的武器弹匣为空，记得按 R 换弹！现在 AI 敌人也会与你一起跳伞。
+            <span class="key">R</span> 换弹 &nbsp;|&nbsp; <span class="key">1</span> <span class="key">2</span> 切换武器 &nbsp;|&nbsp; <span class="key">F</span> 拾取物资<br><br>
+            ☀️ 在这座美丽的海岛上，收集物资，击败对手，成为最后的幸存者！<br>
+            🌊 探索房屋寻找装备，小心潜伏的敌人和野生动物！<br>
+            🎯 拾取倍镜提升射击精度，合理利用掩体战术取胜！
         </div>
     </div>
     <script type="module" src="/src/main.js"></script>

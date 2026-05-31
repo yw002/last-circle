@@ -296,7 +296,8 @@ function initGrass() {
   const grassCount = 80000;
   const grassGeo = new THREE.CylinderGeometry(0.8, 2.5, 3.5, 4);
   grassGeo.translate(0, 1.75, 0);
-  const grassMat = new THREE.MeshLambertMaterial({ color: 0x4a7c2e });
+  // Deep forest green - not eye-searing
+  const grassMat = new THREE.MeshLambertMaterial({ color: 0x1B5E20 });
   const grassInstanced = new THREE.InstancedMesh(grassGeo, grassMat, grassCount);
 
   const dummy = new THREE.Object3D();
@@ -331,9 +332,10 @@ function initGrass() {
           dummy.updateMatrix();
           grassInstanced.setMatrixAt(gIdx, dummy.matrix);
 
+          // Deep forest green grass - not eye-searing
           let c = new THREE.Color();
-          if (y < 10) c.setHex(0x3d8c40);
-          else c.setHex(0x4a7c2e);
+          if (y < 10) c.setHex(0x0D3B0D);
+          else c.setHex(0x1B5E20);
           grassInstanced.setColorAt(gIdx, c);
 
           gIdx++;

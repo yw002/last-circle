@@ -2,5 +2,6 @@
 .claude
 dist/
 .DS_Store
+*.zip
 
 package-lock.json

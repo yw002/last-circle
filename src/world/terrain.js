@@ -83,19 +83,20 @@ export function initTerrain() {
     vertices[i + 1] = height;
 
     let color = new THREE.Color();
+    // Deep forest green - green mountains
     if (height < 2) {
-      color.setHex(0x2980b9);
+      color.setHex(0x0D47A1); // Deep dark blue water
     } else if (height < 5) {
-      color.setHex(0x3d8c40);
+      color.setHex(0x1B5E20); // Very deep green lowlands
     } else if (height < 15) {
-      color.setHex(0x4a7c2e);
+      color.setHex(0x2E7D32); // Deep forest green
     } else if (height < 30) {
-      color.setHex(0x556b2f);
+      color.setHex(0x33691E); // Dark olive green hills
     } else {
-      color.setHex(0x6b8e23);
+      color.setHex(0x558B2F); // Green mountains (not brown!)
     }
 
-    // Roads
+    // Roads - dirt path
     let roadFactor = 0;
     for (let rx = -MAP_SIZE / 2; rx < MAP_SIZE / 2; rx += 500) {
       if (Math.abs(x - rx) < 20) roadFactor = 0.5;
@@ -105,7 +106,7 @@ export function initTerrain() {
     }
 
     if (roadFactor > 0) {
-      color.lerp(new THREE.Color(0x555555), roadFactor);
+      color.lerp(new THREE.Color(0x5D4037), roadFactor); // Dark brown dirt road
     }
 
     colors.push(color.r, color.g, color.b);

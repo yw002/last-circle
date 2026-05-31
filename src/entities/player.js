@@ -15,6 +15,42 @@ import { zombieDied } from './zombies.js';
 import { killAnimal, getAllAnimals } from './animals.js';
 import { alienDied, getAllAliens } from './aliens.js';
 
+// Crosshair spread state
+let crosshairSpread = 0;
+const CROSSHAIR_SPREAD_DECAY = 3; // Slower recovery
+const CROSSHAIR_SPREAD_PER_SHOT = 2.0; // More spread per shot
+const CROSSHAIR_MAX_SPREAD = 5;
+
+export function updateCrosshairSpread(delta) {
+  // Recover spread over time
+  crosshairSpread = Math.max(0, crosshairSpread - CROSSHAIR_SPREAD_DECAY * delta);
+
+  // Update crosshair visual
+  const crosshair = document.getElementById('crosshair');
+  if (!crosshair) return;
+
+  // Calculate spread level (0-5)
+  const spreadLevel = Math.min(5, Math.floor(crosshairSpread));
+
+  // Update crosshair size directly via style
+  const baseSize = 40;
+  const sizeIncrease = spreadLevel * 12;
+  const newSize = baseSize + sizeIncrease;
+  crosshair.style.width = `${newSize}px`;
+  crosshair.style.height = `${newSize}px`;
+
+  // Add hit marker if recently hit
+  if (state.player.lastHitTime && Date.now() - state.player.lastHitTime < 100) {
+    crosshair.style.filter = 'hue-rotate(0deg) brightness(1.5)';
+  } else {
+    crosshair.style.filter = 'none';
+  }
+}
+
+function addCrosshairSpread() {
+  crosshairSpread = Math.min(CROSSHAIR_MAX_SPREAD, crosshairSpread + CROSSHAIR_SPREAD_PER_SHOT);
+}
+
 export function reloadWeapon() {
   if (state.player.isReloading || !state.player.weapon) return;
 
@@ -248,6 +284,43 @@ export function playerHit(dmg) {
   }
 }
 
+// Bullet spread amount based on weapon type and crosshair spread
+function getBulletSpread() {
+  const w = state.player.weapon;
+  let baseSpread = 0.01;
+
+  if (w.type === 'sniper') baseSpread = 0.002;
+  else if (w.type === 'ar') baseSpread = 0.008;
+  else if (w.type === 'smg') baseSpread = 0.012;
+  else if (w.type === 'shotgun') baseSpread = 0.025;
+  else if (w.type === 'pistol') baseSpread = 0.006;
+
+  // Add crosshair spread factor
+  const spreadMultiplier = 1 + crosshairSpread * 0.5;
+  return baseSpread * spreadMultiplier;
+}
+
+// Create bullet tracer line
+function createBulletTracer(startPos, endPos) {
+  const points = [startPos.clone(), endPos.clone()];
+  const geometry = new THREE.BufferGeometry().setFromPoints(points);
+  const material = new THREE.LineBasicMaterial({
+    color: 0xffff00,
+    transparent: true,
+    opacity: 0.8,
+    linewidth: 2
+  });
+  const line = new THREE.Line(geometry, material);
+  state.scene.add(line);
+
+  // Remove after short delay
+  setTimeout(() => {
+    state.scene.remove(line);
+    geometry.dispose();
+    material.dispose();
+  }, 80);
+}
+
 export function fireWeapon() {
   if (!state.player.alive || state.player.isParachuting || state.player.isReloading) return;
   let now = Date.now();
@@ -265,12 +338,15 @@ export function fireWeapon() {
   updateUI();
   playSound(state.player.weapon.sound);
 
+  // Add crosshair spread (CS:GO style)
+  addCrosshairSpread();
+
   const RECOIL_AMOUNT = 0.012;
   state.player.cameraRecoil += RECOIL_AMOUNT;
   if (state.player.cameraRecoil > 0.08) state.player.cameraRecoil = 0.08;
   const _re = new THREE.Euler(0, 0, 0, 'YXZ');
   _re.setFromQuaternion(state.camera.quaternion);
-  _re.x -= RECOIL_AMOUNT; // Camera looks UP on recoil (negative X = look up)
+  _re.x -= RECOIL_AMOUNT;
   _re.x = Math.max(_re.x, -1.5);
   _re.z = 0;
   state.camera.quaternion.setFromEuler(_re);
@@ -280,12 +356,22 @@ export function fireWeapon() {
   spawnMuzzleFlash(state.player.weapon.name);
 
   if (state.viewWeaponMesh) {
-    state.viewWeaponMesh.rotation.x += 0.3; // Gun model tilts UP on recoil
+    state.viewWeaponMesh.rotation.x += 0.3;
     state.viewWeaponMesh.position.z += 0.15;
   }
 
-  state.raycaster.setFromCamera(new THREE.Vector2(0, 0), state.camera);
+  // Apply bullet spread
+  const spread = getBulletSpread();
+  const spreadX = (Math.random() - 0.5) * spread * 2;
+  const spreadY = (Math.random() - 0.5) * spread * 2;
+
+  state.raycaster.setFromCamera(new THREE.Vector2(spreadX, spreadY), state.camera);
   const intersects = state.raycaster.intersectObjects(state.objects);
+
+  // Get gun position for tracer
+  const gunPos = state.camera.position.clone();
+  const gunDir = new THREE.Vector3(0, 0, -1).applyQuaternion(state.camera.quaternion);
+  const tracerStart = gunPos.clone().add(gunDir.clone().multiplyScalar(0.5));
 
   let coverHit = null;
   let targetHit = null;
@@ -301,6 +387,20 @@ export function fireWeapon() {
       if (!coverHit) coverHit = hit;
     }
   }
+
+  // Determine hit point for tracer
+  let hitPoint = null;
+  if (targetHit && (!coverHit || targetHit.distance < coverHit.distance)) {
+    hitPoint = targetHit.point;
+  } else if (coverHit) {
+    hitPoint = coverHit.point;
+  } else {
+    // No hit - tracer goes to max range
+    hitPoint = tracerStart.clone().add(state.raycaster.ray.direction.clone().multiplyScalar(state.player.weapon.range));
+  }
+
+  // Create bullet tracer
+  createBulletTracer(tracerStart, hitPoint);
 
   if (coverHit && (!targetHit || coverHit.distance < targetHit.distance)) {
     let n = coverHit.face ? coverHit.face.normal : new THREE.Vector3(0, 1, 0);

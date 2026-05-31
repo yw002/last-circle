@@ -12,7 +12,7 @@ import { initClouds, updateWeather } from './systems/weather.js';
 import { initZone, updateZone } from './systems/zone.js';
 import { initTerrain, getTerrainHeight } from './world/terrain.js';
 import { preGenerateHouses, initEnvironment } from './world/environment.js';
-import { updateWeaponModel, updatePlayer, fireWeapon } from './entities/player.js';
+import { updateWeaponModel, updatePlayer, fireWeapon, updateCrosshairSpread } from './entities/player.js';
 import { initBots, updateBots } from './entities/bots.js';
 import { initZombies, updateZombies } from './entities/zombies.js';
 import { initAnimals, updateAnimals } from './entities/animals.js';
@@ -39,10 +39,13 @@ function init() {
   // Initialize clouds
   initClouds();
 
-  // Set default weapon
-  const defaultWeapon = { ...weapons.find(w => w.name === 'M1911') };
+  // Set default weapon - random automatic rifle with full ammo
+  const autoRifles = weapons.filter(w => w.type === 'ar' || w.type === 'smg');
+  const defaultWeapon = { ...autoRifles[Math.floor(Math.random() * autoRifles.length)] };
+  defaultWeapon.ammo = defaultWeapon.maxAmmo; // Full magazine
   state.player.weapon = defaultWeapon;
   state.player.inventory = [defaultWeapon, null];
+  state.player.sharedAmmo = 300; // Start with 300 reserve ammo
 
   // Create first-person weapon model
   state.viewWeaponMesh = new THREE.Group();
@@ -125,6 +128,16 @@ function animate() {
     adaptQuality(fps);
   }
 
+  // Update FPS display
+  const fpsEl = document.getElementById('fps-counter');
+  if (fpsEl) {
+    fpsEl.textContent = `FPS: ${fps}`;
+    // Color based on FPS
+    if (fps >= 50) fpsEl.style.color = '#00ff00';
+    else if (fps >= 30) fpsEl.style.color = '#ffff00';
+    else fpsEl.style.color = '#ff0000';
+  }
+
   // Update audio listener position (throttled)
   if (time - state.prevTime > 50) {
     updateAudioListener(state.camera);
@@ -199,6 +212,7 @@ function animate() {
     updateWeather(delta);
     updateParticles(delta);
     updateMinimap();
+    updateCrosshairSpread(delta);
 
     // Auto-fire for fast weapons
     if (state.isMouseDown && state.player.weapon.fireRate <= 200) {

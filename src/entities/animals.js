@@ -506,24 +506,27 @@ export function updateAnimals(delta) {
         dir.y = 0;
         dir.normalize();
 
-        // Keep minimum distance from player
+        // Keep minimum distance from player - stronger pushback
         if (distToPlayer < COLLISION_DIST) {
           // Push away from player
-          animal.vx = -dir.x * 15;
-          animal.vz = -dir.z * 15;
-          aPos.x -= dir.x * (COLLISION_DIST - distToPlayer + 1);
-          aPos.z -= dir.z * (COLLISION_DIST - distToPlayer + 1);
+          animal.vx = -dir.x * 25;
+          animal.vz = -dir.z * 25;
+          aPos.x -= dir.x * (COLLISION_DIST - distToPlayer + 2);
+          aPos.z -= dir.z * (COLLISION_DIST - distToPlayer + 2);
         } else {
           animal.vx = dir.x * config.speed * 0.8;
           animal.vz = dir.z * config.speed * 0.8;
         }
         animal.mesh.lookAt(playerPos.x, aPos.y, playerPos.z);
 
-        if (distToPlayer < 5.0 && now > animal.attackCooldown) {
-          animal.attackCooldown = now + 1500;
-          // Push animal back after attack
-          animal.vx = -dir.x * 12;
-          animal.vz = -dir.z * 12;
+        if (distToPlayer < 6.0 && now > animal.attackCooldown) {
+          animal.attackCooldown = now + 2000;
+          // Push animal back after attack - very strong
+          animal.vx = -dir.x * 20;
+          animal.vz = -dir.z * 20;
+          // Move animal away immediately
+          aPos.x -= dir.x * 3;
+          aPos.z -= dir.z * 3;
           playerHit(config.damage || 15);
           showNotice(`⚠️ 被${getAnimalName(animal.type)}抓咬！(-${config.damage || 15} HP)`, "#e74c3c");
         }
@@ -550,23 +553,33 @@ export function updateAnimals(delta) {
     aPos.z += animal.vz * delta;
     aPos.y = getTerrainHeight(aPos.x, aPos.z);
 
-    // POST-MOVEMENT COLLISION CHECK - prevent animals from getting too close to player
-    const MIN_DIST = 5.0;
-    const newDist = aPos.distanceTo(playerPos);
-    if (newDist < MIN_DIST && animal.type !== 'fish') {
+    // POST-MOVEMENT COLLISION CHECK - prevent ANY animal from getting too close to player
+    const MIN_DIST = 10.0; // Large minimum distance
+    const dx = aPos.x - playerPos.x;
+    const dz = aPos.z - playerPos.z;
+    const newDistSq = dx * dx + dz * dz;
+    const minDistSq = MIN_DIST * MIN_DIST;
+
+    if (newDistSq < minDistSq && animal.type !== 'fish') {
+      const newDist = Math.sqrt(newDistSq);
       // Push animal away from player
-      const pushDir = new THREE.Vector3().subVectors(aPos, playerPos);
-      pushDir.y = 0;
-      pushDir.normalize();
+      const pushX = dx / newDist;
+      const pushZ = dz / newDist;
 
       // Teleport animal outside minimum distance
-      aPos.x = playerPos.x + pushDir.x * MIN_DIST;
-      aPos.z = playerPos.z + pushDir.z * MIN_DIST;
+      aPos.x = playerPos.x + pushX * MIN_DIST;
+      aPos.z = playerPos.z + pushZ * MIN_DIST;
       aPos.y = getTerrainHeight(aPos.x, aPos.z);
 
-      // Set velocity away from player
-      animal.vx = pushDir.x * 15;
-      animal.vz = pushDir.z * 15;
+      // Set velocity away from player - very strong pushback
+      animal.vx = pushX * 40;
+      animal.vz = pushZ * 40;
+
+      // Force animal to wander state to prevent re-charging
+      animal.state = 'wander';
+      animal.attackCooldown = now + 5000;
+      animal.changeDirTime = now + 3000;
+      animal.fearCooldown = now + 4000;
     }
 
     // Keep fish in water

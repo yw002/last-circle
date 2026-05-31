@@ -19,12 +19,86 @@ body {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 6px;
-  height: 6px;
-  background: rgba(0, 255, 0, 0.8);
+  width: 40px;
+  height: 40px;
   transform: translate(-50%, -50%);
-  box-shadow: 0 0 4px black;
-  border-radius: 50%;
+  pointer-events: none;
+  z-index: 10;
+  background: transparent !important;
+}
+
+/* Crosshair lines - 4 separate lines with gap in center */
+.crosshair-line {
+  position: absolute;
+  background: #00ff00;
+  box-shadow: 0 0 3px rgba(0, 0, 0, 0.9);
+  transition: all 0.08s ease-out;
+}
+
+/* Top line */
+.crosshair-line.top {
+  width: 2px;
+  height: 12px;
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%);
+}
+
+/* Bottom line */
+.crosshair-line.bottom {
+  width: 2px;
+  height: 12px;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+}
+
+/* Left line */
+.crosshair-line.left {
+  width: 12px;
+  height: 2px;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+}
+
+/* Right line */
+.crosshair-line.right {
+  width: 12px;
+  height: 2px;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+}
+
+/* Dynamic spread - lines move outward when shooting */
+#crosshair.spread-1 { width: 50px; height: 50px; }
+#crosshair.spread-2 { width: 60px; height: 60px; }
+#crosshair.spread-3 { width: 72px; height: 72px; }
+#crosshair.spread-4 { width: 86px; height: 86px; }
+#crosshair.spread-5 { width: 100px; height: 100px; }
+
+/* Hit marker */
+#crosshair.hit .crosshair-line {
+  background: rgba(255, 50, 50, 1);
+  box-shadow: 0 0 4px rgba(255, 0, 0, 0.8);
+}
+
+/* FPS Counter */
+#fps-counter {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  color: #00ff00;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 16px;
+  font-weight: bold;
+  text-shadow: 1px 1px 2px black, -1px -1px 2px black;
+  z-index: 100;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 4px 8px;
+  border-radius: 4px;
 }
 
 #info {
@@ -103,7 +177,7 @@ body {
   left: 0;
   width: 100%;
   height: 100%;
-  background: radial-gradient(circle, #2a0000 0%, #030000 100%);
+  background: linear-gradient(180deg, #87CEEB 0%, #4FC3F7 30%, #29B6F6 60%, #0288D1 100%);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -112,81 +186,82 @@ body {
   z-index: 10;
 }
 
-@keyframes bloodGlitch {
-  0% { transform: translate(0, 0) skew(0deg); text-shadow: 3px 3px 0 #aa0000, -3px -3px 0 #330000; }
-  12% { transform: translate(-2px, 1px) skew(-2deg); text-shadow: 4px -2px 0 #dd0000, -4px 1px 0 #550000; }
-  24% { transform: translate(1px, -2px) skew(1deg); text-shadow: -2px 4px 0 #880000, 3px -2px 0 #220000; }
-  36% { transform: translate(0, 0) skew(0deg); text-shadow: 3px 3px 0 #aa0000, -3px -3px 0 #330000; }
-  100% { transform: translate(0, 0) skew(0deg); text-shadow: 3px 3px 0 #aa0000, -3px -3px 0 #330000; }
+@keyframes titleGlow {
+  0% { text-shadow: 0 0 20px rgba(255,255,255,0.5), 2px 2px 4px rgba(0,0,0,0.3); }
+  50% { text-shadow: 0 0 40px rgba(255,255,255,0.8), 2px 2px 4px rgba(0,0,0,0.3); }
+  100% { text-shadow: 0 0 20px rgba(255,255,255,0.5), 2px 2px 4px rgba(0,0,0,0.3); }
 }
 
 #title {
-  color: #8b0000;
-  font-size: 76px;
+  color: #ffffff;
+  font-size: 86px;
   font-weight: 900;
-  letter-spacing: 4px;
+  letter-spacing: 8px;
   text-transform: uppercase;
-  margin-bottom: 5px;
+  margin-bottom: 10px;
   text-align: center;
   font-family: "Impact", "Georgia", serif;
-  animation: bloodGlitch 1.6s infinite linear;
+  animation: titleGlow 3s infinite ease-in-out;
+  text-shadow: 0 0 30px rgba(255,255,255,0.6), 3px 3px 6px rgba(0,0,0,0.4);
 }
 
 #subtitle {
-  color: #f39c12;
-  font-size: 25px;
+  color: #fff9c4;
+  font-size: 28px;
   margin-bottom: 40px;
-  text-shadow: 2px 2px 4px black;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
   font-weight: bold;
   font-family: "Trebuchet MS", sans-serif;
-  letter-spacing: 1px;
+  letter-spacing: 2px;
 }
 
 #start-btn {
-  padding: 18px 55px;
-  font-size: 28px;
+  padding: 20px 60px;
+  font-size: 30px;
   cursor: pointer;
-  background: linear-gradient(180deg, #900, #400);
-  border: 2px solid #b00;
+  background: linear-gradient(180deg, #FF9800, #F57C00);
+  border: 3px solid #FFB74D;
   color: #fff;
   font-weight: bold;
-  border-radius: 8px;
-  transition: 0.2s;
-  box-shadow: 0 0 15px #900;
+  border-radius: 50px;
+  transition: 0.3s;
+  box-shadow: 0 8px 20px rgba(255,152,0,0.4);
   text-transform: uppercase;
   font-family: "Impact", sans-serif;
-  letter-spacing: 1px;
+  letter-spacing: 2px;
 }
 
 #start-btn:hover {
-  background: linear-gradient(180deg, #c00, #600);
-  transform: scale(1.05);
-  box-shadow: 0 0 25px #f00, inset 0 0 10px rgba(0,0,0,0.5);
+  background: linear-gradient(180deg, #FFB74D, #FF9800);
+  transform: scale(1.08);
+  box-shadow: 0 12px 30px rgba(255,152,0,0.6);
 }
 
 .instructions {
-  color: #ddd;
+  color: #333;
   margin-top: 40px;
   text-align: center;
   line-height: 1.8;
-  font-size: 17px;
-  text-shadow: 1px 1px 2px black;
-  background: rgba(0,0,0,0.7);
-  border: 1px solid #4a0000;
-  padding: 20px;
+  font-size: 16px;
+  text-shadow: none;
+  background: rgba(255,255,255,0.85);
+  border: 2px solid rgba(255,255,255,0.9);
+  padding: 25px 35px;
   border-radius: 8px;
-  box-shadow: 0 0 10px rgba(0,0,0,0.5);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+  border-radius: 16px;
 }
 
 .key {
   display: inline-block;
-  background: #222;
-  color: #ff3333;
-  padding: 2px 8px;
-  border-radius: 4px;
-  border: 1px solid #4a0000;
+  background: #e3f2fd;
+  color: #1565C0;
+  padding: 3px 10px;
+  border-radius: 6px;
+  border: 2px solid #90CAF9;
   font-family: monospace;
   font-weight: bold;
+  font-size: 14px;
 }
 
 #hit-overlay {
