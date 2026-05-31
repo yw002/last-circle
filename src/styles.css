@@ -84,10 +84,10 @@ body {
   box-shadow: 0 0 4px rgba(255, 0, 0, 0.8);
 }
 
-/* FPS Counter - positioned below kill feed */
+/* FPS Counter - positioned above kill feed */
 #fps-counter {
   position: absolute;
-  top: 120px;
+  top: 5px;
   right: 20px;
   color: #00ff00;
   font-family: 'Consolas', 'Monaco', monospace;
@@ -162,7 +162,7 @@ body {
 
 #kill-feed {
   position: absolute;
-  top: 20px;
+  top: 35px;
   right: 20px;
   color: white;
   text-shadow: 1px 1px 3px black;
