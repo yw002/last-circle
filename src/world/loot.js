@@ -1,9 +1,83 @@
-// Loot system: spawning, pickup, weapon meshes
+// Loot system: Optimized with shared resources
 
 import * as THREE from 'three';
 import { state } from '../state.js';
 import { weapons, equipments, scopes } from '../config.js';
 import { getTerrainHeight } from './terrain.js';
+
+// ========== SHARED RESOURCES ==========
+const sharedMats = {
+  dark: new THREE.MeshLambertMaterial({ color: 0x111111 }),
+  wood: new THREE.MeshLambertMaterial({ color: 0x8b4513 }),
+  metal: new THREE.MeshLambertMaterial({ color: 0x888888 }),
+  ammo: new THREE.MeshLambertMaterial({ color: 0x27ae60, emissive: 0x27ae60, emissiveIntensity: 0.4 }),
+  health: new THREE.MeshLambertMaterial({ color: 0xe74c3c, emissive: 0xe74c3c, emissiveIntensity: 0.4 }),
+  bubble: new THREE.MeshBasicMaterial({ color: 0xf1c40f, transparent: true, opacity: 0.15, side: THREE.DoubleSide, depthWrite: false }),
+  ring: new THREE.MeshBasicMaterial({ color: 0xf1c40f, transparent: true, opacity: 0.6 })
+};
+
+const sharedGeos = {
+  // Weapon parts
+  bodyAR: new THREE.BoxGeometry(0.4, 0.8, 4),
+  bodySMG: new THREE.BoxGeometry(0.4, 0.8, 3),
+  bodySniper: new THREE.BoxGeometry(0.4, 0.8, 6),
+  barrelAR: new THREE.CylinderGeometry(0.1, 0.12, 3.5, 6),
+  barrelSMG: new THREE.CylinderGeometry(0.1, 0.12, 2, 6),
+  barrelSniper: new THREE.CylinderGeometry(0.1, 0.12, 5, 6),
+  stock: new THREE.BoxGeometry(0.4, 0.6, 2.5),
+  grip: new THREE.BoxGeometry(0.3, 1.2, 0.5),
+  mag: new THREE.BoxGeometry(0.35, 1.5, 0.8),
+  sight: new THREE.BoxGeometry(0.1, 0.3, 0.2),
+
+  // Shotgun
+  bodyShotgun: new THREE.BoxGeometry(0.4, 0.6, 3),
+  barrelShotgun: new THREE.CylinderGeometry(0.15, 0.15, 4, 6),
+  stockShotgun: new THREE.BoxGeometry(0.4, 0.8, 2.5),
+
+  // Pistol
+  bodyPistol: new THREE.BoxGeometry(0.3, 0.5, 1.8),
+  gripPistol: new THREE.BoxGeometry(0.3, 1.0, 0.6),
+
+  // Throwable
+  grenade: new THREE.SphereGeometry(0.5, 6, 6),
+  pin: new THREE.BoxGeometry(0.2, 0.4, 0.2),
+  flashbang: new THREE.CylinderGeometry(0.3, 0.3, 1.2, 6),
+
+  // Melee
+  panBody: new THREE.CylinderGeometry(1.2, 1.0, 0.2, 12),
+  panHandle: new THREE.CylinderGeometry(0.15, 0.15, 2, 6),
+  macheteBlade: new THREE.BoxGeometry(0.1, 2.5, 0.5),
+  macheteHandle: new THREE.CylinderGeometry(0.15, 0.15, 1.2, 6),
+
+  // Loot items
+  ammoBox: new THREE.BoxGeometry(1.5, 1, 1),
+  healthBox: new THREE.BoxGeometry(2, 2, 2),
+  scopeCylinder: new THREE.CylinderGeometry(0.5, 0.5, 2, 6),
+  helmetSphere: new THREE.SphereGeometry(1.5, 6, 6),
+  armorBox: new THREE.BoxGeometry(3, 3, 0.5),
+
+  // Effects
+  bubble: new THREE.SphereGeometry(2.5, 12, 12),
+  ring: new THREE.TorusGeometry(2, 0.1, 6, 24)
+};
+
+// Material cache for weapon colors
+const weaponMatCache = {};
+function getWeaponMat(color) {
+  if (!weaponMatCache[color]) {
+    weaponMatCache[color] = new THREE.MeshLambertMaterial({ color });
+  }
+  return weaponMatCache[color];
+}
+
+// Scope material cache
+const scopeMatCache = {};
+function getScopeMat(color) {
+  if (!scopeMatCache[color]) {
+    scopeMatCache[color] = new THREE.MeshLambertMaterial({ color });
+  }
+  return scopeMatCache[color];
+}
 
 export function createTextSprite(text, color) {
   const canvas = document.createElement('canvas');
@@ -48,91 +122,90 @@ export function createTextSprite(text, color) {
 
 export function createWeaponMesh(weaponData, scaleMultiplier = 1.0) {
   const group = new THREE.Group();
-  let c = weaponData ? weaponData.color : 0x333333;
-  const mat = new THREE.MeshLambertMaterial({ color: c });
-  const darkMat = new THREE.MeshLambertMaterial({ color: 0x111111 });
-  const woodMat = new THREE.MeshLambertMaterial({ color: 0x8b4513 });
-  const metalMat = new THREE.MeshLambertMaterial({ color: 0x888888 });
-
   if (!weaponData) return group;
 
+  const mat = getWeaponMat(weaponData.color);
+
   if (weaponData.type === 'ar' || weaponData.type === 'smg' || weaponData.type === 'sniper') {
+    let bodyGeo = weaponData.type === 'sniper' ? sharedGeos.bodySniper :
+                  (weaponData.type === 'smg' ? sharedGeos.bodySMG : sharedGeos.bodyAR);
+    let barrelGeo = weaponData.type === 'sniper' ? sharedGeos.barrelSniper :
+                    (weaponData.type === 'smg' ? sharedGeos.barrelSMG : sharedGeos.barrelAR);
     let bodyLen = weaponData.type === 'sniper' ? 6 : (weaponData.type === 'smg' ? 3 : 4);
-    let bodyMat = (weaponData.name === 'Kar98k' || weaponData.name === 'Thompson') ? woodMat : mat;
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.8, bodyLen), bodyMat);
+    let barrelLen = weaponData.type === 'sniper' ? 5 : (weaponData.type === 'smg' ? 2 : 3.5);
+
+    let bodyMat = (weaponData.name === 'Kar98k' || weaponData.name === 'Thompson') ? sharedMats.wood : mat;
+    const body = new THREE.Mesh(bodyGeo, bodyMat);
     body.position.set(0, 0, 0);
 
-    let barrelLen = weaponData.type === 'sniper' ? 5 : (weaponData.type === 'smg' ? 2 : 3.5);
-    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, barrelLen, 8), darkMat);
+    const barrel = new THREE.Mesh(barrelGeo, sharedMats.dark);
     barrel.rotation.x = Math.PI / 2;
     barrel.position.set(0, 0.2, -bodyLen / 2 - barrelLen / 2);
 
-    let stockLen = 2.5;
-    const stock = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.6, stockLen), bodyMat);
-    stock.position.set(0, -0.1, bodyLen / 2 + stockLen / 2);
+    const stock = new THREE.Mesh(sharedGeos.stock, bodyMat);
+    stock.position.set(0, -0.1, bodyLen / 2 + 2.5 / 2);
 
-    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.2, 0.5), darkMat);
+    const grip = new THREE.Mesh(sharedGeos.grip, sharedMats.dark);
     grip.rotation.x = -Math.PI / 8;
     grip.position.set(0, -0.8, bodyLen / 2 - 0.5);
 
-    if (weaponData.type !== 'sniper' || weaponData.name === 'SKS' || weaponData.name === 'Mini14' || weaponData.name === 'Mk14' || weaponData.name === 'SLR') {
-      const mag = new THREE.Mesh(new THREE.BoxGeometry(0.35, 1.5, 0.8), darkMat);
+    group.add(body, barrel, stock, grip);
+
+    if (weaponData.type !== 'sniper' || ['SKS', 'Mini14', 'Mk14', 'SLR'].includes(weaponData.name)) {
+      const mag = new THREE.Mesh(sharedGeos.mag, sharedMats.dark);
       mag.rotation.x = Math.PI / 16;
       mag.position.set(0, -1.0, -bodyLen / 4);
       group.add(mag);
     }
 
-    group.add(body, barrel, stock, grip);
-
     if (weaponData.scope) {
       const scopeColor = scopes.find(s => s.name === weaponData.scope.name).color;
-      const scopeMat = new THREE.MeshLambertMaterial({ color: scopeColor });
-      const scopeMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 1.5, 8), scopeMat);
+      const scopeMat = getScopeMat(scopeColor);
+      const scopeMesh = new THREE.Mesh(sharedGeos.scopeCylinder, scopeMat);
       scopeMesh.rotation.x = Math.PI / 2;
       scopeMesh.position.set(0, 0.6, 0);
       group.add(scopeMesh);
     } else {
-      const sight = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.3, 0.2), darkMat);
+      const sight = new THREE.Mesh(sharedGeos.sight, sharedMats.dark);
       sight.position.set(0, 0.5, -bodyLen / 2 + 0.5);
       group.add(sight);
     }
-
   } else if (weaponData.type === 'shotgun') {
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.6, 3), mat);
-    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 4, 8), darkMat);
+    const body = new THREE.Mesh(sharedGeos.bodyShotgun, mat);
+    const barrel = new THREE.Mesh(sharedGeos.barrelShotgun, sharedMats.dark);
     barrel.rotation.x = Math.PI / 2;
     barrel.position.set(0, 0.2, -3.5);
-    const stock = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.8, 2.5), woodMat);
+    const stock = new THREE.Mesh(sharedGeos.stockShotgun, sharedMats.wood);
     stock.position.set(0, -0.2, 2.75);
     group.add(body, barrel, stock);
   } else if (weaponData.type === 'pistol') {
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.5, 1.8), mat);
-    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.0, 0.6), darkMat);
+    const body = new THREE.Mesh(sharedGeos.bodyPistol, mat);
+    const grip = new THREE.Mesh(sharedGeos.gripPistol, sharedMats.dark);
     grip.rotation.x = -Math.PI / 8;
     grip.position.set(0, -0.6, 0.5);
     group.add(body, grip);
   } else if (weaponData.type === 'throwable') {
     if (weaponData.name === 'Grenade') {
-      const nade = new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 8), mat);
-      const pin = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.4, 0.2), metalMat);
+      const nade = new THREE.Mesh(sharedGeos.grenade, mat);
+      const pin = new THREE.Mesh(sharedGeos.pin, sharedMats.metal);
       pin.position.set(0, 0.6, 0);
       group.add(nade, pin);
     } else if (weaponData.name === 'Flashbang') {
-      const flash = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 1.2, 8), mat);
-      const pin = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.3, 0.2), metalMat);
+      const flash = new THREE.Mesh(sharedGeos.flashbang, mat);
+      const pin = new THREE.Mesh(sharedGeos.pin, sharedMats.metal);
       pin.position.set(0, 0.7, 0);
       group.add(flash, pin);
     }
   } else if (weaponData.type === 'melee') {
     if (weaponData.name === 'Pan') {
-      const panBody = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.0, 0.2, 16), darkMat);
+      const panBody = new THREE.Mesh(sharedGeos.panBody, sharedMats.dark);
       panBody.rotation.x = Math.PI / 2;
-      const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 2, 8), mat);
+      const handle = new THREE.Mesh(sharedGeos.panHandle, mat);
       handle.position.set(0, -1.8, 0);
       group.add(panBody, handle);
     } else if (weaponData.name === 'Machete') {
-      const blade = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.5, 0.5), metalMat);
-      const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 1.2, 8), woodMat);
+      const blade = new THREE.Mesh(sharedGeos.macheteBlade, sharedMats.metal);
+      const handle = new THREE.Mesh(sharedGeos.macheteHandle, sharedMats.wood);
       handle.position.set(0, -1.8, 0);
       group.add(blade, handle);
     }
@@ -142,11 +215,23 @@ export function createWeaponMesh(weaponData, scaleMultiplier = 1.0) {
   return group;
 }
 
+function getLootBubbleColor(type) {
+  switch (type) {
+    case 'weapon': return 0xf1c40f;
+    case 'ammo': return 0x2ecc71;
+    case 'health': return 0xe74c3c;
+    case 'scope': return 0x9b59b6;
+    case 'helmet':
+    case 'armor': return 0x3498db;
+    default: return 0xffffff;
+  }
+}
+
 export function spawnLoot(bx, by, bz) {
-  for (let i = 0; i < 12; i++) {
-    let lx = bx + (Math.random() - 0.5) * 50;
-    let lz = bz + (Math.random() - 0.5) * 50;
-    let ly = getTerrainHeight(lx, lz) + 3.0; // Higher above ground
+  for (let i = 0; i < 8; i++) { // Reduced from 12
+    let lx = bx + (Math.random() - 0.5) * 40;
+    let lz = bz + (Math.random() - 0.5) * 40;
+    let ly = getTerrainHeight(lx, lz) + 3.0;
 
     if (ly < 1) continue;
 
@@ -158,68 +243,50 @@ export function spawnLoot(bx, by, bz) {
       type = "weapon";
       itemData = weapons[Math.floor(Math.random() * weapons.length)];
       mesh = createWeaponMesh(itemData, 1.5);
-      // Don't rotate - weapons stay upright for horizontal spinning
     } else if (r < 0.65) {
       type = "ammo";
-      let color = 0x27ae60;
-      let geo = new THREE.BoxGeometry(1.5, 1, 1);
-      let mat = new THREE.MeshLambertMaterial({ color: color, emissive: color, emissiveIntensity: 0.4 });
-      mesh = new THREE.Mesh(geo, mat);
+      mesh = new THREE.Mesh(sharedGeos.ammoBox, sharedMats.ammo);
       itemData = { name: "弹药箱 (60发)", amount: 60 };
     } else if (r < 0.75) {
       type = "health";
-      let color = 0xe74c3c;
-      let geo = new THREE.BoxGeometry(2, 2, 2);
-      let mat = new THREE.MeshLambertMaterial({ color: color, emissive: color, emissiveIntensity: 0.4 });
-      mesh = new THREE.Mesh(geo, mat);
+      mesh = new THREE.Mesh(sharedGeos.healthBox, sharedMats.health);
     } else if (r < 0.85) {
       type = "scope";
       itemData = scopes[Math.floor(Math.random() * scopes.length)];
-      let color = itemData.color;
-      let geo = new THREE.CylinderGeometry(0.5, 0.5, 2, 8);
-      let mat = new THREE.MeshLambertMaterial({ color: color, emissive: color, emissiveIntensity: 0.4 });
-      mesh = new THREE.Mesh(geo, mat);
+      mesh = new THREE.Mesh(sharedGeos.scopeCylinder, getScopeMat(itemData.color));
     } else if (r < 0.92) {
       type = "helmet";
       let lvls = [0, 0, 1, 1, 2];
       itemData = equipments.filter(e => e.type === "helmet")[lvls[Math.floor(Math.random() * lvls.length)]];
-      let color = itemData.color;
-      let geo = new THREE.SphereGeometry(1.5, 8, 8);
-      let mat = new THREE.MeshLambertMaterial({ color: color, emissive: color, emissiveIntensity: 0.4 });
-      mesh = new THREE.Mesh(geo, mat);
+      mesh = new THREE.Mesh(sharedGeos.helmetSphere, getWeaponMat(itemData.color));
     } else {
       type = "armor";
       let lvls = [0, 0, 1, 1, 2];
       itemData = equipments.filter(e => e.type === "armor")[lvls[Math.floor(Math.random() * lvls.length)]];
-      let color = itemData.color;
-      let geo = new THREE.BoxGeometry(3, 3, 0.5);
-      let mat = new THREE.MeshLambertMaterial({ color: color, emissive: color, emissiveIntensity: 0.4 });
-      mesh = new THREE.Mesh(geo, mat);
+      mesh = new THREE.Mesh(sharedGeos.armorBox, getWeaponMat(itemData.color));
     }
 
     mesh.position.set(lx, ly, lz);
 
-    // Add glowing bubble around loot
-    const bubbleGeo = new THREE.SphereGeometry(2.5, 16, 16);
+    // Add glowing bubble
+    const bubbleColor = getLootBubbleColor(type);
     const bubbleMat = new THREE.MeshBasicMaterial({
-      color: getLootBubbleColor(type),
+      color: bubbleColor,
       transparent: true,
       opacity: 0.15,
       side: THREE.DoubleSide,
       depthWrite: false
     });
-    const bubble = new THREE.Mesh(bubbleGeo, bubbleMat);
+    const bubble = new THREE.Mesh(sharedGeos.bubble, bubbleMat);
     bubble.position.y = 0.5;
     mesh.add(bubble);
 
-    // Add inner glow ring
-    const ringGeo = new THREE.TorusGeometry(2, 0.1, 8, 32);
     const ringMat = new THREE.MeshBasicMaterial({
-      color: getLootBubbleColor(type),
+      color: bubbleColor,
       transparent: true,
       opacity: 0.6
     });
-    const ring = new THREE.Mesh(ringGeo, ringMat);
+    const ring = new THREE.Mesh(sharedGeos.ring, ringMat);
     ring.position.y = 0.5;
     ring.rotation.x = Math.PI / 2;
     mesh.add(ring);
@@ -241,57 +308,39 @@ export function spawnLoot(bx, by, bz) {
   }
 }
 
-function getLootBubbleColor(type) {
-  switch (type) {
-    case 'weapon': return 0xf1c40f;
-    case 'ammo': return 0x2ecc71;
-    case 'health': return 0xe74c3c;
-    case 'scope': return 0x9b59b6;
-    case 'helmet':
-    case 'armor': return 0x3498db;
-    default: return 0xffffff;
-  }
-}
-
 export function spawnSingleLoot(lx, ly, lz, forceType = null) {
   let type = forceType || "ammo";
   let itemData = null;
-  let color = 0xffffff;
-  let geo = new THREE.BoxGeometry(2, 2, 2);
+  let mesh;
 
   if (type === "health") {
-    color = 0xe74c3c;
-  } else if (type === "ammo") {
-    color = 0x27ae60;
-    geo = new THREE.BoxGeometry(1.5, 1, 1);
+    mesh = new THREE.Mesh(sharedGeos.healthBox, sharedMats.health);
+  } else {
+    mesh = new THREE.Mesh(sharedGeos.ammoBox, sharedMats.ammo);
     itemData = { name: "弹药箱 (60发)", amount: 60 };
   }
 
-  const mat = new THREE.MeshLambertMaterial({ color: color, emissive: color, emissiveIntensity: 0.4 });
-  const mesh = new THREE.Mesh(geo, mat);
-  mesh.position.set(lx, ly + 3.0, lz); // Higher above ground
+  mesh.position.set(lx, ly + 3.0, lz);
 
-  // Add glowing bubble
-  const bubbleGeo = new THREE.SphereGeometry(2.5, 16, 16);
+  // Add bubble
+  const bubbleColor = type === 'health' ? 0xe74c3c : 0x2ecc71;
   const bubbleMat = new THREE.MeshBasicMaterial({
-    color: type === 'health' ? 0xe74c3c : 0x2ecc71,
+    color: bubbleColor,
     transparent: true,
     opacity: 0.15,
     side: THREE.DoubleSide,
     depthWrite: false
   });
-  const bubble = new THREE.Mesh(bubbleGeo, bubbleMat);
+  const bubble = new THREE.Mesh(sharedGeos.bubble, bubbleMat);
   bubble.position.y = 0.5;
   mesh.add(bubble);
 
-  // Add ring
-  const ringGeo = new THREE.TorusGeometry(2, 0.1, 8, 32);
   const ringMat = new THREE.MeshBasicMaterial({
-    color: type === 'health' ? 0xe74c3c : 0x2ecc71,
+    color: bubbleColor,
     transparent: true,
     opacity: 0.6
   });
-  const ring = new THREE.Mesh(ringGeo, ringMat);
+  const ring = new THREE.Mesh(sharedGeos.ring, ringMat);
   ring.position.y = 0.5;
   ring.rotation.x = Math.PI / 2;
   mesh.add(ring);

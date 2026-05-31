@@ -66,25 +66,13 @@ export function spawnMuzzleFlash(weaponName) {
     state.viewWeaponMesh.add(state.muzzleLight);
   }
 
-  // Set position based on weapon
-  let offsetZ = -0.6;
-  let offsetY = 0.08;
-  if (weaponName === 'M1911' || weaponName === 'P92' || weaponName === 'Desert Eagle') {
-    offsetZ = -0.4;
-    offsetY = 0.06;
-  } else if (weaponName === 'S686' || weaponName === 'S1897') {
-    offsetZ = -0.8;
-    offsetY = 0.06;
-  } else if (weaponName === 'Kar98k' || weaponName === 'M24' || weaponName === 'AWM') {
-    offsetZ = -1.0;
-    offsetY = 0.06;
-  } else if (weaponName === 'UZI' || weaponName === 'Vector') {
-    offsetZ = -0.35;
-    offsetY = 0.05;
-  }
+  // Position at gun barrel tip (front of weapon model)
+  // The weapon model extends from z=0 to z=-1.2 approximately
+  const barrelTipZ = -1.2;
+  const barrelTipY = 0.06;
 
-  state.muzzleFlash.position.set(0, offsetY, offsetZ);
-  state.muzzleLight.position.set(0, offsetY, offsetZ);
+  state.muzzleFlash.position.set(0, barrelTipY, barrelTipZ);
+  state.muzzleLight.position.set(0, barrelTipY, barrelTipZ);
 
   // Random rotation for variety
   state.muzzleFlash.rotation.z = Math.random() * Math.PI;

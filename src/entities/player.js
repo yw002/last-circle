@@ -300,6 +300,20 @@ function getBulletSpread() {
   return baseSpread * spreadMultiplier;
 }
 
+// Get the world position of the gun barrel tip
+function getGunBarrelPosition() {
+  if (!state.viewWeaponMesh) return state.camera.position.clone();
+
+  // Gun barrel tip is at the front of the weapon (negative Z in local space)
+  const barrelTipLocal = new THREE.Vector3(0, 0.06, -1.2);
+  const barrelTipWorld = barrelTipLocal.clone();
+
+  // Transform from weapon local space to world space
+  state.viewWeaponMesh.localToWorld(barrelTipWorld);
+
+  return barrelTipWorld;
+}
+
 // Create bullet tracer line
 function createBulletTracer(startPos, endPos) {
   const points = [startPos.clone(), endPos.clone()];
@@ -321,15 +335,23 @@ function createBulletTracer(startPos, endPos) {
   }, 80);
 }
 
+// Cooldown for empty magazine notice
+let lastEmptyNoticeTime = 0;
+
 export function fireWeapon() {
   if (!state.player.alive || state.player.isParachuting || state.player.isReloading) return;
   let now = Date.now();
   if (now - state.player.lastFire < state.player.weapon.fireRate) return;
 
   if (state.player.weapon.ammo <= 0) {
-    showNotice("弹匣为空！按 R 换弹", "#e74c3c");
-    if (state.player.sharedAmmo > 0) {
-      setTimeout(() => { if (state.player.weapon.ammo <= 0 && !state.player.isReloading) reloadWeapon(); }, 500);
+    // Only show notice every 2 seconds to avoid spam
+    if (now - lastEmptyNoticeTime > 2000) {
+      showNotice("弹匣为空！按 R 换弹", "#e74c3c");
+      lastEmptyNoticeTime = now;
+    }
+    // Auto-reload if has ammo (silent)
+    if (state.player.sharedAmmo > 0 && !state.player.isReloading) {
+      reloadWeapon();
     }
     return;
   }
@@ -368,10 +390,8 @@ export function fireWeapon() {
   state.raycaster.setFromCamera(new THREE.Vector2(spreadX, spreadY), state.camera);
   const intersects = state.raycaster.intersectObjects(state.objects);
 
-  // Get gun position for tracer
-  const gunPos = state.camera.position.clone();
-  const gunDir = new THREE.Vector3(0, 0, -1).applyQuaternion(state.camera.quaternion);
-  const tracerStart = gunPos.clone().add(gunDir.clone().multiplyScalar(0.5));
+  // Get gun barrel position for tracer
+  const tracerStart = getGunBarrelPosition();
 
   let coverHit = null;
   let targetHit = null;

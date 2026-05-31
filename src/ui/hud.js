@@ -1,7 +1,7 @@
 // HUD update functions
 
 import { state } from '../state.js';
-import { RELOAD_DURATION } from '../config.js';
+import { RELOAD_DURATION, BOT_COUNT } from '../config.js';
 
 export function updateUI() {
   let hpPercent = Math.max(0, (state.player.health / state.player.maxHealth) * 100);
@@ -45,7 +45,10 @@ export function updateUI() {
     document.getElementById('ui-scope').style.color = 'white';
   }
 
-  let infoStr = `存活 (Alive): ${state.aliveCount} / 100<br>击杀 (Kills): ${state.player.kills}`;
+  // Fix: total should be BOT_COUNT + 1 (including player), and aliveCount should never exceed total
+  const totalPlayers = BOT_COUNT + 1;
+  const aliveDisplay = Math.min(state.aliveCount, totalPlayers);
+  let infoStr = `存活 (Alive): ${aliveDisplay} / ${totalPlayers}<br>击杀 (Kills): ${state.player.kills}`;
   if (state.player.isParachuting) infoStr += `<br><span style="color:#f1c40f">正在跳伞... (控制WASD降落)</span>`;
 
   let minutes = Math.floor(state.zone.nextShrinkTime / 60);

@@ -41,11 +41,9 @@ export function initControls() {
     if (!state.controls.isLocked) return;
     if (e.button === 0) {
       state.isMouseDown = true;
-      if (state.player.isReloading) {
-        cancelReload();
-      }
-      // Fire immediately for slow weapons (fireRate > 200ms)
-      if (state.player.weapon && state.player.weapon.fireRate > 200) {
+      // Don't cancel reload on left click - reload should complete uninterrupted
+      // fireWeapon() already checks isReloading and will not fire during reload
+      if (!state.player.isReloading && state.player.weapon && state.player.weapon.fireRate > 200) {
         fireWeapon();
       }
     } else if (e.button === 2) {
