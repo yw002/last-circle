@@ -1,7 +1,7 @@
 // Read-only game configuration and constants
 
-export const MAP_SIZE = 8000;
-export const BOT_COUNT = 200;
+export const MAP_SIZE = 6000; // Reduced from 8000
+export const BOT_COUNT = 100; // Reduced from 200 for better performance
 export const RELOAD_DURATION = 2000;
 
 export const RAIN_START_ENEMIES_MIN = 40;

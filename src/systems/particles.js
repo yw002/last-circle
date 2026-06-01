@@ -124,9 +124,10 @@ export function updateParticles(delta) {
   // Update muzzle flash
   updateMuzzleFlash();
 
-  // Update blood particles
-  for (let i = state.bloodParticles.length - 1; i >= 0; i--) {
-    let p = state.bloodParticles[i];
+  // Update blood particles (swap-and-pop for O(1) removal)
+  const bloodArr = state.bloodParticles;
+  for (let i = bloodArr.length - 1; i >= 0; i--) {
+    let p = bloodArr[i];
     p.age += delta;
     p.vy -= 40 * delta;
     p.mesh.position.x += p.vx * delta;
@@ -134,13 +135,16 @@ export function updateParticles(delta) {
     p.mesh.position.z += p.vz * delta;
     if (p.age > 0.5) {
       state.scene.remove(p.mesh);
-      state.bloodParticles.splice(i, 1);
+      // Swap with last element and pop (O(1) instead of O(n) splice)
+      bloodArr[i] = bloodArr[bloodArr.length - 1];
+      bloodArr.pop();
     }
   }
 
-  // Update shell casings
-  for (let i = state.shellCasings.length - 1; i >= 0; i--) {
-    let s = state.shellCasings[i];
+  // Update shell casings (swap-and-pop)
+  const shellArr = state.shellCasings;
+  for (let i = shellArr.length - 1; i >= 0; i--) {
+    let s = shellArr[i];
     s.age += delta;
     s.vy -= 15 * delta;
     s.mesh.position.x += s.vx * delta;
@@ -150,7 +154,8 @@ export function updateParticles(delta) {
     s.mesh.rotation.z += s.rotSpeed * 0.5 * delta;
     if (s.age > 1.5) {
       state.scene.remove(s.mesh);
-      state.shellCasings.splice(i, 1);
+      shellArr[i] = shellArr[shellArr.length - 1];
+      shellArr.pop();
     }
   }
 }

@@ -38,9 +38,28 @@ function getNearbyHouses(x, z) {
 
 export function getBaseTerrainHeight(x, z) {
   let dist = Math.sqrt(x * x + z * z);
+
+  // Base elevation - higher in center
   let height = 80 - (dist / (MAP_SIZE / 2)) * 80;
+
+  // Mountain ranges (3 major peaks)
+  const peak1 = Math.exp(-((x - 800) ** 2 + (z - 600) ** 2) / 200000) * 120;
+  const peak2 = Math.exp(-((x + 500) ** 2 + (z - 800) ** 2) / 150000) * 100;
+  const peak3 = Math.exp(-((x - 300) ** 2 + (z + 700) ** 2) / 180000) * 110;
+  height += peak1 + peak2 + peak3;
+
+  // Rolling hills
   height += Math.sin(x / 150) * 30 + Math.cos(z / 150) * 30;
+  height += Math.sin(x / 80) * 15 + Math.cos(z / 80) * 15;
+
+  // Small detail bumps
   height += Math.sin(x / 30) * 8 + Math.cos(z / 30) * 8;
+
+  // Valleys (low areas for rivers)
+  const valley1 = Math.exp(-((x - 200) ** 2) / 50000) * -20;
+  const valley2 = Math.exp(-((x + 400) ** 2) / 40000) * -15;
+  height += valley1 + valley2;
+
   return Math.max(-10, height);
 }
 
@@ -71,7 +90,8 @@ export function initTerrain() {
   // Build spatial grid after houses are generated
   buildHouseGrid();
 
-  const geometry = new THREE.PlaneGeometry(MAP_SIZE, MAP_SIZE, 150, 150);
+  // Reduced resolution since fog hides distant terrain (100x100 instead of 150x150)
+  const geometry = new THREE.PlaneGeometry(MAP_SIZE, MAP_SIZE, 100, 100);
   geometry.rotateX(-Math.PI / 2);
   const vertices = geometry.attributes.position.array;
   const colors = [];
@@ -96,17 +116,15 @@ export function initTerrain() {
       color.setHex(0x558B2F); // Green mountains (not brown!)
     }
 
-    // Roads - dirt path
+    // Roads - optimized with modulo instead of loop
+    const roadX = Math.abs(((x + MAP_SIZE / 2) % 500) - 250);
+    const roadZ = Math.abs(((z + MAP_SIZE / 2) % 500) - 250);
     let roadFactor = 0;
-    for (let rx = -MAP_SIZE / 2; rx < MAP_SIZE / 2; rx += 500) {
-      if (Math.abs(x - rx) < 20) roadFactor = 0.5;
-    }
-    for (let rz = -MAP_SIZE / 2; rz < MAP_SIZE / 2; rz += 500) {
-      if (Math.abs(z - rz) < 20) roadFactor = 0.5;
-    }
+    if (roadX < 20 || roadZ < 20) roadFactor = 0.5;
+    if (roadX < 20 && roadZ < 20) roadFactor = 0.7;
 
     if (roadFactor > 0) {
-      color.lerp(new THREE.Color(0x5D4037), roadFactor); // Dark brown dirt road
+      color.lerp(new THREE.Color(0x5D4037), roadFactor);
     }
 
     colors.push(color.r, color.g, color.b);

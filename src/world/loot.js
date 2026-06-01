@@ -268,25 +268,12 @@ export function spawnLoot(bx, by, bz) {
 
     mesh.position.set(lx, ly, lz);
 
-    // Add glowing bubble
-    const bubbleColor = getLootBubbleColor(type);
-    const bubbleMat = new THREE.MeshBasicMaterial({
-      color: bubbleColor,
-      transparent: true,
-      opacity: 0.15,
-      side: THREE.DoubleSide,
-      depthWrite: false
-    });
-    const bubble = new THREE.Mesh(sharedGeos.bubble, bubbleMat);
+    // Add glowing bubble - use shared materials
+    const bubble = new THREE.Mesh(sharedGeos.bubble, sharedMats.bubble);
     bubble.position.y = 0.5;
     mesh.add(bubble);
 
-    const ringMat = new THREE.MeshBasicMaterial({
-      color: bubbleColor,
-      transparent: true,
-      opacity: 0.6
-    });
-    const ring = new THREE.Mesh(sharedGeos.ring, ringMat);
+    const ring = new THREE.Mesh(sharedGeos.ring, sharedMats.ring);
     ring.position.y = 0.5;
     ring.rotation.x = Math.PI / 2;
     mesh.add(ring);
@@ -322,25 +309,12 @@ export function spawnSingleLoot(lx, ly, lz, forceType = null) {
 
   mesh.position.set(lx, ly + 3.0, lz);
 
-  // Add bubble
-  const bubbleColor = type === 'health' ? 0xe74c3c : 0x2ecc71;
-  const bubbleMat = new THREE.MeshBasicMaterial({
-    color: bubbleColor,
-    transparent: true,
-    opacity: 0.15,
-    side: THREE.DoubleSide,
-    depthWrite: false
-  });
-  const bubble = new THREE.Mesh(sharedGeos.bubble, bubbleMat);
+  // Add bubble - use shared materials
+  const bubble = new THREE.Mesh(sharedGeos.bubble, sharedMats.bubble);
   bubble.position.y = 0.5;
   mesh.add(bubble);
 
-  const ringMat = new THREE.MeshBasicMaterial({
-    color: bubbleColor,
-    transparent: true,
-    opacity: 0.6
-  });
-  const ring = new THREE.Mesh(sharedGeos.ring, ringMat);
+  const ring = new THREE.Mesh(sharedGeos.ring, sharedMats.ring);
   ring.position.y = 0.5;
   ring.rotation.x = Math.PI / 2;
   mesh.add(ring);

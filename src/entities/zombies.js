@@ -59,7 +59,7 @@ const zGeos = {
   boot: new THREE.BoxGeometry(0.5, 0.35, 0.9)
 };
 
-const ZOMBIE_COUNT = 60; // Reduced from 100
+const ZOMBIE_COUNT = 30; // Reduced from 60 for better performance
 
 export function initZombies() {
   for (let i = 0; i < ZOMBIE_COUNT; i++) {
@@ -235,17 +235,18 @@ export function updateZombies(delta) {
   let now = Date.now();
   let playerPos = state.controls.getObject().position;
 
+  // Cache player house check once per frame
+  const playerInsideHouse = getHousePlayerIsInside();
+  const playerIsSafe = playerInsideHouse && !playerInsideHouse.isOpen;
+
   state.zombies.forEach(zombie => {
     if (!zombie.alive) return;
 
     let zPos = zombie.mesh.position;
 
-    if (zombie.target === 'player') {
-      let insideHouse = getHousePlayerIsInside();
-      if (insideHouse && !insideHouse.isOpen) {
-        zombie.target = null;
-        zombie.changeDirTime = 0;
-      }
+    if (zombie.target === 'player' && playerIsSafe) {
+      zombie.target = null;
+      zombie.changeDirTime = 0;
     }
 
     if (now > zombie.changeDirTime) {
@@ -254,28 +255,26 @@ export function updateZombies(delta) {
       let minDistSq = 400 * 400;
       let closestTarget = null;
 
-      if (state.player.alive && !state.player.isParachuting) {
-        let insideHouse = getHousePlayerIsInside();
-        let targetable = true;
-        if (insideHouse && !insideHouse.isOpen) {
-          targetable = false;
-        }
-        if (targetable) {
-          let dSq = zPos.distanceToSquared(playerPos);
-          if (dSq < minDistSq) {
-            minDistSq = dSq;
-            closestTarget = 'player';
-          }
+      if (state.player.alive && !state.player.isParachuting && !playerIsSafe) {
+        let dSq = zPos.distanceToSquared(playerPos);
+        if (dSq < minDistSq) {
+          minDistSq = dSq;
+          closestTarget = 'player';
         }
       }
 
+      // Add bounding box rejection for bot search
+      const range = Math.sqrt(minDistSq);
       state.bots.forEach(bot => {
-        if (bot.alive && !bot.isParachuting) {
-          let dSq = zPos.distanceToSquared(bot.mesh.position);
-          if (dSq < minDistSq) {
-            minDistSq = dSq;
-            closestTarget = bot;
-          }
+        if (!bot.alive || bot.isParachuting) return;
+        const botPos = bot.mesh.position;
+        const dx = Math.abs(zPos.x - botPos.x);
+        const dz = Math.abs(zPos.z - botPos.z);
+        if (dx > range || dz > range) return;
+        let dSq = zPos.distanceToSquared(botPos);
+        if (dSq < minDistSq) {
+          minDistSq = dSq;
+          closestTarget = bot;
         }
       });
 

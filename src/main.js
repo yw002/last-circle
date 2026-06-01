@@ -12,6 +12,7 @@ import { initClouds, updateWeather } from './systems/weather.js';
 import { initZone, updateZone } from './systems/zone.js';
 import { initTerrain, getTerrainHeight } from './world/terrain.js';
 import { preGenerateHouses, initEnvironment } from './world/environment.js';
+import { initGrass, updateGrass } from './world/grass.js';
 import { updateWeaponModel, updatePlayer, fireWeapon, updateCrosshairSpread } from './entities/player.js';
 import { initBots, updateBots } from './entities/bots.js';
 import { initZombies, updateZombies } from './entities/zombies.js';
@@ -24,6 +25,9 @@ import { optimizeRenderer, optimizeScene, updateFPS, adaptQuality } from './syst
 
 // Disable right-click menu
 document.addEventListener('contextmenu', e => e.preventDefault());
+
+// Reusable objects for performance
+let _recoilEuler = null;
 
 function init() {
   // Initialize Three.js scene
@@ -78,6 +82,7 @@ function init() {
   preGenerateHouses();
   initTerrain();
   initEnvironment();
+  initGrass(); // Zelda-style flowing grass
   initAnimals();
 
   // Initialize zone
@@ -138,27 +143,36 @@ function animate() {
     else fpsEl.style.color = '#ff0000';
   }
 
-  // Update audio listener position (throttled)
-  if (time - state.prevTime > 50) {
+  // Update audio listener position (throttled to every 100ms)
+  if (!state._lastAudioUpdate || time - state._lastAudioUpdate > 100) {
     updateAudioListener(state.camera);
+    state._lastAudioUpdate = time;
   }
 
-  // Rotate loot items horizontally and animate bubble
-  state.lootItems.forEach(l => {
-    l.mesh.rotation.y += delta * 0.5; // Horizontal rotation only
-    if (l.bubble) {
-      l.bubble.material.opacity = 0.1 + Math.sin(time * 0.003) * 0.05;
+  // Rotate loot items (only nearby ones, throttled)
+  if (!state._lastLootUpdate || time - state._lastLootUpdate > 50) {
+    const playerPos = state.controls.getObject().position;
+    const px = playerPos.x, pz = playerPos.z;
+    for (let i = 0; i < state.lootItems.length; i++) {
+      const l = state.lootItems[i];
+      const lp = l.mesh.position;
+      const dx = lp.x - px, dz = lp.z - pz;
+      // Only animate loot within 150 units (22500 = 150^2)
+      if (dx * dx + dz * dz < 22500) {
+        l.mesh.rotation.y += delta * 0.5;
+      }
     }
-    if (l.ring) {
-      l.ring.rotation.z += delta * 0.8;
-    }
-  });
+    state._lastLootUpdate = time;
+  }
 
-  // Animate doors
-  state.doors.forEach(d => {
-    d.currentAngle += (d.targetAngle - d.currentAngle) * 10 * delta;
-    d.pivot.rotation.y = d.currentAngle;
-  });
+  // Animate doors (only if angle changed)
+  for (let i = 0; i < state.doors.length; i++) {
+    const d = state.doors[i];
+    if (Math.abs(d.currentAngle - d.targetAngle) > 0.001) {
+      d.currentAngle += (d.targetAngle - d.currentAngle) * 10 * delta;
+      d.pivot.rotation.y = d.currentAngle;
+    }
+  }
 
   if (state.controls.isLocked && state.player.alive) {
     // Scope/ADS zoom
@@ -191,8 +205,12 @@ function animate() {
       document.getElementById('crosshair').style.width = '6px';
       document.getElementById('crosshair').style.height = '6px';
     }
+
+    // Only update projection matrix when FOV changes significantly
     state.camera.fov += (targetFov - state.camera.fov) * 0.15;
-    state.camera.updateProjectionMatrix();
+    if (Math.abs(state.camera.fov - targetFov) > 0.01) {
+      state.camera.updateProjectionMatrix();
+    }
 
     // Reload progress bar
     if (state.player.isReloading) {
@@ -211,23 +229,29 @@ function animate() {
     updateZone(delta);
     updateWeather(delta);
     updateParticles(delta);
-    updateMinimap();
     updateCrosshairSpread(delta);
+    updateGrass(delta);
+
+    // Throttle minimap to ~15 FPS
+    if (!state._lastMinimapUpdate || time - state._lastMinimapUpdate > 66) {
+      updateMinimap();
+      state._lastMinimapUpdate = time;
+    }
 
     // Auto-fire for fast weapons
     if (state.isMouseDown && state.player.weapon.fireRate <= 200) {
       fireWeapon();
     }
 
-    // Camera recoil recovery (camera went UP, now recover back DOWN)
+    // Camera recoil recovery (reusable Euler)
     if (state.player.cameraRecoil > 0) {
       let rec = state.player.cameraRecoil * 10 * delta;
       if (rec > state.player.cameraRecoil) rec = state.player.cameraRecoil;
-      const _rr = new THREE.Euler(0, 0, 0, 'YXZ');
-      _rr.setFromQuaternion(state.camera.quaternion);
-      _rr.x += rec; // Recover by moving camera back DOWN (positive X)
-      _rr.z = 0;
-      state.camera.quaternion.setFromEuler(_rr);
+      if (!_recoilEuler) _recoilEuler = new THREE.Euler(0, 0, 0, 'YXZ');
+      _recoilEuler.setFromQuaternion(state.camera.quaternion);
+      _recoilEuler.x += rec;
+      _recoilEuler.z = 0;
+      state.camera.quaternion.setFromEuler(_recoilEuler);
       state.player.cameraRecoil -= rec;
       if (state.player.cameraRecoil < 0.0001) state.player.cameraRecoil = 0;
     }

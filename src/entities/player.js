@@ -300,38 +300,52 @@ function getBulletSpread() {
   return baseSpread * spreadMultiplier;
 }
 
+// Reusable resources for bullet effects
+const _barrelTip = new THREE.Vector3(0, 0.06, -1.2);
+const _tracerPoints = [new THREE.Vector3(), new THREE.Vector3()];
+let _tracerLine = null;
+let _tracerGeometry = null;
+let _tracerMaterial = null;
+let _tracerTimeout = null;
+
+// Shared dust geometry and material
+const _dustGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+const _dustMat = new THREE.MeshBasicMaterial({ color: 0x7f8c8d });
+
 // Get the world position of the gun barrel tip
 function getGunBarrelPosition() {
   if (!state.viewWeaponMesh) return state.camera.position.clone();
-
-  // Gun barrel tip is at the front of the weapon (negative Z in local space)
-  const barrelTipLocal = new THREE.Vector3(0, 0.06, -1.2);
-  const barrelTipWorld = barrelTipLocal.clone();
-
-  // Transform from weapon local space to world space
-  state.viewWeaponMesh.localToWorld(barrelTipWorld);
-
-  return barrelTipWorld;
+  const worldPos = _barrelTip.clone();
+  state.viewWeaponMesh.localToWorld(worldPos);
+  return worldPos;
 }
 
-// Create bullet tracer line
+// Create or update bullet tracer line (reuses single line object)
 function createBulletTracer(startPos, endPos) {
-  const points = [startPos.clone(), endPos.clone()];
-  const geometry = new THREE.BufferGeometry().setFromPoints(points);
-  const material = new THREE.LineBasicMaterial({
-    color: 0xffff00,
-    transparent: true,
-    opacity: 0.8,
-    linewidth: 2
-  });
-  const line = new THREE.Line(geometry, material);
-  state.scene.add(line);
+  if (!_tracerLine) {
+    _tracerGeometry = new THREE.BufferGeometry();
+    _tracerMaterial = new THREE.LineBasicMaterial({
+      color: 0xffff00,
+      transparent: true,
+      opacity: 0.8,
+      linewidth: 2
+    });
+    _tracerLine = new THREE.Line(_tracerGeometry, _tracerMaterial);
+    state.scene.add(_tracerLine);
+  }
 
-  // Remove after short delay
-  setTimeout(() => {
-    state.scene.remove(line);
-    geometry.dispose();
-    material.dispose();
+  // Update positions
+  _tracerPoints[0].copy(startPos);
+  _tracerPoints[1].copy(endPos);
+  _tracerGeometry.setFromPoints(_tracerPoints);
+  _tracerLine.visible = true;
+
+  // Clear previous timeout
+  if (_tracerTimeout) clearTimeout(_tracerTimeout);
+
+  // Hide after delay
+  _tracerTimeout = setTimeout(() => {
+    if (_tracerLine) _tracerLine.visible = false;
   }, 80);
 }
 
@@ -416,7 +430,8 @@ export function fireWeapon() {
     hitPoint = coverHit.point;
   } else {
     // No hit - tracer goes to max range
-    hitPoint = tracerStart.clone().add(state.raycaster.ray.direction.clone().multiplyScalar(state.player.weapon.range));
+    const dir = state.raycaster.ray.direction.clone();
+    hitPoint = tracerStart.clone().add(dir.multiplyScalar(state.player.weapon.range));
   }
 
   // Create bullet tracer
@@ -425,7 +440,8 @@ export function fireWeapon() {
   if (coverHit && (!targetHit || coverHit.distance < targetHit.distance)) {
     let n = coverHit.face ? coverHit.face.normal : new THREE.Vector3(0, 1, 0);
     for (let i = 0; i < 3; i++) {
-      const dust = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), new THREE.MeshBasicMaterial({ color: 0x7f8c8d }));
+      // Reuse shared geometry and material
+      const dust = new THREE.Mesh(_dustGeo, _dustMat);
       dust.position.copy(coverHit.point);
       state.scene.add(dust);
       state.bloodParticles.push({

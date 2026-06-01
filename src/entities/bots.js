@@ -284,32 +284,46 @@ export function updateBots(delta) {
     let bPos = bot.mesh.position;
     let oldBx = bPos.x, oldBz = bPos.z;
 
-    // AI targeting (throttled)
+    // AI targeting (throttled - only 1/5 of bots update per frame)
     if ((idx % 5) === currentTick && now > bot.changeDirTime) {
       bot.changeDirTime = now + 1500 + Math.random() * 2500;
       let closestTarget = null;
       let minDistSq = diff.botTargetRange * diff.botTargetRange;
+      const rangeSq = minDistSq;
 
+      // Check player first (cheapest check)
       if (state.player.alive && !state.player.isParachuting) {
-        let dSq = bPos.distanceToSquared(playerPos);
-        if (dSq < minDistSq) { minDistSq = dSq; closestTarget = 'player'; }
+        let dx = bPos.x - playerPos.x;
+        let dz = bPos.z - playerPos.z;
+        let dSq = dx * dx + dz * dz;
+        if (dSq < rangeSq) { minDistSq = dSq; closestTarget = 'player'; }
       }
 
-      // Only check nearby bots for targets
+      // Only check nearby bots with aggressive bounding box rejection
       if (isNearby) {
-        state.bots.forEach(other => {
-          if (other.alive && !other.isParachuting && other.id !== bot.id) {
-            let dSq = bPos.distanceToSquared(other.mesh.position);
-            if (dSq < minDistSq) { minDistSq = dSq; closestTarget = other; }
-          }
-        });
+        const range = Math.sqrt(minDistSq);
+        const bx = bPos.x, bz = bPos.z;
+        for (let j = 0, len = state.bots.length; j < len; j++) {
+          const other = state.bots[j];
+          if (!other.alive || other.isParachuting || other.id === bot.id) continue;
+          const oPos = other.mesh.position;
+          const odx = bx - oPos.x;
+          const odz = bz - oPos.z;
+          // Bounding box rejection (cheaper than distanceToSquared)
+          if (odx > range || odx < -range || odz > range || odz < -range) continue;
+          const dSq = odx * odx + odz * odz;
+          if (dSq < minDistSq) { minDistSq = dSq; closestTarget = other; }
+        }
       }
 
       bot.target = closestTarget;
 
       if (!bot.target) {
         bot.state = 'wander';
-        let distToZoneCenterSq = Math.pow(bPos.x - state.zone.x, 2) + Math.pow(bPos.z - state.zone.z, 2);
+        // Zone-aware wandering
+        const dx = bPos.x - state.zone.x;
+        const dz = bPos.z - state.zone.z;
+        const distToZoneCenterSq = dx * dx + dz * dz;
         if (distToZoneCenterSq > state.zone.radius * state.zone.radius * 0.81) {
           let angle = Math.atan2(state.zone.z - bPos.z, state.zone.x - bPos.x);
           bot.vx = Math.cos(angle) * 20;

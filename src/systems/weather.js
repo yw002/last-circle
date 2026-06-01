@@ -24,25 +24,28 @@ let targetSkyColor = new THREE.Color(0x87CEEB);
 let targetFogColor = new THREE.Color(0x87CEEB);
 let targetFogDensity = 0.0008;
 
+// Shared cloud material - all clouds use the same material
+const cloudMat = new THREE.MeshBasicMaterial({
+  color: 0xffffff,
+  transparent: true,
+  opacity: 0.8
+});
+
 export function initClouds() {
   const cloudGeo = new THREE.SphereGeometry(1, 8, 8);
-  const cloudMat = new THREE.MeshBasicMaterial({
-    color: 0xffffff,
-    transparent: true,
-    opacity: 0.8
-  });
 
-  for (let i = 0; i < 100; i++) {
+  // Many clouds for rich sky
+  for (let i = 0; i < 120; i++) {
     const cloudGroup = new THREE.Group();
-    let numParts = 3 + Math.floor(Math.random() * 5);
+    let numParts = 4 + Math.floor(Math.random() * 5);
     for (let j = 0; j < numParts; j++) {
-      const part = new THREE.Mesh(cloudGeo, cloudMat.clone());
-      let scale = 20 + Math.random() * 40;
-      part.scale.set(scale, scale * 0.6, scale);
+      const part = new THREE.Mesh(cloudGeo, cloudMat); // Shared material
+      let scale = 25 + Math.random() * 50;
+      part.scale.set(scale, scale * 0.5, scale);
       part.position.set(
-        (Math.random() - 0.5) * 80,
-        (Math.random() - 0.5) * 20,
-        (Math.random() - 0.5) * 40
+        (Math.random() - 0.5) * 100,
+        (Math.random() - 0.5) * 25,
+        (Math.random() - 0.5) * 60
       );
       cloudGroup.add(part);
     }
@@ -54,7 +57,6 @@ export function initClouds() {
     );
 
     cloudGroup.userData.speed = 1 + Math.random() * 2;
-    cloudGroup.userData.baseOpacity = 0.6 + Math.random() * 0.3;
     state.clouds.push(cloudGroup);
     state.scene.add(cloudGroup);
   }
@@ -118,14 +120,15 @@ function createRain() {
     depthWrite: false
   });
 
-  for (let c = 0; c < 3; c++) {
+  // Reduced rain particles for performance
+  for (let c = 0; c < 2; c++) {
     const rainGeo = new THREE.BufferGeometry();
-    const rainCount = 3000;
+    const rainCount = 1500;
     const positions = new Float32Array(rainCount * 3);
     for (let i = 0; i < rainCount; i++) {
-      positions[i * 3] = (Math.random() - 0.5) * 500;
-      positions[i * 3 + 1] = Math.random() * 300;
-      positions[i * 3 + 2] = (Math.random() - 0.5) * 500;
+      positions[i * 3] = (Math.random() - 0.5) * 300;
+      positions[i * 3 + 1] = Math.random() * 200;
+      positions[i * 3 + 2] = (Math.random() - 0.5) * 300;
     }
     rainGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     const rain = new THREE.Points(rainGeo, rainMat);
