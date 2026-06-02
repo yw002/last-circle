@@ -18,30 +18,67 @@ const skinColors = [0xffdfc4, 0xd0a37e, 0x8d5524, 0xc68642, 0xe0ac69, 0x4a2a18, 
 const shirtColors = [0x95a5a6, 0x34495e, 0x27ae60, 0x8e44ad, 0xc0392b, 0xd35400, 0xf39c12, 0x2c3e50, 0x111111, 0xecf0f1, 0x1abc9c, 0xf1c40f];
 const pantsColors = [0x2c3e50, 0xbdc3c7, 0x34495e, 0x7f8c8d, 0x222222, 0x8b4513, 0x2e4053, 0x17202a];
 
-// Shared geometries - created once, reused for all bots (reduced segments for performance)
+// ========== ULTRA-DETAILED SHARED GEOMETRIES ==========
+// High polygon counts for maximum visual fidelity
 const sharedGeos = {
-  torsoLower: new THREE.SphereGeometry(1.8, 8, 6),
-  torsoUpper: new THREE.SphereGeometry(1.6, 8, 6),
-  head: new THREE.SphereGeometry(1.2, 8, 8),
-  hair: new THREE.SphereGeometry(1.25, 8, 4),
-  neck: new THREE.CylinderGeometry(0.4, 0.5, 0.6, 6),
-  eye: new THREE.SphereGeometry(0.22, 6, 6),
-  pupil: new THREE.SphereGeometry(0.12, 6, 6),
-  nose: new THREE.SphereGeometry(0.15, 6, 6),
+  // Torso - smooth spheres with 24 segments
+  torsoLower: new THREE.SphereGeometry(1.8, 24, 18),
+  torsoUpper: new THREE.SphereGeometry(1.6, 24, 18),
+
+  // Head - very smooth sphere
+  head: new THREE.SphereGeometry(1.2, 24, 24),
+  hair: new THREE.SphereGeometry(1.25, 24, 12),
+
+  // Neck - smooth cylinder
+  neck: new THREE.CylinderGeometry(0.4, 0.5, 0.6, 16),
+
+  // Facial features - detailed
+  eye: new THREE.SphereGeometry(0.22, 16, 16),
+  pupil: new THREE.SphereGeometry(0.12, 16, 16),
+  nose: new THREE.SphereGeometry(0.15, 12, 12),
   mouth: new THREE.BoxGeometry(0.4, 0.08, 0.1),
-  shoulder: new THREE.SphereGeometry(0.5, 6, 6),
-  belt: new THREE.TorusGeometry(1.5, 0.15, 6, 12),
-  armUpper: new THREE.CylinderGeometry(0.4, 0.35, 2.0, 6),
-  elbow: new THREE.SphereGeometry(0.35, 6, 6),
-  armLower: new THREE.CylinderGeometry(0.35, 0.3, 1.8, 6),
-  hand: new THREE.SphereGeometry(0.3, 6, 6),
-  legUpper: new THREE.CylinderGeometry(0.5, 0.45, 2.2, 6),
-  legLower: new THREE.CylinderGeometry(0.45, 0.4, 2.0, 6),
-  boot: new THREE.BoxGeometry(0.6, 0.4, 1.0),
+  ear: new THREE.SphereGeometry(0.18, 12, 8),
+  brow: new THREE.TorusGeometry(0.3, 0.04, 8, 16, Math.PI),
+
+  // Shoulders - smooth spheres
+  shoulder: new THREE.SphereGeometry(0.5, 16, 16),
+
+  // Belt - detailed torus
+  belt: new THREE.TorusGeometry(1.5, 0.15, 12, 24),
+  beltBuckle: new THREE.BoxGeometry(0.4, 0.3, 0.15),
+
+  // Arms - smooth cylinders with joints
+  armUpper: new THREE.CylinderGeometry(0.4, 0.35, 2.0, 16),
+  elbow: new THREE.SphereGeometry(0.35, 16, 16),
+  armLower: new THREE.CylinderGeometry(0.35, 0.3, 1.8, 16),
+
+  // Hands - detailed with fingers
+  hand: new THREE.SphereGeometry(0.3, 16, 16),
+  finger: new THREE.CylinderGeometry(0.06, 0.05, 0.4, 8),
+  thumb: new THREE.CylinderGeometry(0.07, 0.06, 0.35, 8),
+
+  // Legs - smooth cylinders
+  legUpper: new THREE.CylinderGeometry(0.5, 0.45, 2.2, 16),
+  knee: new THREE.SphereGeometry(0.4, 12, 12),
+  legLower: new THREE.CylinderGeometry(0.45, 0.4, 2.0, 16),
+
+  // Boots - rounded
+  boot: new THREE.CylinderGeometry(0.35, 0.4, 1.0, 12),
+  bootSole: new THREE.BoxGeometry(0.7, 0.15, 1.2),
+
+  // Gun - detailed
   gunBody: new THREE.BoxGeometry(0.15, 0.15, 1.5),
-  gunBarrel: new THREE.CylinderGeometry(0.04, 0.05, 0.8, 6),
+  gunBarrel: new THREE.CylinderGeometry(0.04, 0.05, 0.8, 12),
+  gunStock: new THREE.BoxGeometry(0.12, 0.15, 0.6),
+  gunMag: new THREE.BoxGeometry(0.1, 0.3, 0.15),
+  gunGrip: new THREE.BoxGeometry(0.1, 0.2, 0.08),
+  gunSight: new THREE.BoxGeometry(0.04, 0.06, 0.04),
+
+  // Pack - rounded edges
   pack: new THREE.BoxGeometry(1.5, 2.0, 0.8),
-  parachute: new THREE.SphereGeometry(10, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2)
+
+  // Parachute - smooth
+  parachute: new THREE.SphereGeometry(10, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2)
 };
 
 // Shared materials - created once
@@ -117,36 +154,88 @@ export function initBots() {
     belt.position.y = 3.5;
     belt.rotation.x = Math.PI / 2;
 
+    // Ears
+    const earL = new THREE.Mesh(sharedGeos.ear, headMat);
+    earL.position.set(-1.1, 7.6, 0);
+    const earR = new THREE.Mesh(sharedGeos.ear, headMat);
+    earR.position.set(1.1, 7.6, 0);
+
+    // Brow ridge
+    const browL = new THREE.Mesh(sharedGeos.brow, headMat);
+    browL.position.set(-0.35, 8.0, 0.95);
+    browL.rotation.z = 0.2;
+    const browR = new THREE.Mesh(sharedGeos.brow, headMat);
+    browR.position.set(0.35, 8.0, 0.95);
+    browR.rotation.z = -0.2;
+
+    // Belt buckle
+    const beltBuckle = new THREE.Mesh(sharedGeos.beltBuckle, sharedMats.dark);
+    beltBuckle.position.set(0, 3.5, 1.5);
+
+    // Arms with elbows and fingers
     const armUpperL = new THREE.Mesh(sharedGeos.armUpper, bodyMat);
     armUpperL.position.set(-2.2, 5.5, 0);
     armUpperL.rotation.z = 0.2;
+    const elbowL = new THREE.Mesh(sharedGeos.elbow, headMat);
+    elbowL.position.set(-2.5, 4.5, 0.15);
     const armLowerL = new THREE.Mesh(sharedGeos.armLower, bodyMat);
     armLowerL.position.set(-2.8, 4.0, 0.3);
     const handL = new THREE.Mesh(sharedGeos.hand, headMat);
     handL.position.set(-3.0, 3.2, 0.5);
+    // Fingers on left hand
+    const fingerL1 = new THREE.Mesh(sharedGeos.finger, headMat);
+    fingerL1.position.set(-3.15, 2.9, 0.6);
+    fingerL1.rotation.x = -0.3;
+    const fingerL2 = new THREE.Mesh(sharedGeos.finger, headMat);
+    fingerL2.position.set(-3.0, 2.9, 0.65);
+    fingerL2.rotation.x = -0.3;
+    const thumbL = new THREE.Mesh(sharedGeos.thumb, headMat);
+    thumbL.position.set(-2.8, 3.0, 0.7);
+    thumbL.rotation.z = 0.5;
 
     const armUpperR = new THREE.Mesh(sharedGeos.armUpper, bodyMat);
     armUpperR.position.set(2.2, 5.5, 0);
     armUpperR.rotation.z = -0.2;
     armUpperR.rotation.x = -0.5;
+    const elbowR = new THREE.Mesh(sharedGeos.elbow, headMat);
+    elbowR.position.set(2.6, 4.5, 0.4);
     const armLowerR = new THREE.Mesh(sharedGeos.armLower, bodyMat);
     armLowerR.position.set(2.8, 4.0, 0.8);
     const handR = new THREE.Mesh(sharedGeos.hand, headMat);
     handR.position.set(3.0, 3.2, 1.0);
+    // Fingers on right hand (holding gun)
+    const fingerR1 = new THREE.Mesh(sharedGeos.finger, headMat);
+    fingerR1.position.set(3.15, 2.9, 1.1);
+    fingerR1.rotation.x = -0.5;
+    const fingerR2 = new THREE.Mesh(sharedGeos.finger, headMat);
+    fingerR2.position.set(3.0, 2.9, 1.15);
+    fingerR2.rotation.x = -0.5;
+    const thumbR = new THREE.Mesh(sharedGeos.thumb, headMat);
+    thumbR.position.set(2.8, 3.0, 1.2);
+    thumbR.rotation.z = -0.5;
 
+    // Legs with knees and boot soles
     const legUpperL = new THREE.Mesh(sharedGeos.legUpper, limbMat);
     legUpperL.position.set(-0.8, 2.5, 0);
+    const kneeL = new THREE.Mesh(sharedGeos.knee, limbMat);
+    kneeL.position.set(-0.8, 1.6, 0.1);
     const legLowerL = new THREE.Mesh(sharedGeos.legLower, limbMat);
     legLowerL.position.set(-0.8, 0.8, 0.2);
     const bootL = new THREE.Mesh(sharedGeos.boot, sharedMats.boot);
     bootL.position.set(-0.8, 0.2, 0.3);
+    const bootSoleL = new THREE.Mesh(sharedGeos.bootSole, sharedMats.dark);
+    bootSoleL.position.set(-0.8, 0.05, 0.35);
 
     const legUpperR = new THREE.Mesh(sharedGeos.legUpper, limbMat);
     legUpperR.position.set(0.8, 2.5, 0);
+    const kneeR = new THREE.Mesh(sharedGeos.knee, limbMat);
+    kneeR.position.set(0.8, 1.6, 0.1);
     const legLowerR = new THREE.Mesh(sharedGeos.legLower, limbMat);
     legLowerR.position.set(0.8, 0.8, 0.2);
     const bootR = new THREE.Mesh(sharedGeos.boot, sharedMats.boot);
     bootR.position.set(0.8, 0.2, 0.3);
+    const bootSoleR = new THREE.Mesh(sharedGeos.bootSole, sharedMats.dark);
+    bootSoleR.position.set(0.8, 0.05, 0.35);
 
     // Backpack
     let pack = null;
@@ -156,15 +245,23 @@ export function initBots() {
       botGroup.add(pack);
     }
 
-    // Gun
+    // Detailed gun
     const gunBody = new THREE.Mesh(sharedGeos.gunBody, sharedMats.dark);
     gunBody.position.set(3.0, 3.5, 1.5);
     const gunBarrel = new THREE.Mesh(sharedGeos.gunBarrel, sharedMats.dark);
     gunBarrel.rotation.x = Math.PI / 2;
     gunBarrel.position.set(3.0, 3.6, 0.8);
+    const gunStock = new THREE.Mesh(sharedGeos.gunStock, sharedMats.dark);
+    gunStock.position.set(3.0, 3.4, 2.2);
+    const gunMag = new THREE.Mesh(sharedGeos.gunMag, sharedMats.dark);
+    gunMag.position.set(3.0, 3.0, 1.3);
+    const gunGrip = new THREE.Mesh(sharedGeos.gunGrip, sharedMats.dark);
+    gunGrip.position.set(3.0, 3.2, 1.8);
+    const gunSight = new THREE.Mesh(sharedGeos.gunSight, sharedMats.dark);
+    gunSight.position.set(3.0, 3.8, 0.5);
 
     // Laser sight
-    const laserGeo = new THREE.CylinderGeometry(0.03, 0.03, 80, 4);
+    const laserGeo = new THREE.CylinderGeometry(0.03, 0.03, 80, 8);
     laserGeo.translate(0, 40, 0);
     laserGeo.rotateX(Math.PI / 2);
     const botLaser = new THREE.Mesh(laserGeo, sharedMats.laser);
@@ -174,13 +271,13 @@ export function initBots() {
     // Add all parts
     botGroup.add(
       torsoLower, torsoUpper, neck, head, hair,
-      eyeL, eyeR, pupilL, pupilR, nose,
-      shoulderL, shoulderR, belt,
-      armUpperL, armLowerL, handL,
-      armUpperR, armLowerR, handR,
-      legUpperL, legLowerL, bootL,
-      legUpperR, legLowerR, bootR,
-      gunBody, gunBarrel, botLaser
+      eyeL, eyeR, pupilL, pupilR, nose, earL, earR, browL, browR,
+      shoulderL, shoulderR, belt, beltBuckle,
+      armUpperL, elbowL, armLowerL, handL, fingerL1, fingerL2, thumbL,
+      armUpperR, elbowR, armLowerR, handR, fingerR1, fingerR2, thumbR,
+      legUpperL, kneeL, legLowerL, bootL, bootSoleL,
+      legUpperR, kneeR, legLowerR, bootR, bootSoleR,
+      gunBody, gunBarrel, gunStock, gunMag, gunGrip, gunSight, botLaser
     );
 
     // Parachute
