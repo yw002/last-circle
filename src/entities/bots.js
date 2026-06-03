@@ -18,67 +18,217 @@ const skinColors = [0xffdfc4, 0xd0a37e, 0x8d5524, 0xc68642, 0xe0ac69, 0x4a2a18, 
 const shirtColors = [0x95a5a6, 0x34495e, 0x27ae60, 0x8e44ad, 0xc0392b, 0xd35400, 0xf39c12, 0x2c3e50, 0x111111, 0xecf0f1, 0x1abc9c, 0xf1c40f];
 const pantsColors = [0x2c3e50, 0xbdc3c7, 0x34495e, 0x7f8c8d, 0x222222, 0x8b4513, 0x2e4053, 0x17202a];
 
-// ========== ULTRA-DETAILED SHARED GEOMETRIES ==========
-// High polygon counts for maximum visual fidelity
+// ========== MAXIMUM PRECISION SHARED GEOMETRIES ==========
+// Using LatheGeometry for organic shapes, 48-64 segments for absolute smoothness
+
+const SEG = 48; // Maximum segment count for ultra-smooth curves
+const SEG2 = 64; // For high-visibility parts
+
+// Torso - LatheGeometry for organic human torso with muscle definition
+const torsoProfile = [];
+for (let i = 0; i <= 48; i++) {
+  const t = i / 48;
+  // Pectorals at top, waist narrower, hips wider
+  let r;
+  if (t < 0.3) r = 1.6 + Math.sin(t * Math.PI / 0.3) * 0.3; // Chest
+  else if (t < 0.6) r = 1.9 - (t - 0.3) * 2; // Waist
+  else r = 1.3 + Math.sin((t - 0.6) * Math.PI / 0.4) * 0.4; // Hips
+  torsoProfile.push(new THREE.Vector2(r, t * 4 - 2));
+}
+
+// Head - LatheGeometry with detailed skull shape
+const headProfile = [];
+for (let i = 0; i <= 48; i++) {
+  const t = i / 48;
+  let r;
+  if (t < 0.15) r = t * 3.5; // Chin
+  else if (t < 0.4) r = 0.5 + Math.sin((t - 0.15) * Math.PI / 0.25) * 0.7; // Jaw to cheek
+  else if (t < 0.65) r = 1.2; // Cheeks
+  else if (t < 0.85) r = 1.2 - (t - 0.65) * 1.5; // Forehead
+  else r = 0.9 * (1 - (t - 0.85) * 6.67); // Top of head
+  headProfile.push(new THREE.Vector2(Math.max(0, r), t * 2.4 - 1.2));
+}
+
+// Arm profile with muscle definition
+const armProfile = [];
+for (let i = 0; i <= 24; i++) {
+  const t = i / 24;
+  // Bicep bulge, forearm taper
+  let r;
+  if (t < 0.4) r = 0.35 + Math.sin(t * Math.PI / 0.4) * 0.12; // Bicep
+  else if (t < 0.7) r = 0.47 - (t - 0.4) * 0.3; // Elbow area
+  else r = 0.35 + Math.sin((t - 0.7) * Math.PI / 0.3) * 0.08; // Forearm
+  armProfile.push(new THREE.Vector2(r, t * 2 - 1));
+}
+
+// Leg profile with thigh and calf muscles
+const legProfile = [];
+for (let i = 0; i <= 24; i++) {
+  const t = i / 24;
+  let r;
+  if (t < 0.3) r = 0.5 + Math.sin(t * Math.PI / 0.3) * 0.15; // Thigh
+  else if (t < 0.5) r = 0.65 - (t - 0.3) * 1.5; // Knee area
+  else if (t < 0.8) r = 0.35 + Math.sin((t - 0.5) * Math.PI / 0.3) * 0.12; // Calf
+  else r = 0.35 - (t - 0.8) * 0.5; // Ankle
+  legProfile.push(new THREE.Vector2(Math.max(0.2, r), t * 2.5 - 1.25));
+}
+
+// Hand profile with palm shape
+const handProfile = [];
+for (let i = 0; i <= 16; i++) {
+  const t = i / 16;
+  let r;
+  if (t < 0.3) r = 0.2 + t * 0.3; // Wrist to palm
+  else if (t < 0.7) r = 0.29; // Palm
+  else r = 0.29 * (1 - (t - 0.7) * 3.33); // Fingers taper
+  handProfile.push(new THREE.Vector2(Math.max(0, r), t * 0.8 - 0.4));
+}
+
+// Boot profile with proper shoe shape
+const bootProfile = [];
+for (let i = 0; i <= 16; i++) {
+  const t = i / 16;
+  let r;
+  if (t < 0.2) r = 0.3 + t * 1.5; // Toe box
+  else if (t < 0.5) r = 0.6; // Mid foot
+  else if (t < 0.8) r = 0.6 - (t - 0.5) * 1.0; // Ankle
+  else r = 0.3 - (t - 0.8) * 0.5; // Top
+  bootProfile.push(new THREE.Vector2(Math.max(0.15, r), t * 1.2 - 0.6));
+}
+
+// Finger profile with joints
+const fingerProfile = [];
+for (let i = 0; i <= 12; i++) {
+  const t = i / 12;
+  // Knuckle bulges
+  let r = 0.05;
+  if (Math.abs(t - 0.25) < 0.1) r = 0.065; // Knuckle 1
+  if (Math.abs(t - 0.5) < 0.1) r = 0.06;  // Knuckle 2
+  if (Math.abs(t - 0.75) < 0.1) r = 0.055; // Knuckle 3
+  fingerProfile.push(new THREE.Vector2(r, t * 0.4));
+}
+
 const sharedGeos = {
-  // Torso - smooth spheres with 24 segments
-  torsoLower: new THREE.SphereGeometry(1.8, 24, 18),
-  torsoUpper: new THREE.SphereGeometry(1.6, 24, 18),
+  // Torso - organic LatheGeometry with muscle definition
+  torsoLower: new THREE.LatheGeometry(torsoProfile, SEG),
+  torsoUpper: new THREE.LatheGeometry(torsoProfile, SEG),
 
-  // Head - very smooth sphere
-  head: new THREE.SphereGeometry(1.2, 24, 24),
-  hair: new THREE.SphereGeometry(1.25, 24, 12),
+  // Chest muscle definition
+  pectoral: new THREE.SphereGeometry(0.8, SEG / 2, SEG / 2),
+  abdominal: new THREE.BoxGeometry(1.2, 0.15, 0.8),
 
-  // Neck - smooth cylinder
-  neck: new THREE.CylinderGeometry(0.4, 0.5, 0.6, 16),
+  // Head - organic LatheGeometry with proper skull shape
+  head: new THREE.LatheGeometry(headProfile, SEG),
+  hair: new THREE.SphereGeometry(1.25, SEG, SEG / 2),
 
-  // Facial features - detailed
-  eye: new THREE.SphereGeometry(0.22, 16, 16),
-  pupil: new THREE.SphereGeometry(0.12, 16, 16),
-  nose: new THREE.SphereGeometry(0.15, 12, 12),
-  mouth: new THREE.BoxGeometry(0.4, 0.08, 0.1),
-  ear: new THREE.SphereGeometry(0.18, 12, 8),
-  brow: new THREE.TorusGeometry(0.3, 0.04, 8, 16, Math.PI),
+  // Neck - smooth with tendons
+  neck: new THREE.CylinderGeometry(0.4, 0.5, 0.6, SEG),
+  neckTendon: new THREE.CylinderGeometry(0.05, 0.05, 0.5, 8),
 
-  // Shoulders - smooth spheres
-  shoulder: new THREE.SphereGeometry(0.5, 16, 16),
+  // Facial features - ultra detailed
+  eye: new THREE.SphereGeometry(0.22, SEG / 2, SEG / 2),
+  pupil: new THREE.SphereGeometry(0.12, SEG / 2, SEG / 2),
+  iris: new THREE.SphereGeometry(0.16, SEG / 2, SEG / 2),
+  eyelid: new THREE.SphereGeometry(0.24, SEG / 2, SEG / 2, 0, Math.PI * 2, 0, Math.PI / 2),
+  nose: new THREE.LatheGeometry([
+    new THREE.Vector2(0, 0),
+    new THREE.Vector2(0.1, 0.02),
+    new THREE.Vector2(0.14, 0.08),
+    new THREE.Vector2(0.15, 0.15),
+    new THREE.Vector2(0.12, 0.22),
+    new THREE.Vector2(0.08, 0.28),
+    new THREE.Vector2(0, 0.32)
+  ], SEG / 2),
+  nostril: new THREE.SphereGeometry(0.06, 8, 8),
+  mouth: new THREE.SphereGeometry(0.2, SEG / 2, SEG / 2),
+  lip: new THREE.TorusGeometry(0.18, 0.03, 12, SEG / 2),
+  lipLower: new THREE.TorusGeometry(0.16, 0.025, 12, SEG / 2),
+  ear: new THREE.LatheGeometry([
+    new THREE.Vector2(0, 0),
+    new THREE.Vector2(0.12, 0.05),
+    new THREE.Vector2(0.18, 0.15),
+    new THREE.Vector2(0.2, 0.3),
+    new THREE.Vector2(0.15, 0.45),
+    new THREE.Vector2(0.08, 0.55),
+    new THREE.Vector2(0, 0.6)
+  ], SEG / 2),
+  earCanal: new THREE.SphereGeometry(0.08, 8, 8),
+  brow: new THREE.TorusGeometry(0.3, 0.04, 12, SEG / 2, Math.PI),
+  cheek: new THREE.SphereGeometry(0.3, SEG / 2, SEG / 2),
+  chin: new THREE.SphereGeometry(0.2, SEG / 2, SEG / 2),
+  jaw: new THREE.LatheGeometry([
+    new THREE.Vector2(0, 0),
+    new THREE.Vector2(0.8, 0.1),
+    new THREE.Vector2(1.0, 0.3),
+    new THREE.Vector2(0.9, 0.5),
+    new THREE.Vector2(0.6, 0.6)
+  ], SEG / 2),
 
-  // Belt - detailed torus
-  belt: new THREE.TorusGeometry(1.5, 0.15, 12, 24),
+  // Shoulders - smooth spheres with deltoid definition
+  shoulder: new THREE.SphereGeometry(0.5, SEG / 2, SEG / 2),
+  deltoid: new THREE.SphereGeometry(0.45, SEG / 2, SEG / 2),
+
+  // Belt - detailed
+  belt: new THREE.TorusGeometry(1.5, 0.15, 16, SEG),
   beltBuckle: new THREE.BoxGeometry(0.4, 0.3, 0.15),
+  beltLoop: new THREE.TorusGeometry(0.15, 0.03, 8, 16),
 
-  // Arms - smooth cylinders with joints
-  armUpper: new THREE.CylinderGeometry(0.4, 0.35, 2.0, 16),
-  elbow: new THREE.SphereGeometry(0.35, 16, 16),
-  armLower: new THREE.CylinderGeometry(0.35, 0.3, 1.8, 16),
+  // Arms - organic LatheGeometry with muscle definition
+  armUpper: new THREE.LatheGeometry(armProfile, SEG / 2),
+  elbow: new THREE.SphereGeometry(0.35, SEG / 2, SEG / 2),
+  armLower: new THREE.LatheGeometry(armProfile, SEG / 2),
+  wrist: new THREE.SphereGeometry(0.25, SEG / 2, SEG / 2),
+  bicep: new THREE.SphereGeometry(0.4, SEG / 2, SEG / 2),
+  forearm: new THREE.SphereGeometry(0.35, SEG / 2, SEG / 2),
 
-  // Hands - detailed with fingers
-  hand: new THREE.SphereGeometry(0.3, 16, 16),
-  finger: new THREE.CylinderGeometry(0.06, 0.05, 0.4, 8),
-  thumb: new THREE.CylinderGeometry(0.07, 0.06, 0.35, 8),
+  // Hands - detailed with individual fingers and joints
+  hand: new THREE.LatheGeometry(handProfile, SEG / 2),
+  finger: new THREE.LatheGeometry(fingerProfile, 12),
+  thumb: new THREE.LatheGeometry(fingerProfile, 12),
+  fingernail: new THREE.SphereGeometry(0.04, 12, 12),
+  knuckle: new THREE.SphereGeometry(0.06, 8, 8),
 
-  // Legs - smooth cylinders
-  legUpper: new THREE.CylinderGeometry(0.5, 0.45, 2.2, 16),
-  knee: new THREE.SphereGeometry(0.4, 12, 12),
-  legLower: new THREE.CylinderGeometry(0.45, 0.4, 2.0, 16),
+  // Legs - organic LatheGeometry with muscle definition
+  legUpper: new THREE.LatheGeometry(legProfile, SEG / 2),
+  knee: new THREE.SphereGeometry(0.4, SEG / 2, SEG / 2),
+  legLower: new THREE.LatheGeometry(legProfile, SEG / 2),
+  ankle: new THREE.SphereGeometry(0.3, SEG / 2, SEG / 2),
+  thigh: new THREE.SphereGeometry(0.55, SEG / 2, SEG / 2),
+  calf: new THREE.SphereGeometry(0.45, SEG / 2, SEG / 2),
 
-  // Boots - rounded
-  boot: new THREE.CylinderGeometry(0.35, 0.4, 1.0, 12),
+  // Boots - detailed with sole and laces
+  boot: new THREE.LatheGeometry(bootProfile, SEG / 2),
   bootSole: new THREE.BoxGeometry(0.7, 0.15, 1.2),
+  bootLace: new THREE.CylinderGeometry(0.02, 0.02, 0.8, 6),
+  bootTongue: new THREE.BoxGeometry(0.3, 0.05, 0.6),
+  bootHeel: new THREE.CylinderGeometry(0.2, 0.25, 0.3, SEG / 2),
 
-  // Gun - detailed
+  // Gun - ultra detailed with all parts
   gunBody: new THREE.BoxGeometry(0.15, 0.15, 1.5),
-  gunBarrel: new THREE.CylinderGeometry(0.04, 0.05, 0.8, 12),
+  gunBarrel: new THREE.CylinderGeometry(0.04, 0.05, 0.8, SEG / 2),
+  gunBarrelInner: new THREE.CylinderGeometry(0.03, 0.03, 0.85, SEG / 2),
   gunStock: new THREE.BoxGeometry(0.12, 0.15, 0.6),
   gunMag: new THREE.BoxGeometry(0.1, 0.3, 0.15),
   gunGrip: new THREE.BoxGeometry(0.1, 0.2, 0.08),
   gunSight: new THREE.BoxGeometry(0.04, 0.06, 0.04),
+  gunTrigger: new THREE.BoxGeometry(0.02, 0.06, 0.01),
+  gunTriggerGuard: new THREE.TorusGeometry(0.04, 0.01, 12, 16, Math.PI),
+  gunBolt: new THREE.CylinderGeometry(0.02, 0.02, 0.15, 12),
+  gunRail: new THREE.BoxGeometry(0.06, 0.015, 0.5),
+  gunEjectionPort: new THREE.BoxGeometry(0.06, 0.02, 0.12),
+  gunChargingHandle: new THREE.BoxGeometry(0.1, 0.03, 0.03),
+  gunFlashHider: new THREE.CylinderGeometry(0.03, 0.025, 0.1, SEG / 2),
+  gunMuzzleBrake: new THREE.CylinderGeometry(0.05, 0.04, 0.15, SEG / 2),
 
-  // Pack - rounded edges
+  // Pack - rounded edges with straps
   pack: new THREE.BoxGeometry(1.5, 2.0, 0.8),
+  packStrap: new THREE.BoxGeometry(0.15, 0.05, 2.0),
+  packBuckle: new THREE.BoxGeometry(0.2, 0.15, 0.05),
+  packPocket: new THREE.BoxGeometry(0.8, 0.6, 0.2),
 
   // Parachute - smooth
-  parachute: new THREE.SphereGeometry(10, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2)
+  parachute: new THREE.SphereGeometry(10, SEG / 2, SEG / 4, 0, Math.PI * 2, 0, Math.PI / 2),
+  parachuteLine: new THREE.CylinderGeometry(0.02, 0.02, 12, 6)
 };
 
 // Shared materials - created once

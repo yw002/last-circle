@@ -38,46 +38,78 @@ const darkMat = new THREE.MeshLambertMaterial({ color: 0x111111 });
 const boneMat = new THREE.MeshLambertMaterial({ color: 0xddccaa });
 const pupilMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
 
-// ========== ULTRA-DETAILED ZOMBIE GEOMETRIES ==========
+// ========== MAXIMUM PRECISION ZOMBIE GEOMETRIES ==========
+const SEG_Z = 48; // Ultra-high segment count for zombies
+
+// Zombie torso profile - emaciated, ribcage visible
+const zombieTorsoProfile = [];
+for (let i = 0; i <= 32; i++) {
+  const t = i / 32;
+  let r;
+  if (t < 0.3) r = 1.3 + Math.sin(t * Math.PI / 0.3) * 0.2; // Ribcage
+  else if (t < 0.6) r = 1.5 - (t - 0.3) * 2; // Waist (very thin)
+  else r = 1.0 + Math.sin((t - 0.6) * Math.PI / 0.4) * 0.2; // Hips
+  zombieTorsoProfile.push(new THREE.Vector2(r, t * 3.5 - 1.75));
+}
+
+// Zombie head profile - elongated, skull-like
+const zombieHeadProfile = [];
+for (let i = 0; i <= 32; i++) {
+  const t = i / 32;
+  let r;
+  if (t < 0.2) r = t * 2.5; // Jaw
+  else if (t < 0.5) r = 0.5 + Math.sin((t - 0.2) * Math.PI / 0.3) * 0.6; // Cheeks
+  else if (t < 0.8) r = 1.1 - (t - 0.5) * 1.0; // Forehead
+  else r = 0.8 * (1 - (t - 0.8) * 5); // Top
+  zombieHeadProfile.push(new THREE.Vector2(Math.max(0, r), t * 2.2 - 1.1));
+}
+
 const zGeos = {
-  // Torso - smooth
-  torsoLower: new THREE.SphereGeometry(1.6, 20, 16),
-  torsoUpper: new THREE.SphereGeometry(1.4, 20, 16),
+  // Torso - emaciated LatheGeometry
+  torsoLower: new THREE.LatheGeometry(zombieTorsoProfile, SEG_Z),
+  torsoUpper: new THREE.LatheGeometry(zombieTorsoProfile, SEG_Z),
 
-  // Head - detailed
-  head: new THREE.SphereGeometry(1.1, 20, 20),
-  skull: new THREE.SphereGeometry(0.6, 16, 16),
+  // Head - skull-like LatheGeometry
+  head: new THREE.LatheGeometry(zombieHeadProfile, SEG_Z),
+  skull: new THREE.SphereGeometry(0.6, SEG_Z / 2, SEG_Z / 2),
 
-  // Neck
-  neck: new THREE.CylinderGeometry(0.35, 0.45, 0.5, 12),
+  // Neck - thin
+  neck: new THREE.CylinderGeometry(0.35, 0.45, 0.5, SEG_Z / 2),
 
-  // Eyes - glowing
-  eye: new THREE.SphereGeometry(0.2, 12, 12),
-  pupil: new THREE.SphereGeometry(0.1, 12, 12),
+  // Eyes - glowing with sockets
+  eye: new THREE.SphereGeometry(0.2, SEG_Z / 2, SEG_Z / 2),
+  eyeSocket: new THREE.SphereGeometry(0.25, SEG_Z / 2, SEG_Z / 2),
+  pupil: new THREE.SphereGeometry(0.1, SEG_Z / 2, SEG_Z / 2),
 
-  // Gore details
-  bloodWound: new THREE.SphereGeometry(0.35, 12, 12),
-  jaw: new THREE.SphereGeometry(0.4, 12, 12),
-  rib: new THREE.TorusGeometry(0.8, 0.06, 8, 16, Math.PI),
-  exposedBone: new THREE.CylinderGeometry(0.1, 0.1, 1.5, 12),
+  // Gore details - high poly
+  bloodWound: new THREE.SphereGeometry(0.35, SEG_Z / 2, SEG_Z / 2),
+  jaw: new THREE.SphereGeometry(0.4, SEG_Z / 2, SEG_Z / 2),
+  teeth: new THREE.BoxGeometry(0.08, 0.12, 0.05),
+  rib: new THREE.TorusGeometry(0.8, 0.06, 12, SEG_Z, Math.PI),
+  exposedBone: new THREE.CylinderGeometry(0.1, 0.1, 1.5, SEG_Z / 2),
+  tornFlesh: new THREE.SphereGeometry(0.3, SEG_Z / 2, SEG_Z / 2),
 
-  // Arms - smooth with joints
-  armUpper: new THREE.CylinderGeometry(0.35, 0.3, 1.8, 12),
-  elbow: new THREE.SphereGeometry(0.28, 12, 12),
-  armLower: new THREE.CylinderGeometry(0.3, 0.25, 1.6, 12),
+  // Arms - smooth with joints and muscle
+  armUpper: new THREE.CylinderGeometry(0.35, 0.3, 1.8, SEG_Z / 2),
+  elbow: new THREE.SphereGeometry(0.28, SEG_Z / 2, SEG_Z / 2),
+  armLower: new THREE.CylinderGeometry(0.3, 0.25, 1.6, SEG_Z / 2),
+  wrist: new THREE.SphereGeometry(0.2, SEG_Z / 2, SEG_Z / 2),
 
-  // Hands with claws
-  hand: new THREE.SphereGeometry(0.25, 12, 12),
-  claw: new THREE.CylinderGeometry(0.04, 0.02, 0.3, 8),
+  // Hands with detailed claws
+  hand: new THREE.SphereGeometry(0.25, SEG_Z / 2, SEG_Z / 2),
+  claw: new THREE.CylinderGeometry(0.04, 0.02, 0.3, 12),
+  fingerBone: new THREE.CylinderGeometry(0.03, 0.03, 0.25, 8),
 
-  // Legs
-  legUpper: new THREE.CylinderGeometry(0.45, 0.4, 2.0, 12),
-  knee: new THREE.SphereGeometry(0.35, 12, 12),
-  legLower: new THREE.CylinderGeometry(0.4, 0.35, 1.8, 12),
+  // Legs - detailed
+  legUpper: new THREE.CylinderGeometry(0.45, 0.4, 2.0, SEG_Z / 2),
+  knee: new THREE.SphereGeometry(0.35, SEG_Z / 2, SEG_Z / 2),
+  legLower: new THREE.CylinderGeometry(0.4, 0.35, 1.8, SEG_Z / 2),
+  ankle: new THREE.SphereGeometry(0.25, SEG_Z / 2, SEG_Z / 2),
 
-  // Boots - torn
-  boot: new THREE.CylinderGeometry(0.3, 0.35, 0.9, 12),
-  bootSole: new THREE.BoxGeometry(0.6, 0.1, 1.1)
+  // Boots - torn with soles
+  boot: new THREE.CylinderGeometry(0.3, 0.35, 0.9, SEG_Z / 2),
+  bootSole: new THREE.BoxGeometry(0.6, 0.1, 1.1),
+  bootTongue: new THREE.BoxGeometry(0.25, 0.04, 0.5)
 };
 
 const ZOMBIE_COUNT = 30; // Reduced from 60 for better performance
