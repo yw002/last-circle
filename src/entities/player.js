@@ -8,6 +8,9 @@ import { getHousePlayerIsInside } from './house.js';
 import { playSound } from '../systems/audio.js';
 import { spawnBlood, spawnMuzzleFlash } from '../systems/particles.js';
 import { updateUI } from '../ui/hud.js';
+import { createWeaponTracer } from '../systems/bullets.js';
+import { showHitFromDirection } from '../ui/hitindicator.js';
+import { spawnBulletHole } from '../systems/bulletholes.js';
 import { showNotice } from '../ui/notices.js';
 import { calcDamage } from './damage.js';
 import { botDied } from './bots.js';
@@ -79,7 +82,7 @@ export function reloadWeapon() {
     state.player.isReloading = false;
     document.getElementById('reload-bar-bg').style.display = 'none';
     if (state.viewWeaponMesh) {
-      state.viewWeaponMesh.position.set(0.6, -0.6, -1.2);
+      state.viewWeaponMesh.position.set(0.5, -0.5, -1.8);
       state.viewWeaponMesh.rotation.set(0, 0, 0);
     }
     updateUI();
@@ -95,7 +98,7 @@ export function cancelReload() {
   state.player.isReloading = false;
   document.getElementById('reload-bar-bg').style.display = 'none';
   if (state.viewWeaponMesh) {
-    state.viewWeaponMesh.position.set(0.6, -0.6, -1.2);
+    state.viewWeaponMesh.position.set(0.5, -0.5, -1.8);
     state.viewWeaponMesh.rotation.set(0, 0, 0);
   }
 }
@@ -111,7 +114,7 @@ export function switchWeapon(index) {
     state.camera.fov = 75;
     state.camera.updateProjectionMatrix();
     if (state.viewWeaponMesh) {
-      state.viewWeaponMesh.position.set(0.6, -0.6, -1.2);
+      state.viewWeaponMesh.position.set(0.5, -0.5, -1.8);
       state.viewWeaponMesh.rotation.set(0, 0, 0);
     }
     updateWeaponModel();
@@ -130,7 +133,7 @@ export function equipWeapon(index) {
   state.camera.fov = 75;
   state.camera.updateProjectionMatrix();
   if (state.viewWeaponMesh) {
-    state.viewWeaponMesh.position.set(0.6, -0.6, -1.2);
+    state.viewWeaponMesh.position.set(0.5, -0.5, -1.8);
     state.viewWeaponMesh.rotation.set(0, 0, 0);
   }
   updateWeaponModel();
@@ -702,10 +705,16 @@ export function updateWeaponModel() {
     );
   }
 }
-export function playerHit(dmg) {
+export function playerHit(dmg, attackerPos = null) {
   if (state.player.isParachuting) return;
   state.player.health -= dmg;
   playSound('hit');
+
+  // Show hit direction indicator
+  if (attackerPos) {
+    showHitFromDirection(attackerPos);
+  }
+
   document.getElementById('hit-overlay').style.opacity = '1';
   setTimeout(() => { document.getElementById('hit-overlay').style.opacity = '0'; }, 150);
 
@@ -843,8 +852,7 @@ export function fireWeapon() {
   state.raycaster.setFromCamera(new THREE.Vector2(spreadX, spreadY), state.camera);
   const intersects = state.raycaster.intersectObjects(state.objects);
 
-  // Get gun barrel position for tracer
-  const tracerStart = getGunBarrelPosition();
+  // Get gun barrel position for tracer (using new system)
 
   let coverHit = null;
   let targetHit = null;
@@ -870,16 +878,21 @@ export function fireWeapon() {
   } else {
     // No hit - tracer goes to max range
     const dir = state.raycaster.ray.direction.clone();
-    hitPoint = tracerStart.clone().add(dir.multiplyScalar(state.player.weapon.range));
+    hitPoint = state.camera.position.clone().add(dir.multiplyScalar(state.player.weapon.range));
   }
 
   // Create bullet tracer
-  createBulletTracer(tracerStart, hitPoint);
+  // Create bullet tracer using new system
+  createWeaponTracer(state.viewWeaponMesh, hitPoint);
 
   if (coverHit && (!targetHit || coverHit.distance < targetHit.distance)) {
     let n = coverHit.face ? coverHit.face.normal : new THREE.Vector3(0, 1, 0);
+
+    // Spawn bullet hole on surface
+    spawnBulletHole(coverHit.point, n);
+
+    // Spawn dust particles
     for (let i = 0; i < 3; i++) {
-      // Reuse shared geometry and material
       const dust = new THREE.Mesh(_dustGeo, _dustMat);
       dust.position.copy(coverHit.point);
       state.scene.add(dust);
@@ -963,7 +976,7 @@ export function fireWeapon() {
         }
       }
     }
-  }
+  } // End pellet loop
 }
 
 export function updatePlayer(delta) {

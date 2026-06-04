@@ -13,6 +13,7 @@ import { updateUI } from '../ui/hud.js';
 import { showNotice } from '../ui/notices.js';
 import { playSound } from '../systems/audio.js';
 import { spawnBlood } from '../systems/particles.js';
+import { checkEntityCollision } from '../systems/collision.js';
 
 let ufos = [];
 let aliens = [];
@@ -428,8 +429,20 @@ export function updateAliens(delta) {
     }
 
     if (alien.state === 'wander') {
-      aPos.x += alien.vx * delta;
-      aPos.z += alien.vz * delta;
+      let newX = aPos.x + alien.vx * delta;
+      let newZ = aPos.z + alien.vz * delta;
+
+      // Check collision (aliens hover above ground, check at ground level)
+      let collision = checkEntityCollision(aPos.x, aPos.z, newX, newZ, getTerrainHeight(newX, newZ), 5);
+      if (!collision.blocked) {
+        aPos.x = newX;
+        aPos.z = newZ;
+      } else {
+        aPos.x = collision.x;
+        aPos.z = collision.z;
+        alien.vx = -alien.vx * 0.5;
+        alien.vz = -alien.vz * 0.5;
+      }
       aPos.y = getTerrainHeight(aPos.x, aPos.z) + 2;
 
       // Hover slightly
@@ -441,19 +454,28 @@ export function updateAliens(delta) {
       let dist = dir.length();
       dir.normalize();
 
-      // Keep distance
+      // Calculate movement
+      let moveX = 0, moveZ = 0;
       if (dist > 60) {
-        aPos.x += dir.x * alien.speed * delta;
-        aPos.z += dir.z * alien.speed * delta;
+        moveX = dir.x * alien.speed * delta;
+        moveZ = dir.z * alien.speed * delta;
       } else if (dist < 30) {
-        aPos.x -= dir.x * alien.speed * delta;
-        aPos.z -= dir.z * alien.speed * delta;
+        moveX = -dir.x * alien.speed * delta;
+        moveZ = -dir.z * alien.speed * delta;
       } else {
-        // Strafe
         let perp = new THREE.Vector3(-dir.z, 0, dir.x);
         let strafeDir = Math.sin(now * 0.002) > 0 ? 1 : -1;
-        aPos.x += perp.x * alien.speed * 0.7 * strafeDir * delta;
-        aPos.z += perp.z * alien.speed * 0.7 * strafeDir * delta;
+        moveX = perp.x * alien.speed * 0.7 * strafeDir * delta;
+        moveZ = perp.z * alien.speed * 0.7 * strafeDir * delta;
+      }
+
+      // Check collision
+      let newX = aPos.x + moveX;
+      let newZ = aPos.z + moveZ;
+      let collision = checkEntityCollision(aPos.x, aPos.z, newX, newZ, getTerrainHeight(newX, newZ), 5);
+      if (!collision.blocked) {
+        aPos.x = newX;
+        aPos.z = newZ;
       }
 
       aPos.y = getTerrainHeight(aPos.x, aPos.z) + 2;
@@ -467,13 +489,38 @@ export function updateAliens(delta) {
         alien.lastFire = now;
         playSound('ar', { x: aPos.x, y: aPos.y, z: aPos.z });
 
-        // Alien weapon effect
-        spawnAlienBullet(aPos, targetPos);
+        // Check line of sight before shooting
+        const alienHeadPos = new THREE.Vector3(aPos.x, aPos.y + 3, aPos.z);
+        const direction = new THREE.Vector3().subVectors(targetPos, alienHeadPos).normalize();
+        const ray = new THREE.Raycaster(alienHeadPos, direction, 0, 500);
+        const intersects = ray.intersectObjects(state.objects);
 
-        if (Math.random() < 0.35) {
+        let isBlocked = false;
+        let hitPoint = targetPos;
+
+        // Check if any obstacle is between alien and target
+        const distToTarget = alienHeadPos.distanceTo(targetPos);
+        for (let i = 0; i < intersects.length; i++) {
+          const hit = intersects[i];
+          // If hit something that's not the target itself, and it's closer
+          if (hit.distance < distToTarget) {
+            const ud = hit.object.userData;
+            // Ignore hitting the alien itself or other aliens
+            if (!ud.isAlien) {
+              isBlocked = true;
+              hitPoint = hit.point;
+              break;
+            }
+          }
+        }
+
+        // Create bullet tracer
+        spawnAlienBullet(aPos, hitPoint);
+
+        if (!isBlocked && Math.random() < 0.35) {
           let isHeadshot = Math.random() > 0.8;
           if (alien.target === 'player') {
-            playerHit(alien.weaponDamage * (isHeadshot ? 2 : 1));
+            playerHit(alien.weaponDamage * (isHeadshot ? 2 : 1), aPos); // Pass position for hit direction
             showNotice("👽 被外星武器击中！", "#00ff88");
           } else {
             alien.target.health -= alien.weaponDamage;

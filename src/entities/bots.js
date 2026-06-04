@@ -10,6 +10,8 @@ import { playSound } from '../systems/audio.js';
 import { spawnBlood } from '../systems/particles.js';
 import { playerHit } from './player.js';
 import { addKillFeed } from '../ui/notices.js';
+import { createTracerFromPosition } from '../systems/bullets.js';
+import { checkEntityCollision } from '../systems/collision.js';
 import { updateUI } from '../ui/hud.js';
 import { showNotice } from '../ui/notices.js';
 
@@ -586,8 +588,21 @@ export function updateBots(delta) {
     }
 
     if (bot.state === 'wander') {
-      bPos.x += bot.vx * delta;
-      bPos.z += bot.vz * delta;
+      let newX = bPos.x + bot.vx * delta;
+      let newZ = bPos.z + bot.vz * delta;
+
+      // Check collision before moving
+      let collision = checkEntityCollision(bPos.x, bPos.z, newX, newZ, bPos.y, 5);
+      if (!collision.blocked) {
+        bPos.x = newX;
+        bPos.z = newZ;
+      } else {
+        bPos.x = collision.x;
+        bPos.z = collision.z;
+        // Change direction on collision
+        bot.vx = -bot.vx * 0.5;
+        bot.vz = -bot.vz * 0.5;
+      }
       bPos.y = getTerrainHeight(bPos.x, bPos.z);
       if (bot.laserMesh) bot.laserMesh.visible = false;
     } else if (bot.state === 'attack' && bot.target) {
@@ -601,16 +616,26 @@ export function updateBots(delta) {
       let dist = _tempVec3.length();
       _tempVec3.normalize();
 
+      let moveX = 0, moveZ = 0;
       if (dist > 80) {
-        bPos.x += _tempVec3.x * speed * delta;
-        bPos.z += _tempVec3.z * speed * delta;
+        moveX = _tempVec3.x * speed * delta;
+        moveZ = _tempVec3.z * speed * delta;
       } else if (dist < 30) {
-        bPos.x -= _tempVec3.x * speed * delta;
-        bPos.z -= _tempVec3.z * speed * delta;
+        moveX = -_tempVec3.x * speed * delta;
+        moveZ = -_tempVec3.z * speed * delta;
       } else {
         let strafeDir = (Math.floor(now / 2000) + bot.id) % 2 === 0 ? 1 : -1;
-        bPos.x += (-_tempVec3.z) * speed * 0.85 * strafeDir * delta;
-        bPos.z += _tempVec3.x * speed * 0.85 * strafeDir * delta;
+        moveX = (-_tempVec3.z) * speed * 0.85 * strafeDir * delta;
+        moveZ = _tempVec3.x * speed * 0.85 * strafeDir * delta;
+      }
+
+      // Check collision before moving
+      let newX = bPos.x + moveX;
+      let newZ = bPos.z + moveZ;
+      let collision = checkEntityCollision(bPos.x, bPos.z, newX, newZ, bPos.y, 5);
+      if (!collision.blocked) {
+        bPos.x = newX;
+        bPos.z = newZ;
       }
       bPos.y = getTerrainHeight(bPos.x, bPos.z);
 
@@ -624,15 +649,30 @@ export function updateBots(delta) {
           setTimeout(() => { if (bot.laserMesh) bot.laserMesh.material.opacity = 0.6; }, 100);
         }
 
+        // Bot gun position (right hand area)
+        const botGunPos = new THREE.Vector3(bPos.x + 2, bPos.y + 3.5, bPos.z + 1.5);
+
+        // Add bullet spread for bots
+        const botSpread = 0.05;
+        const spreadX = (Math.random() - 0.5) * botSpread;
+        const spreadY = (Math.random() - 0.5) * botSpread;
+
         if (Math.random() < bot.accuracy) {
           let isHeadshot = Math.random() > 0.9;
           if (bot.target === 'player') {
             const botHeadPos = _tempVec3.set(bPos.x, bPos.y + 5, bPos.z);
             const direction = new THREE.Vector3().subVectors(playerPos, botHeadPos).normalize();
+            // Apply spread to direction
+            direction.x += spreadX;
+            direction.y += spreadY;
+            direction.normalize();
+
             const ray = new THREE.Raycaster(botHeadPos, direction, 0, 1000);
             const intersects = ray.intersectObjects(state.objects);
 
             let isBlocked = false;
+            let hitPoint = playerPos;
+
             let insideHouse = getHousePlayerIsInside();
             if (insideHouse && !insideHouse.isOpen) {
               isBlocked = true;
@@ -640,17 +680,26 @@ export function updateBots(delta) {
               if (intersects[0].distance < botHeadPos.distanceTo(playerPos)) {
                 if (intersects[0].object.userData.botIndex !== bot.id) {
                   isBlocked = true;
+                  hitPoint = intersects[0].point;
                 }
               }
             }
 
+            // Create bot bullet tracer
+            createTracerFromPosition(botGunPos, hitPoint);
+
             if (!isBlocked) {
               let dmg = calcDamage(bot.weapon.damage * diff.botToPlayerDamageFactor, isHeadshot, state.player);
-              playerHit(dmg);
+              playerHit(dmg, bPos); // Pass bot position for hit direction
             }
           } else if (bot.target.mesh) {
-            let dmg = calcDamage(bot.weapon.damage * 0.5, isHeadshot, bot.target);
+            // Bot-vs-bot damage reduced by 20x
+            let dmg = calcDamage(bot.weapon.damage * 0.025, isHeadshot, bot.target);
             bot.target.health -= dmg;
+
+            // Create bot bullet tracer for bot-vs-bot combat
+            createTracerFromPosition(botGunPos, bot.target.mesh.position);
+
             spawnBlood(bot.target.mesh.position.clone().add(new THREE.Vector3(0, 4, 0)), new THREE.Vector3(0, 1, 0));
             if (bot.target.health <= 0) {
               botDied(bot.target, "Bot " + bot.id);
@@ -658,6 +707,16 @@ export function updateBots(delta) {
               bot.changeDirTime = 0;
             }
           }
+        } else {
+          // Miss - tracer goes past target
+          const missPoint = botGunPos.clone().add(
+            new THREE.Vector3(
+              (Math.random() - 0.5) * 50,
+              (Math.random() - 0.5) * 20,
+              (Math.random() - 0.5) * 50
+            )
+          );
+          createTracerFromPosition(botGunPos, missPoint);
         }
       }
     }

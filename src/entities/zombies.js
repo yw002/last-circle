@@ -9,6 +9,8 @@ import { playZombieSound } from '../systems/audio.js';
 import { spawnBlood } from '../systems/particles.js';
 import { playerHit } from './player.js';
 import { botDied } from './bots.js';
+import { createTracerFromPosition } from '../systems/bullets.js';
+import { checkEntityCollision } from '../systems/collision.js';
 import { spawnSingleLoot } from '../world/loot.js';
 import { addKillFeed } from '../ui/notices.js';
 import { updateUI } from '../ui/hud.js';
@@ -410,11 +412,12 @@ export function updateZombies(delta) {
           spawnBlood(zPos.clone().add(new THREE.Vector3(0, 4.5, 1)), new THREE.Vector3(0, 1, 0));
 
           if (zombie.target === 'player') {
-            playerHit(12);
+            playerHit(12, zPos); // Pass zombie position for hit direction
             playZombieSound('bite');
             showNotice("⚠️ 您被丧尸抓咬了！(-12 HP)", "#e74c3c");
           } else {
-            zombie.target.health -= 15;
+            // Zombie-vs-bot damage reduced by 20x
+            zombie.target.health -= 0.75;
             playZombieSound('bite', { x: zombie.target.mesh.position.x, y: zombie.target.mesh.position.y, z: zombie.target.mesh.position.z });
             spawnBlood(zombie.target.mesh.position.clone().add(new THREE.Vector3(0, 4, 0)), new THREE.Vector3(0, 1, 0));
             if (zombie.target.health <= 0) {
@@ -431,49 +434,22 @@ export function updateZombies(delta) {
 
     // Movement with collision
     let oldZx = zPos.x, oldZz = zPos.z;
-    zPos.x += zombie.vx * delta;
-    zPos.z += zombie.vz * delta;
+    let newX = zPos.x + zombie.vx * delta;
+    let newZ = zPos.z + zombie.vz * delta;
+
+    // Check collision before moving
+    let collision = checkEntityCollision(oldZx, oldZz, newX, newZ, zPos.y, 5);
+    if (!collision.blocked) {
+      zPos.x = newX;
+      zPos.z = newZ;
+    } else {
+      zPos.x = collision.x;
+      zPos.z = collision.z;
+      // Bounce away on collision
+      zombie.vx = -zombie.vx * 0.5;
+      zombie.vz = -zombie.vz * 0.5;
+    }
     zPos.y = getTerrainHeight(zPos.x, zPos.z);
-
-    let inHouse = getHouseObjectIsInside(zPos);
-    if (inHouse) {
-      zPos.x = oldZx;
-      zPos.z = oldZz;
-      zPos.y = getTerrainHeight(zPos.x, zPos.z);
-    }
-
-    // House wall collision
-    for (let i = 0; i < state.doors.length; i++) {
-      let d = state.doors[i];
-      let hPos = d.housePos;
-      let dx = zPos.x - hPos.x;
-      let dz = zPos.z - hPos.z;
-      let dy = zPos.y - hPos.y;
-
-      if (dy > 0 && dy < 24) {
-        let absX = Math.abs(dx);
-        let absZ = Math.abs(dz);
-
-        if (absX < 16.2 && absZ < 16.2) {
-          let wallHit = false;
-
-          if ((dx >= -16.2 && dx <= -13.5 && dz >= -16.2 && dz <= 16.2) ||
-            (dx >= 13.5 && dx <= 16.2 && dz >= -16.2 && dz <= 16.2) ||
-            (dz >= -16.2 && dz <= -13.5 && dx >= -16.2 && dx <= 16.2) ||
-            (dz >= 13.5 && dz <= 16.2 && dx >= -16.2 && dx <= -3.1) ||
-            (dz >= 13.5 && dz <= 16.2 && dx >= 3.1 && dx <= 16.2) ||
-            (!d.isOpen && dz >= 13.5 && dz <= 16.2 && dx >= -3.25 && dx <= 3.25)) {
-            wallHit = true;
-          }
-
-          if (wallHit) {
-            zPos.x = oldZx;
-            zPos.z = oldZz;
-            break;
-          }
-        }
-      }
-    }
 
     // Leg animation
     let moveSpeedSq = zombie.vx * zombie.vx + zombie.vz * zombie.vz;

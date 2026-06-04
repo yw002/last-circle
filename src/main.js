@@ -9,18 +9,26 @@ import { initControls } from './systems/controls.js';
 import { resumeAudio, updateAudioListener } from './systems/audio.js';
 import { updateParticles } from './systems/particles.js';
 import { initClouds, updateWeather } from './systems/weather.js';
+import { triggerLightningStrike } from './systems/lightning.js';
 import { initZone, updateZone } from './systems/zone.js';
 import { initTerrain, getTerrainHeight } from './world/terrain.js';
 import { preGenerateHouses, initEnvironment } from './world/environment.js';
 import { initGrass, updateGrass } from './world/grass.js';
 import { updateWeaponModel, updatePlayer, fireWeapon, updateCrosshairSpread } from './entities/player.js';
+import { updateTracers } from './systems/bullets.js';
+import { updateBulletHoles } from './systems/bulletholes.js';
+import { updateADS } from './systems/ads.js';
 import { initBots, updateBots } from './entities/bots.js';
 import { initZombies, updateZombies } from './entities/zombies.js';
 import { initAnimals, updateAnimals } from './entities/animals.js';
 import { initGhosts, updateGhosts } from './entities/ghosts.js';
 import { initAliens, updateAliens, alienDied } from './entities/aliens.js';
+import { updateMeteors } from './entities/meteors.js';
+import { updateTornadoes } from './entities/tornadoes.js';
+import { initVolcano, updateVolcano } from './entities/volcano.js';
 import { updateUI } from './ui/hud.js';
 import { initMinimap, updateMinimap } from './ui/minimap.js';
+import { initHitIndicator } from './ui/hitindicator.js';
 import { optimizeRenderer, optimizeScene, updateFPS, adaptQuality } from './systems/performance.js';
 
 // Disable right-click menu
@@ -51,9 +59,9 @@ function init() {
   state.player.inventory = [defaultWeapon, null];
   state.player.sharedAmmo = 300; // Start with 300 reserve ammo
 
-  // Create first-person weapon model
+  // Create first-person weapon model - pushed forward to prevent back-clipping
   state.viewWeaponMesh = new THREE.Group();
-  state.viewWeaponMesh.position.set(0.6, -0.6, -1.2);
+  state.viewWeaponMesh.position.set(0.5, -0.5, -1.8);
   state.camera.add(state.viewWeaponMesh);
   updateWeaponModel();
 
@@ -84,6 +92,7 @@ function init() {
   initEnvironment();
   initGrass(); // Zelda-style flowing grass
   initAnimals();
+  initVolcano(); // Create massive volcano
 
   // Initialize zone
   initZone();
@@ -115,6 +124,7 @@ function init() {
   // Initial UI update
   updateUI();
   initMinimap();
+  initHitIndicator();
 
   // Start game loop
   state.prevTime = performance.now();
@@ -124,27 +134,28 @@ function init() {
 function animate() {
   requestAnimationFrame(animate);
 
-  const time = performance.now();
-  const delta = Math.min((time - state.prevTime) / 1000, 0.1);
+  try {
+    const time = performance.now();
+    const delta = Math.min((time - state.prevTime) / 1000, 0.1);
 
-  // FPS tracking and adaptive quality
-  const fps = updateFPS(delta);
-  if (fps < 30) {
-    adaptQuality(fps);
-  }
+    // FPS tracking and adaptive quality
+    const fps = updateFPS(delta);
+    if (fps < 30) {
+      adaptQuality(fps);
+    }
 
-  // Update FPS display
-  const fpsEl = document.getElementById('fps-counter');
-  if (fpsEl) {
-    fpsEl.textContent = `FPS: ${fps}`;
-    // Color based on FPS
-    if (fps >= 50) fpsEl.style.color = '#00ff00';
-    else if (fps >= 30) fpsEl.style.color = '#ffff00';
-    else fpsEl.style.color = '#ff0000';
-  }
+    // Update FPS display
+    const fpsEl = document.getElementById('fps-counter');
+    if (fpsEl) {
+      fpsEl.textContent = `FPS: ${fps}`;
+      // Color based on FPS
+      if (fps >= 50) fpsEl.style.color = '#00ff00';
+      else if (fps >= 30) fpsEl.style.color = '#ffff00';
+      else fpsEl.style.color = '#ff0000';
+    }
 
-  // Update audio listener position (throttled to every 100ms)
-  if (!state._lastAudioUpdate || time - state._lastAudioUpdate > 100) {
+    // Update audio listener position (throttled to every 100ms)
+    if (!state._lastAudioUpdate || time - state._lastAudioUpdate > 100) {
     updateAudioListener(state.camera);
     state._lastAudioUpdate = time;
   }
@@ -175,42 +186,7 @@ function animate() {
   }
 
   if (state.controls.isLocked && state.player.alive) {
-    // Scope/ADS zoom
-    let targetFov = 75;
-    if (state.player.isADS) {
-      if (state.player.weapon.scope) {
-        targetFov = state.player.weapon.scope.fov;
-        if (state.player.weapon.scope.level >= 2) {
-          document.getElementById('scope-overlay').style.display = 'block';
-          document.getElementById('crosshair').style.display = 'none';
-          let vignetteSize = 70 - state.player.weapon.scope.level * 10;
-          document.querySelector('.scope-vignette').style.background =
-            `radial-gradient(circle at 50% 50%, transparent ${vignetteSize}%, rgba(0,0,0,0.8) ${vignetteSize + 5}%)`;
-        } else {
-          document.getElementById('scope-overlay').style.display = 'none';
-          document.getElementById('crosshair').style.display = 'block';
-          document.getElementById('crosshair').style.background = 'red';
-          document.getElementById('crosshair').style.width = '4px';
-          document.getElementById('crosshair').style.height = '4px';
-        }
-      } else {
-        targetFov = 65;
-        document.getElementById('scope-overlay').style.display = 'none';
-        document.getElementById('crosshair').style.display = 'block';
-      }
-    } else {
-      document.getElementById('scope-overlay').style.display = 'none';
-      document.getElementById('crosshair').style.display = 'block';
-      document.getElementById('crosshair').style.background = 'rgba(0, 255, 0, 0.8)';
-      document.getElementById('crosshair').style.width = '6px';
-      document.getElementById('crosshair').style.height = '6px';
-    }
-
-    // Only update projection matrix when FOV changes significantly
-    state.camera.fov += (targetFov - state.camera.fov) * 0.15;
-    if (Math.abs(state.camera.fov - targetFov) > 0.01) {
-      state.camera.updateProjectionMatrix();
-    }
+    // ADS is now handled by updateADS() system
 
     // Reload progress bar
     if (state.player.isReloading) {
@@ -226,11 +202,17 @@ function animate() {
     updateGhosts(delta);
     updateAnimals(delta);
     updateAliens(delta);
+    updateMeteors(delta); // Update meteors
+    updateTornadoes(delta); // Update tornadoes
+    updateVolcano(delta); // Update volcano and earthquake
     updateZone(delta);
     updateWeather(delta);
     updateParticles(delta);
     updateCrosshairSpread(delta);
     updateGrass(delta);
+    updateTracers(); // Update bullet tracers
+    updateBulletHoles(); // Update bullet holes
+    updateADS(delta); // Update ADS animation
 
     // Throttle minimap to ~15 FPS
     if (!state._lastMinimapUpdate || time - state._lastMinimapUpdate > 66) {
@@ -303,9 +285,9 @@ function animate() {
         rotX = 0.15 * (1 - t);
       }
 
-      state.viewWeaponMesh.position.y = -0.6 + yOffset;
-      state.viewWeaponMesh.position.x = 0.6 + xOffset;
-      state.viewWeaponMesh.position.z = -1.2 + zOffset;
+      state.viewWeaponMesh.position.y = -0.5 + yOffset;
+      state.viewWeaponMesh.position.x = 0.5 + xOffset;
+      state.viewWeaponMesh.position.z = -1.8 + zOffset;
       state.viewWeaponMesh.rotation.x = rotX;
       state.viewWeaponMesh.rotation.z = rotZ;
     }
@@ -313,6 +295,12 @@ function animate() {
 
   state.prevTime = time;
   state.renderer.render(state.scene, state.camera);
+
+  } catch (e) {
+    // Prevent screen freeze - log error and continue
+    console.warn('Animation frame error:', e);
+    state.prevTime = performance.now();
+  }
 }
 
 // Start the game

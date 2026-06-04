@@ -77,8 +77,12 @@ export function spawnMuzzleFlash(weaponName) {
   // Random rotation for variety
   state.muzzleFlash.rotation.z = Math.random() * Math.PI;
 
-  // Random scale
+  // Random scale - shotgun has bigger flash
   let scaleVal = 0.6 + Math.random() * 0.4;
+  if (weaponName === 'S686' || weaponName === 'S1897' || weaponName === 'S12K' || weaponName === 'DBS') {
+    scaleVal *= 2.0; // Shotgun flash is 2x bigger
+    if (state.muzzleLight) state.muzzleLight.intensity = 10.0; // Brighter light
+  }
   state.muzzleFlash.scale.set(scaleVal, scaleVal, scaleVal * 1.2);
 
   // Show flash

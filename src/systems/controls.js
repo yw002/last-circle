@@ -2,6 +2,7 @@
 
 import { state } from '../state.js';
 import { reloadWeapon, switchWeapon, cancelReload, fireWeapon } from '../entities/player.js';
+import { toggleADS } from './ads.js';
 
 export function initControls() {
   document.addEventListener('contextmenu', e => e.preventDefault());
@@ -47,7 +48,7 @@ export function initControls() {
         fireWeapon();
       }
     } else if (e.button === 2) {
-      state.player.isADS = !state.player.isADS;
+      toggleADS();
     }
   });
 

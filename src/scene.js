@@ -5,13 +5,13 @@ import { state } from './state.js';
 export function initScene() {
   // Scene
   state.scene = new THREE.Scene();
-  state.scene.background = new THREE.Color(0x6b8e7b); // Fog-matched background
+  state.scene.background = new THREE.Color(0x87CEEB); // Sky blue background
 
-  // Very thick fog - visibility only ~200 units for maximum GPU savings
-  state.scene.fog = new THREE.FogExp2(0x6b8e7b, 0.008);
+  // Light fog for atmosphere but good visibility (~800 units)
+  state.scene.fog = new THREE.FogExp2(0x87CEEB, 0.0015);
 
-  // Camera - tight far plane matching fog
-  state.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 300);
+  // Camera - generous far plane for long visibility
+  state.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.5, 2000);
   state.camera.position.set(0, 400, 0);
 
   // Single ambient light (remove directional for performance)

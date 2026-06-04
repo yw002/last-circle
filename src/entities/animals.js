@@ -10,6 +10,7 @@ import { addKillFeed } from '../ui/notices.js';
 import { updateUI } from '../ui/hud.js';
 import { showNotice } from '../ui/notices.js';
 import { playerHit } from './player.js';
+import { checkEntityCollision } from '../systems/collision.js';
 
 // ========== SHARED RESOURCES ==========
 const sharedMats = {
@@ -624,7 +625,7 @@ export function updateAnimals(delta) {
           animal.vz = -dir.z * 20;
           aPos.x -= dir.x * (COLLISION_DIST - distToPlayer + 2);
           aPos.z -= dir.z * (COLLISION_DIST - distToPlayer + 2);
-          playerHit(config.damage || 12);
+          playerHit(config.damage || 12, aPos); // Pass position for hit direction
           showNotice(`💥 被${getAnimalName(animal.type)}攻击！(-${config.damage || 12} HP)`, "#f39c12");
         }
         break;
@@ -639,7 +640,7 @@ export function updateAnimals(delta) {
           animal.attackCooldown = now + 1500;
           animal.vx = -dir.x * 15;
           animal.vz = -dir.z * 15;
-          playerHit(config.damage || 15);
+          playerHit(config.damage || 15, aPos); // Pass position for hit direction
           showNotice(`⚠️ 被${getAnimalName(animal.type)}抓咬！(-${config.damage || 15} HP)`, "#e74c3c");
         }
         break;
@@ -658,12 +659,77 @@ export function updateAnimals(delta) {
       }
     }
 
-    // Movement
-    aPos.x += animal.vx * delta;
-    aPos.z += animal.vz * delta;
+    // Movement with collision
+    const oldX = aPos.x;
+    const oldZ = aPos.z;
+    let newX = aPos.x + animal.vx * delta;
+    let newZ = aPos.z + animal.vz * delta;
+
+    // Check collision before moving (skip for flying and swimming animals)
+    const isFlying = ['eagle', 'hawk', 'owl'].includes(animal.type);
+    const isSwimming = animal.type === 'fish';
+
+    if (!isFlying && !isSwimming) {
+      let collision = checkEntityCollision(oldX, oldZ, newX, newZ, aPos.y, 4);
+      if (!collision.blocked) {
+        aPos.x = newX;
+        aPos.z = newZ;
+      } else {
+        aPos.x = collision.x;
+        aPos.z = collision.z;
+        // Bounce away on collision
+        animal.vx = -animal.vx * 0.5;
+        animal.vz = -animal.vz * 0.5;
+      }
+    } else {
+      aPos.x = newX;
+      aPos.z = newZ;
+    }
     aPos.y = getTerrainHeight(aPos.x, aPos.z);
 
-    // Collision
+    // House wall collision for animals
+    if (animal.type !== 'fish' && animal.type !== 'eagle' && animal.type !== 'hawk' && animal.type !== 'owl') {
+      for (let i = 0; i < state.doors.length; i++) {
+        const d = state.doors[i];
+        const hPos = d.housePos;
+        const adx = aPos.x - hPos.x;
+        const adz = aPos.z - hPos.z;
+        const ady = aPos.y - hPos.y;
+
+        if (ady > 0 && ady < 24) {
+          const absX = Math.abs(adx);
+          const absZ = Math.abs(adz);
+
+          if (absX < 16.2 && absZ < 16.2) {
+            let wallHit = false;
+
+            // Left wall
+            if (adx >= -16.2 && adx <= -13.5 && adz >= -16.2 && adz <= 16.2) wallHit = true;
+            // Right wall
+            else if (adx >= 13.5 && adx <= 16.2 && adz >= -16.2 && adz <= 16.2) wallHit = true;
+            // Back wall
+            else if (adz >= -16.2 && adz <= -13.5 && adx >= -16.2 && adx <= 16.2) wallHit = true;
+            // Front wall left
+            else if (adz >= 13.5 && adz <= 16.2 && adx >= -16.2 && adx <= -3.1) wallHit = true;
+            // Front wall right
+            else if (adz >= 13.5 && adz <= 16.2 && adx >= 3.1 && adx <= 16.2) wallHit = true;
+            // Door (closed)
+            else if (!d.isOpen && adz >= 13.5 && adz <= 16.2 && adx >= -3.25 && adx <= 3.25) wallHit = true;
+
+            if (wallHit) {
+              aPos.x = oldX;
+              aPos.z = oldZ;
+              // Bounce away
+              animal.vx = -animal.vx * 0.5;
+              animal.vz = -animal.vz * 0.5;
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    // Player collision
     const isAggressive = config.attackDistance || config.charges;
     const MIN_DIST = isAggressive ? 2.5 : 8.0;
     const dx = aPos.x - playerPos.x;

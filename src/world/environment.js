@@ -31,17 +31,17 @@ const birch1Geo = new THREE.ConeGeometry(28, 54, 8);
 const birch2Geo = new THREE.ConeGeometry(22, 46, 8);
 const birch3Geo = new THREE.ConeGeometry(16, 38, 8);
 
-// Cherry blossom tree (new)
+// Cherry blossom
 const trunkMatCherry = new THREE.MeshLambertMaterial({ color: 0x6b4226 });
-const leavesMatCherry = new THREE.MeshLambertMaterial({ color: 0xffb7c5 }); // Pink blossoms
+const leavesMatCherry = new THREE.MeshLambertMaterial({ color: 0xffb7c5 });
 const trunkGeoCherry = new THREE.CylinderGeometry(4, 7, 40, 8);
 
-// Willow tree (new)
+// Willow
 const trunkMatWillow = new THREE.MeshLambertMaterial({ color: 0x4a3728 });
 const leavesMatWillow = new THREE.MeshLambertMaterial({ color: 0x3a7a3a, side: THREE.DoubleSide });
 const trunkGeoWillow = new THREE.CylinderGeometry(5, 9, 50, 8);
 
-// Bamboo (new)
+// Bamboo
 const bambooMat = new THREE.MeshLambertMaterial({ color: 0x4a7a2a });
 const bambooGeo = new THREE.CylinderGeometry(1.5, 2, 80, 6);
 const bambooLeavesMat = new THREE.MeshLambertMaterial({ color: 0x3a6a1a, side: THREE.DoubleSide });
@@ -52,23 +52,23 @@ const rockMat = new THREE.MeshLambertMaterial({ color: 0x7f8c8d });
 const rockDarkMat = new THREE.MeshLambertMaterial({ color: 0x5a5a5a });
 const rockMossyMat = new THREE.MeshLambertMaterial({ color: 0x4a6a3a });
 
-// Water materials
+// Water materials - more realistic
 const waterMat = new THREE.MeshLambertMaterial({
   color: 0x1a6b8a,
   transparent: true,
-  opacity: 0.7,
+  opacity: 0.85,
   side: THREE.DoubleSide
 });
 const riverMat = new THREE.MeshLambertMaterial({
   color: 0x2980b9,
   transparent: true,
-  opacity: 0.8,
+  opacity: 0.9,
   side: THREE.DoubleSide
 });
 const lakeMat = new THREE.MeshLambertMaterial({
   color: 0x1565c0,
   transparent: true,
-  opacity: 0.75,
+  opacity: 0.85,
   side: THREE.DoubleSide
 });
 
@@ -108,7 +108,6 @@ export function initEnvironment() {
 
 // ========== SUN ==========
 function initSun() {
-  // Sun sphere
   const sunGeo = new THREE.SphereGeometry(100, 16, 16);
   const sunMat = new THREE.MeshBasicMaterial({
     color: 0xffff00,
@@ -119,7 +118,6 @@ function initSun() {
   sun.position.set(1000, 2000, 500);
   state.scene.add(sun);
 
-  // Sun glow
   const glowGeo = new THREE.SphereGeometry(150, 16, 16);
   const glowMat = new THREE.MeshBasicMaterial({
     color: 0xffff88,
@@ -130,7 +128,6 @@ function initSun() {
   glow.position.copy(sun.position);
   state.scene.add(glow);
 
-  // Sunbeam rays (god rays effect)
   const rayMat = new THREE.MeshBasicMaterial({
     color: 0xffff88,
     transparent: true,
@@ -189,11 +186,10 @@ function initTrees() {
       if (tooCloseToRock) continue;
 
       const tree = new THREE.Group();
-      let treeType = Math.floor(Math.random() * 7); // 7 tree types
+      let treeType = Math.floor(Math.random() * 7);
       let trunk;
 
       if (treeType === 0) {
-        // Pine tree
         trunk = new THREE.Mesh(trunkGeoPine, trunkMatPine); trunk.position.y = 30;
         const l1 = new THREE.Mesh(cone1Geo, leavesMatPine); l1.position.y = 65;
         const l2 = new THREE.Mesh(cone2Geo, leavesMatPine); l2.position.y = 95;
@@ -201,7 +197,6 @@ function initTrees() {
         tree.add(trunk, l1, l2, l3);
         state.objects.push(trunk);
       } else if (treeType === 1) {
-        // Oak tree
         trunk = new THREE.Mesh(trunkGeoOak, trunkMatOak); trunk.position.y = 22.5;
         const l1 = new THREE.Mesh(sphere1Geo, leavesMatOak); l1.position.y = 48;
         const l2 = new THREE.Mesh(sphere2Geo, leavesMatOak); l2.position.y = 64;
@@ -209,7 +204,6 @@ function initTrees() {
         tree.add(trunk, l1, l2, l3);
         state.objects.push(trunk);
       } else if (treeType === 2) {
-        // Birch tree
         trunk = new THREE.Mesh(trunkGeoBirch, trunkMatBirch); trunk.position.y = 30;
         const l1 = new THREE.Mesh(birch1Geo, leavesMatBirch); l1.position.y = 62;
         const l2 = new THREE.Mesh(birch2Geo, leavesMatBirch); l2.position.y = 84;
@@ -217,7 +211,6 @@ function initTrees() {
         tree.add(trunk, l1, l2, l3);
         state.objects.push(trunk);
       } else if (treeType === 3) {
-        // Cherry blossom
         trunk = new THREE.Mesh(trunkGeoCherry, trunkMatCherry); trunk.position.y = 20;
         const crown1 = new THREE.Mesh(new THREE.SphereGeometry(20, 8, 8), leavesMatCherry); crown1.position.y = 45;
         const crown2 = new THREE.Mesh(new THREE.SphereGeometry(16, 8, 8), leavesMatCherry); crown2.position.set(10, 40, 5);
@@ -225,18 +218,12 @@ function initTrees() {
         tree.add(trunk, crown1, crown2, crown3);
         state.objects.push(trunk);
       } else if (treeType === 4) {
-        // Willow tree
         trunk = new THREE.Mesh(trunkGeoWillow, trunkMatWillow); trunk.position.y = 25;
-        // Drooping branches
         for (let b = 0; b < 12; b++) {
           const branchAngle = (b / 12) * Math.PI * 2;
           const branchGeo = new THREE.CylinderGeometry(0.3, 0.1, 40, 4);
           const branch = new THREE.Mesh(branchGeo, leavesMatWillow);
-          branch.position.set(
-            Math.cos(branchAngle) * 15,
-            50,
-            Math.sin(branchAngle) * 15
-          );
+          branch.position.set(Math.cos(branchAngle) * 15, 50, Math.sin(branchAngle) * 15);
           branch.rotation.z = Math.cos(branchAngle) * 0.8;
           branch.rotation.x = Math.sin(branchAngle) * 0.8;
           tree.add(branch);
@@ -245,15 +232,12 @@ function initTrees() {
         tree.add(trunk, crown);
         state.objects.push(trunk);
       } else if (treeType === 5) {
-        // Bamboo cluster
         for (let b = 0; b < 5; b++) {
           const bx = (Math.random() - 0.5) * 10;
           const bz = (Math.random() - 0.5) * 10;
           const bamboo = new THREE.Mesh(bambooGeo, bambooMat);
           bamboo.position.set(bx, 40, bz);
           tree.add(bamboo);
-
-          // Bamboo leaves
           for (let l = 0; l < 3; l++) {
             const leafGeo = new THREE.PlaneGeometry(8, 2);
             const leaf = new THREE.Mesh(leafGeo, bambooLeavesMat);
@@ -263,7 +247,6 @@ function initTrees() {
           }
         }
       } else {
-        // Mixed forest tree
         trunk = new THREE.Mesh(trunkGeoOak, trunkMatOak); trunk.position.y = 22.5;
         const l1 = new THREE.Mesh(sphere1Geo, leavesMatOak); l1.position.y = 48;
         const l2 = new THREE.Mesh(sphere2Geo, leavesMatOak); l2.position.y = 64;
@@ -305,7 +288,6 @@ function initRocks() {
     }
     if (tooCloseToHouse) continue;
 
-    // Different rock types
     const rockType = Math.floor(Math.random() * 3);
     let mat;
     if (rockType === 0) mat = rockMat;
@@ -333,9 +315,11 @@ function initRocks() {
   }
 }
 
-// ========== RIVERS ==========
+// ========== RIVERS - Flat and embedded in terrain ==========
 function initRivers() {
-  // Create 3 rivers flowing through the map
+  const riverColor = new THREE.Color(0x2980b9);
+  const riverBedMat = new THREE.MeshLambertMaterial({ color: 0x1a5276 });
+
   for (let r = 0; r < 3; r++) {
     const riverPoints = [];
     const startX = (Math.random() - 0.5) * MAP_SIZE * 0.8;
@@ -344,46 +328,79 @@ function initRivers() {
     const endZ = MAP_SIZE / 2;
 
     // Generate river path with curves
-    const segments = 20;
+    const segments = 30;
     for (let i = 0; i <= segments; i++) {
       const t = i / segments;
       const x = THREE.MathUtils.lerp(startX, endX, t) + Math.sin(t * Math.PI * 3) * 200;
       const z = THREE.MathUtils.lerp(startZ, endZ, t);
-      const y = getTerrainHeight(x, z);
-      riverPoints.push(new THREE.Vector3(x, Math.max(y, 0.5), z));
+      // River follows terrain but slightly below
+      const y = getTerrainHeight(x, z) - 0.5;
+      riverPoints.push(new THREE.Vector3(x, y, z));
     }
 
-    // Create river mesh
-    const riverCurve = new THREE.CatmullRomCurve3(riverPoints);
-    const riverGeo = new THREE.TubeGeometry(riverCurve, 50, 15, 8, false);
-    const river = new THREE.Mesh(riverGeo, riverMat);
-    state.scene.add(river);
+    // Create river as flat plane segments
+    const riverWidth = 12;
+    for (let i = 0; i < riverPoints.length - 1; i++) {
+      const p1 = riverPoints[i];
+      const p2 = riverPoints[i + 1];
 
-    // River banks
-    const bankMat = new THREE.MeshLambertMaterial({ color: 0x8b7355 });
-    for (let i = 0; i < segments; i++) {
-      const p = riverPoints[i];
-      const bankGeo = new THREE.BoxGeometry(35, 3, 20);
-      const bankL = new THREE.Mesh(bankGeo, bankMat);
-      bankL.position.set(p.x - 20, p.y - 1, p.z);
-      bankL.rotation.y = Math.random() * 0.3;
-      state.scene.add(bankL);
+      // Calculate perpendicular direction for width
+      const dir = new THREE.Vector3().subVectors(p2, p1).normalize();
+      const perp = new THREE.Vector3(-dir.z, 0, dir.x);
 
-      const bankR = new THREE.Mesh(bankGeo, bankMat);
-      bankR.position.set(p.x + 20, p.y - 1, p.z);
-      bankR.rotation.y = Math.random() * 0.3;
-      state.scene.add(bankR);
+      // Create quad for river segment
+      const vertices = new Float32Array([
+        p1.x - perp.x * riverWidth, p1.y, p1.z - perp.z * riverWidth,
+        p1.x + perp.x * riverWidth, p1.y, p1.z + perp.z * riverWidth,
+        p2.x - perp.x * riverWidth, p2.y, p2.z - perp.z * riverWidth,
+        p2.x + perp.x * riverWidth, p2.y, p2.z + perp.z * riverWidth,
+      ]);
+
+      const indices = [0, 1, 2, 1, 3, 2];
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+      geo.setIndex(indices);
+      geo.computeVertexNormals();
+
+      const riverSegment = new THREE.Mesh(geo, riverMat);
+      state.scene.add(riverSegment);
+    }
+
+    // River bed (darker bottom)
+    for (let i = 0; i < riverPoints.length - 1; i++) {
+      const p1 = riverPoints[i];
+      const p2 = riverPoints[i + 1];
+      const dir = new THREE.Vector3().subVectors(p2, p1).normalize();
+      const perp = new THREE.Vector3(-dir.z, 0, dir.x);
+      const bedWidth = riverWidth + 2;
+
+      const vertices = new Float32Array([
+        p1.x - perp.x * bedWidth, p1.y - 0.3, p1.z - perp.z * bedWidth,
+        p1.x + perp.x * bedWidth, p1.y - 0.3, p1.z + perp.z * bedWidth,
+        p2.x - perp.x * bedWidth, p2.y - 0.3, p2.z - perp.z * bedWidth,
+        p2.x + perp.x * bedWidth, p2.y - 0.3, p2.z + perp.z * bedWidth,
+      ]);
+
+      const indices = [0, 1, 2, 1, 3, 2];
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+      geo.setIndex(indices);
+      geo.computeVertexNormals();
+
+      const bedSegment = new THREE.Mesh(geo, riverBedMat);
+      state.scene.add(bedSegment);
     }
 
     // Add reeds along river
     const reedMat = new THREE.MeshLambertMaterial({ color: 0x4a7a2a, side: THREE.DoubleSide });
-    for (let i = 0; i < 100; i++) {
+    for (let i = 0; i < 80; i++) {
       const t = Math.random();
-      const p = riverCurve.getPointAt(t);
+      const idx = Math.floor(t * (riverPoints.length - 1));
+      const p = riverPoints[idx];
       const side = Math.random() > 0.5 ? 1 : -1;
       const reedGeo = new THREE.CylinderGeometry(0.2, 0.3, 8, 4);
       const reed = new THREE.Mesh(reedGeo, reedMat);
-      reed.position.set(p.x + side * (18 + Math.random() * 10), p.y + 4, p.z + (Math.random() - 0.5) * 20);
+      reed.position.set(p.x + side * (14 + Math.random() * 6), p.y + 4, p.z + (Math.random() - 0.5) * 10);
       reed.rotation.z = (Math.random() - 0.5) * 0.3;
       state.scene.add(reed);
     }
@@ -392,29 +409,25 @@ function initRivers() {
 
 // ========== LAKES ==========
 function initLakes() {
-  // Create 5 lakes at random positions
   for (let l = 0; l < 5; l++) {
     const lx = (Math.random() - 0.5) * MAP_SIZE * 0.6;
     const lz = (Math.random() - 0.5) * MAP_SIZE * 0.6;
     const lRadius = 60 + Math.random() * 80;
 
-    // Lake water surface
     const lakeGeo = new THREE.CircleGeometry(lRadius, 24);
     lakeGeo.rotateX(-Math.PI / 2);
     const lake = new THREE.Mesh(lakeGeo, lakeMat);
-    const ly = getTerrainHeight(lx, lz);
-    lake.position.set(lx, Math.max(ly, 0.3), lz);
+    const ly = getTerrainHeight(lx, lz) - 0.5;
+    lake.position.set(lx, ly, lz);
     state.scene.add(lake);
 
-    // Lake shore (sand/gravel)
     const shoreMat = new THREE.MeshLambertMaterial({ color: 0xc2b280 });
     const shoreGeo = new THREE.RingGeometry(lRadius - 5, lRadius + 15, 24);
     shoreGeo.rotateX(-Math.PI / 2);
     const shore = new THREE.Mesh(shoreGeo, shoreMat);
-    shore.position.set(lx, Math.max(ly, 0.1), lz);
+    shore.position.set(lx, ly - 0.2, lz);
     state.scene.add(shore);
 
-    // Surrounding vegetation
     const bushMat = new THREE.MeshLambertMaterial({ color: 0x3a6a2a });
     for (let b = 0; b < 15; b++) {
       const angle = (b / 15) * Math.PI * 2;
@@ -422,7 +435,6 @@ function initLakes() {
       const bx = lx + Math.cos(angle) * dist;
       const bz = lz + Math.sin(angle) * dist;
       const by = getTerrainHeight(bx, bz);
-
       const bushGeo = new THREE.SphereGeometry(5 + Math.random() * 8, 6, 6);
       const bush = new THREE.Mesh(bushGeo, bushMat);
       bush.position.set(bx, by + 3, bz);
@@ -430,7 +442,6 @@ function initLakes() {
       state.scene.add(bush);
     }
 
-    // Lily pads on lake
     const lilyMat = new THREE.MeshLambertMaterial({ color: 0x2d7a2d, side: THREE.DoubleSide });
     for (let i = 0; i < 8; i++) {
       const angle = Math.random() * Math.PI * 2;
@@ -438,11 +449,7 @@ function initLakes() {
       const lilyGeo = new THREE.CircleGeometry(3, 8);
       lilyGeo.rotateX(-Math.PI / 2);
       const lily = new THREE.Mesh(lilyGeo, lilyMat);
-      lily.position.set(
-        lx + Math.cos(angle) * dist,
-        Math.max(ly, 0.3) + 0.1,
-        lz + Math.sin(angle) * dist
-      );
+      lily.position.set(lx + Math.cos(angle) * dist, ly + 0.1, lz + Math.sin(angle) * dist);
       state.scene.add(lily);
     }
   }
@@ -450,12 +457,10 @@ function initLakes() {
 
 // ========== STREAMS ==========
 function initStreams() {
-  // Create small streams connecting to lakes/rivers
   for (let s = 0; s < 8; s++) {
     const streamPoints = [];
     const startX = (Math.random() - 0.5) * MAP_SIZE * 0.7;
     const startZ = (Math.random() - 0.5) * MAP_SIZE * 0.7;
-
     const length = 100 + Math.random() * 200;
     const angle = Math.random() * Math.PI * 2;
     const endX = startX + Math.cos(angle) * length;
@@ -466,27 +471,22 @@ function initStreams() {
       const t = i / segments;
       const x = THREE.MathUtils.lerp(startX, endX, t) + Math.sin(t * Math.PI * 2) * 30;
       const z = THREE.MathUtils.lerp(startZ, endZ, t);
-      const y = getTerrainHeight(x, z);
-      streamPoints.push(new THREE.Vector3(x, Math.max(y, 0.3), z));
+      const y = getTerrainHeight(x, z) - 0.3;
+      streamPoints.push(new THREE.Vector3(x, y, z));
     }
 
     const streamCurve = new THREE.CatmullRomCurve3(streamPoints);
-    const streamGeo = new THREE.TubeGeometry(streamCurve, 15, 4, 6, false);
+    const streamGeo = new THREE.TubeGeometry(streamCurve, 15, 2, 6, false);
     const stream = new THREE.Mesh(streamGeo, riverMat);
     state.scene.add(stream);
 
-    // Small stones along stream
     const stoneMat = new THREE.MeshLambertMaterial({ color: 0x8a8a8a });
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 15; i++) {
       const t = Math.random();
       const p = streamCurve.getPointAt(t);
-      const stoneGeo = new THREE.SphereGeometry(1 + Math.random() * 2, 6, 6);
+      const stoneGeo = new THREE.SphereGeometry(1 + Math.random() * 1.5, 6, 6);
       const stone = new THREE.Mesh(stoneGeo, stoneMat);
-      stone.position.set(
-        p.x + (Math.random() - 0.5) * 12,
-        p.y,
-        p.z + (Math.random() - 0.5) * 12
-      );
+      stone.position.set(p.x + (Math.random() - 0.5) * 8, p.y, p.z + (Math.random() - 0.5) * 8);
       stone.scale.y = 0.5;
       state.scene.add(stone);
     }

@@ -73,13 +73,27 @@ export function getTerrainHeight(x, z) {
     let dz = z - h.z;
     let distSq = dx * dx + dz * dz;
 
-    if (distSq < 26 * 26) {
+    // House interior is 30x30, so we need to cover that area
+    // Core flat area: inside the house walls (15 units from center)
+    // Extended flat area: foundation around the house (20 units)
+    // Transition area: smooth blend to natural terrain (20-30 units)
+
+    if (distSq < 30 * 30) {
       let baseH = h.baseHeight;
-      if (distSq < 18 * 18) {
+
+      // Inside house walls - completely flat
+      if (Math.abs(dx) <= 15 && Math.abs(dz) <= 15) {
         return baseH;
       }
+
+      // Foundation area - flat around the house
+      if (distSq < 20 * 20) {
+        return baseH;
+      }
+
+      // Transition area - smooth blend
       let dist = Math.sqrt(distSq);
-      let t = (dist - 18) / 8;
+      let t = (dist - 20) / 10;
       return THREE.MathUtils.lerp(baseH, getBaseTerrainHeight(x, z), t);
     }
   }

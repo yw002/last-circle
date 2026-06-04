@@ -12,11 +12,11 @@ export const difficulties = {
     name: "末日生存",
     botDamageMultiplier: 0.6,
     botHealth: 130,
-    botAccuracy: 0.28,
-    botTargetRange: 350,
-    botToPlayerDamageFactor: 0.35,
-    botSpeed: 18,
-    botFireRateMultiplier: 3.5
+    botAccuracy: 0.35,
+    botTargetRange: 400,
+    botToPlayerDamageFactor: 0.38,
+    botSpeed: 20,
+    botFireRateMultiplier: 3
   }
 };
 
