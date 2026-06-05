@@ -9,13 +9,13 @@ export function triggerLightningStrike() {
   if (!state.controls) return;
 
   let playerPos = state.controls.getObject().position;
-  let playerDir = new THREE.Vector3();
-  state.camera.getWorldDirection(playerDir);
 
-  // Strike very close to player (5-15 units ahead, scary close!)
-  let strikeDist = 5 + Math.random() * 10;
-  let strikeX = playerPos.x + playerDir.x * strikeDist + (Math.random() - 0.5) * 20;
-  let strikeZ = playerPos.z + playerDir.z * strikeDist + (Math.random() - 0.5) * 20;
+  // Strike around the player instead of directly chasing the camera/feet.
+  const angle = Math.random() * Math.PI * 2;
+  const nearStrike = Math.random() < 0.2;
+  const strikeDist = nearStrike ? 35 + Math.random() * 35 : 70 + Math.random() * 110;
+  const strikeX = playerPos.x + Math.cos(angle) * strikeDist;
+  const strikeZ = playerPos.z + Math.sin(angle) * strikeDist;
 
   createLightningBolt(strikeX, strikeZ);
   playThunderSound();
