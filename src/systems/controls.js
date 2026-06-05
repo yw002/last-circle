@@ -4,6 +4,17 @@ import { state } from '../state.js';
 import { reloadWeapon, switchWeapon, cancelReload, fireWeapon } from '../entities/player.js';
 import { toggleADS } from './ads.js';
 
+function clearInputState() {
+  // Pointer lock can be interrupted by the browser; clear held inputs to avoid a stuck controls state.
+  state.moveForward = false;
+  state.moveBackward = false;
+  state.moveLeft = false;
+  state.moveRight = false;
+  state.isSprinting = false;
+  state.isMouseDown = false;
+  state.interactKey = false;
+}
+
 export function initControls() {
   document.addEventListener('contextmenu', e => e.preventDefault());
 
@@ -55,4 +66,11 @@ export function initControls() {
   document.addEventListener('mouseup', (e) => {
     if (e.button === 0) state.isMouseDown = false;
   });
+
+  window.addEventListener('blur', clearInputState);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) clearInputState();
+  });
+
+  state.controls.addEventListener('unlock', clearInputState);
 }

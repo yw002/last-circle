@@ -35,6 +35,15 @@ export function initScene() {
   state.renderer.sortObjects = false;
   state.renderer.info.autoReset = false;
   document.body.appendChild(state.renderer.domElement);
+  state.renderer.domElement.addEventListener('webglcontextlost', (event) => {
+    // Keep the browser from permanently freezing the canvas when the GPU context is reset.
+    event.preventDefault();
+    console.warn('WebGL context lost; waiting for browser restore.');
+  });
+  state.renderer.domElement.addEventListener('webglcontextrestored', () => {
+    console.warn('WebGL context restored; refreshing renderer size.');
+    onWindowResize();
+  });
 
   // Controls
   state.controls = new PointerLockControls(state.camera, document.body);

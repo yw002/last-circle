@@ -149,6 +149,7 @@ export function initTerrain() {
 
   const material = new THREE.MeshLambertMaterial({ vertexColors: true });
   const terrain = new THREE.Mesh(geometry, material);
+  terrain.userData = { impactMaterial: 'dirt' };
   state.scene.add(terrain);
   state.objects.push(terrain);
 
@@ -157,5 +158,6 @@ export function initTerrain() {
   const waterMat = new THREE.MeshBasicMaterial({ color: 0x2980b9, transparent: true, opacity: 0.8 });
   const water = new THREE.Mesh(waterGeo, waterMat);
   water.position.y = 0;
+  water.userData = { impactMaterial: 'water' };
   state.scene.add(water);
 }

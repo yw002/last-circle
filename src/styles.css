@@ -99,6 +99,11 @@ body {
   background: rgba(0, 0, 0, 0.6);
   padding: 4px 10px;
   border-radius: 4px;
+  line-height: 1.25;
+}
+
+#fps-counter .fps-avg {
+  font-size: 12px;
 }
 
 #info {

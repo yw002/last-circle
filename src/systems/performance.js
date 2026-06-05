@@ -135,9 +135,11 @@ export function optimizeRenderer(renderer) {
   // Enable frustum culling
   renderer.info.render.frame++;
 
-  // Set pixel ratio based on performance
+  // Keep the renderer from undoing scene-level pixel ratio caps on high-DPI screens.
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  renderer.setPixelRatio(isMobile ? 1 : Math.min(window.devicePixelRatio, 1.5));
+  const currentRatio = renderer.getPixelRatio ? renderer.getPixelRatio() : 1;
+  const targetRatio = isMobile ? 1 : Math.min(currentRatio || 1, window.devicePixelRatio, 1.0);
+  renderer.setPixelRatio(targetRatio);
 
   return renderer;
 }
@@ -187,10 +189,91 @@ export function createTextureAtlas(textures, size = 1024) {
 let fpsFrames = 0;
 let fpsTime = 0;
 let fpsCurrent = 60;
+let fpsTotalFrames = 0;
+let fpsTotalTime = 0;
+let fpsAverage = 0;
+const recentFpsSamples = [];
+const profileStats = new Map();
+let profileLastLog = 0;
+let profileEnabled = true;
+
+export function profileStep(label, fn) {
+  if (!profileEnabled) return fn();
+
+  const start = performance.now();
+  try {
+    return fn();
+  } finally {
+    const elapsed = performance.now() - start;
+    const stat = profileStats.get(label) || { total: 0, max: 0, count: 0 };
+    stat.total += elapsed;
+    stat.max = Math.max(stat.max, elapsed);
+    stat.count++;
+    profileStats.set(label, stat);
+  }
+}
+
+export function logPerformanceProfile(now = performance.now()) {
+  if (!profileEnabled || now - profileLastLog < 2000 || profileStats.size === 0) return;
+
+  const rows = [...profileStats.entries()]
+    .map(([label, stat]) => ({
+      label,
+      avg: stat.total / stat.count,
+      max: stat.max
+    }))
+    .sort((a, b) => b.avg - a.avg)
+    .slice(0, 6);
+
+  const renderInfo = state.renderer ? state.renderer.info.render : null;
+  const memoryInfo = state.renderer ? state.renderer.info.memory : null;
+  const renderFrames = renderInfo ? Math.max(1, renderInfo.frame) : 1;
+  const diagnostics = state.renderer ? {
+    step: 'renderer',
+    avgMs: '-',
+    maxMs: '-',
+    calls: Math.round(renderInfo.calls / renderFrames),
+    triangles: Math.round(renderInfo.triangles / renderFrames),
+    geometries: memoryInfo.geometries,
+    textures: memoryInfo.textures,
+    sceneChildren: state.scene ? state.scene.children.length : 0,
+    pixelRatio: state.renderer.getPixelRatio().toFixed(2),
+    fps10s: getRecentAverageFPS()
+  } : null;
+
+  const tableRows = rows.map(row => ({
+    step: row.label,
+    avgMs: row.avg.toFixed(2),
+    maxMs: row.max.toFixed(2),
+    calls: '',
+    triangles: '',
+    geometries: '',
+    textures: '',
+    sceneChildren: '',
+    pixelRatio: '',
+    fps10s: ''
+  }));
+  if (diagnostics) tableRows.push(diagnostics);
+
+  console.table(tableRows);
+
+  profileStats.clear();
+  profileLastLog = now;
+  if (state.renderer) state.renderer.info.reset();
+}
+
+export function setPerformanceProfiling(enabled) {
+  profileEnabled = enabled;
+  profileStats.clear();
+  profileLastLog = performance.now();
+}
 
 export function updateFPS(delta) {
   fpsFrames++;
   fpsTime += delta;
+  // Average FPS only receives deltas from active gameplay callers.
+  fpsTotalFrames++;
+  fpsTotalTime += delta;
 
   if (fpsTime >= 1.0) {
     fpsCurrent = Math.round(fpsFrames / fpsTime);
@@ -198,11 +281,40 @@ export function updateFPS(delta) {
     fpsTime = 0;
   }
 
+  if (fpsTotalTime > 0) {
+    fpsAverage = Math.round(fpsTotalFrames / fpsTotalTime);
+  }
+
+  // A short moving average makes perf regressions visible without waiting for the lifetime avg to recover.
+  recentFpsSamples.push({ time: performance.now(), delta });
+  const cutoff = performance.now() - 10000;
+  while (recentFpsSamples.length && recentFpsSamples[0].time < cutoff) recentFpsSamples.shift();
+
   return fpsCurrent;
 }
 
 export function getFPS() {
   return fpsCurrent;
+}
+
+export function getAverageFPS() {
+  return fpsAverage;
+}
+
+export function getRecentAverageFPS() {
+  let total = 0;
+  for (let i = 0; i < recentFpsSamples.length; i++) total += recentFpsSamples[i].delta;
+  return total > 0 ? Math.round(recentFpsSamples.length / total) : fpsCurrent;
+}
+
+export function resetFPS() {
+  fpsFrames = 0;
+  fpsTime = 0;
+  fpsCurrent = 60;
+  fpsTotalFrames = 0;
+  fpsTotalTime = 0;
+  fpsAverage = 0;
+  recentFpsSamples.length = 0;
 }
 
 // Adaptive quality based on FPS

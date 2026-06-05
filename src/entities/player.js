@@ -5,24 +5,29 @@ import { state } from '../state.js';
 import { MAP_SIZE, RELOAD_DURATION } from '../config.js';
 import { getTerrainHeight } from '../world/terrain.js';
 import { getHousePlayerIsInside } from './house.js';
-import { playSound } from '../systems/audio.js';
+import { playImpactSound, playSound } from '../systems/audio.js';
 import { spawnBlood, spawnMuzzleFlash } from '../systems/particles.js';
 import { updateUI } from '../ui/hud.js';
 import { createWeaponTracer } from '../systems/bullets.js';
 import { showHitFromDirection } from '../ui/hitindicator.js';
 import { spawnBulletHole } from '../systems/bulletholes.js';
+import { inferImpactMaterial, spawnImpactEffect } from '../systems/impactEffects.js';
 import { showNotice } from '../ui/notices.js';
 import { calcDamage } from './damage.js';
 import { botDied } from './bots.js';
 import { zombieDied } from './zombies.js';
 import { killAnimal, getAllAnimals } from './animals.js';
 import { alienDied, getAllAliens } from './aliens.js';
+import { getNearbyColliders, getNearbyDoors, getNearbyLoot } from '../systems/spatial.js';
 
 // Crosshair spread state
 let crosshairSpread = 0;
 const CROSSHAIR_SPREAD_DECAY = 3; // Slower recovery
 const CROSSHAIR_SPREAD_PER_SHOT = 2.0; // More spread per shot
 const CROSSHAIR_MAX_SPREAD = 5;
+const _playerBox = new THREE.Box3();
+const _playerBoxSizePara = new THREE.Vector3(1, 10, 1);
+const _playerBoxSize = new THREE.Vector3(3, 10, 3);
 
 export function updateCrosshairSpread(delta) {
   // Recover spread over time
@@ -750,51 +755,14 @@ function getBulletSpread() {
 
 // Reusable resources for bullet effects
 const _barrelTip = new THREE.Vector3(0, 0.06, -1.2);
-const _tracerPoints = [new THREE.Vector3(), new THREE.Vector3()];
-let _tracerLine = null;
-let _tracerGeometry = null;
-let _tracerMaterial = null;
-let _tracerTimeout = null;
-
-// Shared dust geometry and material
-const _dustGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
-const _dustMat = new THREE.MeshBasicMaterial({ color: 0x7f8c8d });
+const _muzzleWorldPos = new THREE.Vector3();
 
 // Get the world position of the gun barrel tip
 function getGunBarrelPosition() {
   if (!state.viewWeaponMesh) return state.camera.position.clone();
-  const worldPos = _barrelTip.clone();
-  state.viewWeaponMesh.localToWorld(worldPos);
-  return worldPos;
-}
-
-// Create or update bullet tracer line (reuses single line object)
-function createBulletTracer(startPos, endPos) {
-  if (!_tracerLine) {
-    _tracerGeometry = new THREE.BufferGeometry();
-    _tracerMaterial = new THREE.LineBasicMaterial({
-      color: 0xffff00,
-      transparent: true,
-      opacity: 0.8,
-      linewidth: 2
-    });
-    _tracerLine = new THREE.Line(_tracerGeometry, _tracerMaterial);
-    state.scene.add(_tracerLine);
-  }
-
-  // Update positions
-  _tracerPoints[0].copy(startPos);
-  _tracerPoints[1].copy(endPos);
-  _tracerGeometry.setFromPoints(_tracerPoints);
-  _tracerLine.visible = true;
-
-  // Clear previous timeout
-  if (_tracerTimeout) clearTimeout(_tracerTimeout);
-
-  // Hide after delay
-  _tracerTimeout = setTimeout(() => {
-    if (_tracerLine) _tracerLine.visible = false;
-  }, 80);
+  _muzzleWorldPos.copy(_barrelTip);
+  state.viewWeaponMesh.localToWorld(_muzzleWorldPos);
+  return _muzzleWorldPos;
 }
 
 // Cooldown for empty magazine notice
@@ -806,6 +774,7 @@ export function fireWeapon() {
   if (now - state.player.lastFire < state.player.weapon.fireRate) return;
 
   if (state.player.weapon.ammo <= 0) {
+    playSound('dry_fire');
     // Only show notice every 2 seconds to avoid spam
     if (now - lastEmptyNoticeTime > 2000) {
       showNotice("弹匣为空！按 R 换弹", "#e74c3c");
@@ -820,7 +789,10 @@ export function fireWeapon() {
   state.player.weapon.ammo--;
   state.player.lastFire = now;
   updateUI();
-  playSound(state.player.weapon.sound);
+  playSound(state.player.weapon.sound, null, {
+    remainingAmmo: state.player.weapon.ammo,
+    maxAmmo: state.player.weapon.maxAmmo
+  });
 
   // Add crosshair spread (CS:GO style)
   addCrosshairSpread();
@@ -837,6 +809,8 @@ export function fireWeapon() {
 
   state.player.recoilY += 0.3;
 
+  // Capture the muzzle before applying the visible weapon kick so the trail starts at the fired position.
+  const muzzleStart = getGunBarrelPosition().clone();
   spawnMuzzleFlash(state.player.weapon.name);
 
   if (state.viewWeaponMesh) {
@@ -851,8 +825,6 @@ export function fireWeapon() {
 
   state.raycaster.setFromCamera(new THREE.Vector2(spreadX, spreadY), state.camera);
   const intersects = state.raycaster.intersectObjects(state.objects);
-
-  // Get gun barrel position for tracer (using new system)
 
   let coverHit = null;
   let targetHit = null;
@@ -881,29 +853,17 @@ export function fireWeapon() {
     hitPoint = state.camera.position.clone().add(dir.multiplyScalar(state.player.weapon.range));
   }
 
-  // Create bullet tracer
-  // Create bullet tracer using new system
-  createWeaponTracer(state.viewWeaponMesh, hitPoint);
+  // Visual trajectory uses the exact muzzle position and the same impact point used by damage/decals.
+  createWeaponTracer(muzzleStart, hitPoint);
 
   if (coverHit && (!targetHit || coverHit.distance < targetHit.distance)) {
     let n = coverHit.face ? coverHit.face.normal : new THREE.Vector3(0, 1, 0);
+    const impactMaterial = inferImpactMaterial(coverHit);
 
-    // Spawn bullet hole on surface
-    spawnBulletHole(coverHit.point, n);
-
-    // Spawn dust particles
-    for (let i = 0; i < 3; i++) {
-      const dust = new THREE.Mesh(_dustGeo, _dustMat);
-      dust.position.copy(coverHit.point);
-      state.scene.add(dust);
-      state.bloodParticles.push({
-        mesh: dust,
-        vx: n.x * 5 + (Math.random() - 0.5) * 10,
-        vy: n.y * 5 + Math.random() * 10,
-        vz: n.z * 5 + (Math.random() - 0.5) * 10,
-        age: 0
-      });
-    }
+    // Impact feedback shares the actual raycast entry point with bullet holes and trajectory.
+    playImpactSound(impactMaterial, coverHit.point);
+    spawnImpactEffect(coverHit.point, n, impactMaterial);
+    if (impactMaterial !== 'water') spawnBulletHole(coverHit.point, n);
   } else if (targetHit) {
     let ud = targetHit.object.userData;
     if (ud.isBot) {
@@ -983,6 +943,8 @@ export function updatePlayer(delta) {
   if (!state.player.alive) return;
 
   let pPos = state.controls.getObject().position;
+  const nearbyDoors = getNearbyDoors(pPos.x, pPos.z);
+  const nearbyColliders = getNearbyColliders(pPos.x, pPos.z);
 
   if (state.player.isParachuting) {
     let fallSpeed = state.isSprinting ? -120 : -35;
@@ -1005,8 +967,8 @@ export function updatePlayer(delta) {
 
     let groundY = getTerrainHeight(pPos.x, pPos.z) + 10;
 
-    for (let i = 0; i < state.housePositions.length; i++) {
-      let hPos = state.housePositions[i];
+    for (let i = 0; i < nearbyDoors.length; i++) {
+      let hPos = nearbyDoors[i].housePos;
       let dx = Math.abs(pPos.x - hPos.x);
       let dz = Math.abs(pPos.z - hPos.z);
       if (dx <= 15.6 && dz <= 15.6) {
@@ -1017,9 +979,9 @@ export function updatePlayer(delta) {
       }
     }
 
-    let pBoxPara = new THREE.Box3().setFromCenterAndSize(pPos, new THREE.Vector3(1, 10, 1));
-    for (let box of state.colliders) {
-      if (pBoxPara.intersectsBox(box)) {
+    _playerBox.setFromCenterAndSize(pPos, _playerBoxSizePara);
+    for (let box of nearbyColliders) {
+      if (_playerBox.intersectsBox(box)) {
         if (box.max.y + 10 > groundY) {
           groundY = box.max.y + 10;
         }
@@ -1055,10 +1017,10 @@ export function updatePlayer(delta) {
     state.controls.moveRight(state.velocity.x * delta);
     state.controls.moveForward(-state.velocity.z * delta);
 
-    let pBoxXZ = new THREE.Box3().setFromCenterAndSize(pPos, new THREE.Vector3(3, 10, 3));
+    _playerBox.setFromCenterAndSize(pPos, _playerBoxSize);
     let hitColliderXZ = false;
-    for (let box of state.colliders) {
-      if (pBoxXZ.intersectsBox(box)) {
+    for (let box of nearbyColliders) {
+      if (_playerBox.intersectsBox(box)) {
         if (pPos.y - 4.5 < box.max.y) {
           hitColliderXZ = true;
           break;
@@ -1072,8 +1034,8 @@ export function updatePlayer(delta) {
     }
 
     // House wall collision
-    for (let i = 0; i < state.doors.length; i++) {
-      let d = state.doors[i];
+    for (let i = 0; i < nearbyDoors.length; i++) {
+      let d = nearbyDoors[i];
       let hPos = d.housePos;
       let dx = pPos.x - hPos.x;
       let dz = pPos.z - hPos.z;
@@ -1115,8 +1077,8 @@ export function updatePlayer(delta) {
     let hitColliderY = false;
     let landingY = 0;
 
-    for (let i = 0; i < state.housePositions.length; i++) {
-      let hPos = state.housePositions[i];
+    for (let i = 0; i < nearbyDoors.length; i++) {
+      let hPos = nearbyDoors[i].housePos;
       let dx = Math.abs(pPos.x - hPos.x);
       let dz = Math.abs(pPos.z - hPos.z);
       if (dx <= 15.6 && dz <= 15.6) {
@@ -1130,9 +1092,9 @@ export function updatePlayer(delta) {
     }
 
     if (!hitColliderY) {
-      let pBoxY = new THREE.Box3().setFromCenterAndSize(pPos, new THREE.Vector3(3, 10, 3));
-      for (let box of state.colliders) {
-        if (pBoxY.intersectsBox(box)) {
+      _playerBox.setFromCenterAndSize(pPos, _playerBoxSize);
+      for (let box of nearbyColliders) {
+        if (_playerBox.intersectsBox(box)) {
           if (oldY - 4.5 >= box.max.y - 1.2) {
             hitColliderY = true;
             landingY = box.max.y + 5.0;
@@ -1160,19 +1122,20 @@ export function updatePlayer(delta) {
     // Loot pickup
     let nearbyLoot = null;
     let nearbyIndex = -1;
-    for (let i = state.lootItems.length - 1; i >= 0; i--) {
-      if (pPos.distanceToSquared(state.lootItems[i].mesh.position) < 225) {
-        nearbyLoot = state.lootItems[i];
-        nearbyIndex = i;
+    const nearbyLootItems = getNearbyLoot(pPos.x, pPos.z);
+    for (let i = nearbyLootItems.length - 1; i >= 0; i--) {
+      if (pPos.distanceToSquared(nearbyLootItems[i].mesh.position) < 225) {
+        nearbyLoot = nearbyLootItems[i];
+        nearbyIndex = state.lootItems.indexOf(nearbyLoot);
         break;
       }
     }
 
     // Door interaction
     let nearbyDoor = null;
-    for (let i = 0; i < state.doors.length; i++) {
-      let d = state.doors[i];
-      let doorWorldPos = d.housePos.clone().add(new THREE.Vector3(0, 4.75, 15));
+    for (let i = 0; i < nearbyDoors.length; i++) {
+      let d = nearbyDoors[i];
+      let doorWorldPos = d.doorWorldPos;
       if (pPos.distanceToSquared(doorWorldPos) < 256) {
         nearbyDoor = d;
         break;
@@ -1245,7 +1208,7 @@ export function updatePlayer(delta) {
           }
         }
 
-        if (picked) {
+        if (picked && nearbyIndex >= 0) {
           state.scene.remove(nearbyLoot.mesh);
           state.lootItems.splice(nearbyIndex, 1);
           updateUI();

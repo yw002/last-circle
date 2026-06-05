@@ -6,6 +6,9 @@ import { state } from '../state.js';
 let indicatorContainer = null;
 let indicators = [];
 const INDICATOR_LIFETIME = 1500; // 1.5 seconds
+const _playerDir = new THREE.Vector3();
+const _toAttacker = new THREE.Vector3();
+const _forward = new THREE.Vector3();
 
 export function initHitIndicator() {
   // Create container for hit indicators
@@ -21,26 +24,55 @@ export function initHitIndicator() {
     z-index: 15;
   `;
   document.body.appendChild(indicatorContainer);
+  requestAnimationFrame(updateHitIndicators);
+}
+
+function getHitAngle(attackerPos) {
+  const playerPos = state.controls.getObject().position;
+  state.camera.getWorldDirection(_playerDir);
+
+  _toAttacker.subVectors(attackerPos, playerPos);
+  _toAttacker.y = 0;
+  _toAttacker.normalize();
+
+  _forward.set(_playerDir.x, 0, _playerDir.z).normalize();
+  return Math.atan2(
+    _forward.x * _toAttacker.z - _forward.z * _toAttacker.x,
+    _forward.x * _toAttacker.x + _forward.z * _toAttacker.z
+  );
+}
+
+function updateIndicatorTransform(indicator) {
+  if (!indicator.element || !state.controls || !state.camera) return;
+  const angle = getHitAngle(indicator.attackerPos);
+  indicator.element.style.transform = `translate(-50%, -50%) rotate(${angle}rad)`;
+}
+
+function updateHitIndicators() {
+  const now = performance.now();
+
+  for (let i = indicators.length - 1; i >= 0; i--) {
+    const indicator = indicators[i];
+    const elapsed = now - indicator.startTime;
+    const opacity = Math.max(0, 1 - elapsed / INDICATOR_LIFETIME);
+
+    updateIndicatorTransform(indicator);
+    indicator.element.style.opacity = opacity;
+
+    if (elapsed >= INDICATOR_LIFETIME) {
+      if (indicatorContainer && indicatorContainer.contains(indicator.element)) {
+        indicatorContainer.removeChild(indicator.element);
+      }
+      indicators.splice(i, 1);
+    }
+  }
+
+  requestAnimationFrame(updateHitIndicators);
 }
 
 // Show hit indicator from a specific direction
 export function showHitDirection(attackerPos) {
   if (!indicatorContainer || !state.controls) return;
-
-  const playerPos = state.controls.getObject().position;
-  const playerDir = new THREE.Vector3();
-  state.camera.getWorldDirection(playerDir);
-
-  // Calculate angle between player forward and attacker direction
-  const toAttacker = new THREE.Vector3().subVectors(attackerPos, playerPos);
-  toAttacker.y = 0;
-  toAttacker.normalize();
-
-  const forward = new THREE.Vector3(playerDir.x, 0, playerDir.z).normalize();
-  const angle = Math.atan2(
-    forward.x * toAttacker.z - forward.z * toAttacker.x,
-    forward.x * toAttacker.x + forward.z * toAttacker.z
-  );
 
   // Create hit indicator element
   const indicator = document.createElement('div');
@@ -51,7 +83,6 @@ export function showHitDirection(attackerPos) {
     left: 50%;
     width: 100px;
     height: 100px;
-    transform: translate(-50%, -50%) rotate(${angle}rad);
     pointer-events: none;
   `;
 
@@ -72,19 +103,13 @@ export function showHitDirection(attackerPos) {
   indicator.appendChild(arc);
 
   indicatorContainer.appendChild(indicator);
-
-  // Fade out and remove
-  let opacity = 1;
-  const fadeInterval = setInterval(() => {
-    opacity -= 0.05;
-    indicator.style.opacity = opacity;
-    if (opacity <= 0) {
-      clearInterval(fadeInterval);
-      if (indicatorContainer.contains(indicator)) {
-        indicatorContainer.removeChild(indicator);
-      }
-    }
-  }, 75);
+  const entry = {
+    element: indicator,
+    attackerPos: attackerPos.clone ? attackerPos.clone() : new THREE.Vector3(attackerPos.x, attackerPos.y, attackerPos.z),
+    startTime: performance.now()
+  };
+  indicators.push(entry);
+  updateIndicatorTransform(entry);
 }
 
 // Show hit indicator when player is hit

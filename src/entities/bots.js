@@ -12,6 +12,7 @@ import { playerHit } from './player.js';
 import { addKillFeed } from '../ui/notices.js';
 import { createTracerFromPosition } from '../systems/bullets.js';
 import { checkEntityCollision } from '../systems/collision.js';
+import { getNearbyBots, getNearbyColliders, getNearbyDoors } from '../systems/spatial.js';
 import { updateUI } from '../ui/hud.js';
 import { showNotice } from '../ui/notices.js';
 
@@ -248,6 +249,13 @@ const sharedMats = {
 
 // Reusable Vector3 for calculations
 const _tempVec3 = new THREE.Vector3();
+const _botHeadPos = new THREE.Vector3();
+const _botDirection = new THREE.Vector3();
+const _botGunPos = new THREE.Vector3();
+const _missPoint = new THREE.Vector3();
+const _bloodOffset = new THREE.Vector3(0, 4, 0);
+const _upNormal = new THREE.Vector3(0, 1, 0);
+const _botRaycaster = new THREE.Raycaster();
 
 export function initBots() {
   for (let i = 0; i < BOT_COUNT; i++) {
@@ -499,18 +507,20 @@ export function updateBots(delta) {
   let now = Date.now();
   let playerPos = state.controls.getObject().position;
   let diff = difficulties[CURRENT_DIFFICULTY];
-  let currentTick = now % 5;
+  let currentTick = state.frameId % 5;
 
   state.bots.forEach((bot, idx) => {
     if (!bot.alive) return;
 
     // Distance check - skip detailed updates for far bots
-    let distToPlayer = bot.mesh.position.distanceTo(playerPos);
-    let isNearby = distToPlayer < 400;
+    let bPos = bot.mesh.position;
+    let dxPlayer = bPos.x - playerPos.x;
+    let dzPlayer = bPos.z - playerPos.z;
+    let distToPlayerSq = dxPlayer * dxPlayer + dzPlayer * dzPlayer;
+    let isNearby = distToPlayerSq < 400 * 400;
 
     if (bot.isParachuting) {
       bot.mesh.position.y -= (25 + Math.random() * 10) * delta;
-      let bPos = bot.mesh.position;
       bot.mesh.position.x += Math.cos(bot.id) * 15 * delta;
       bot.mesh.position.z += Math.sin(bot.id) * 15 * delta;
 
@@ -524,14 +534,17 @@ export function updateBots(delta) {
     }
 
     // Hide far away bots
-    if (distToPlayer > 600) {
+    if (distToPlayerSq > 600 * 600) {
       bot.mesh.visible = false;
       return;
     }
     bot.mesh.visible = true;
+    if (!isNearby && (state.frameId + bot.id) % 4 !== 0) return;
+    const stepDelta = isNearby ? delta : delta * 4;
 
-    let bPos = bot.mesh.position;
     let oldBx = bPos.x, oldBz = bPos.z;
+    const nearbyColliders = getNearbyColliders(bPos.x, bPos.z);
+    const nearbyDoors = getNearbyDoors(bPos.x, bPos.z);
 
     // AI targeting (throttled - only 1/5 of bots update per frame)
     if ((idx % 5) === currentTick && now > bot.changeDirTime) {
@@ -552,8 +565,9 @@ export function updateBots(delta) {
       if (isNearby) {
         const range = Math.sqrt(minDistSq);
         const bx = bPos.x, bz = bPos.z;
-        for (let j = 0, len = state.bots.length; j < len; j++) {
-          const other = state.bots[j];
+        const nearbyBots = getNearbyBots(bx, bz);
+        for (let j = 0, len = nearbyBots.length; j < len; j++) {
+          const other = nearbyBots[j];
           if (!other.alive || other.isParachuting || other.id === bot.id) continue;
           const oPos = other.mesh.position;
           const odx = bx - oPos.x;
@@ -588,11 +602,14 @@ export function updateBots(delta) {
     }
 
     if (bot.state === 'wander') {
-      let newX = bPos.x + bot.vx * delta;
-      let newZ = bPos.z + bot.vz * delta;
+      let newX = bPos.x + bot.vx * stepDelta;
+      let newZ = bPos.z + bot.vz * stepDelta;
 
       // Check collision before moving
-      let collision = checkEntityCollision(bPos.x, bPos.z, newX, newZ, bPos.y, 5);
+      let collision = checkEntityCollision(bPos.x, bPos.z, newX, newZ, bPos.y, 5, {
+        colliders: nearbyColliders,
+        doors: nearbyDoors
+      });
       if (!collision.blocked) {
         bPos.x = newX;
         bPos.z = newZ;
@@ -618,21 +635,24 @@ export function updateBots(delta) {
 
       let moveX = 0, moveZ = 0;
       if (dist > 80) {
-        moveX = _tempVec3.x * speed * delta;
-        moveZ = _tempVec3.z * speed * delta;
+        moveX = _tempVec3.x * speed * stepDelta;
+        moveZ = _tempVec3.z * speed * stepDelta;
       } else if (dist < 30) {
-        moveX = -_tempVec3.x * speed * delta;
-        moveZ = -_tempVec3.z * speed * delta;
+        moveX = -_tempVec3.x * speed * stepDelta;
+        moveZ = -_tempVec3.z * speed * stepDelta;
       } else {
         let strafeDir = (Math.floor(now / 2000) + bot.id) % 2 === 0 ? 1 : -1;
-        moveX = (-_tempVec3.z) * speed * 0.85 * strafeDir * delta;
-        moveZ = _tempVec3.x * speed * 0.85 * strafeDir * delta;
+        moveX = (-_tempVec3.z) * speed * 0.85 * strafeDir * stepDelta;
+        moveZ = _tempVec3.x * speed * 0.85 * strafeDir * stepDelta;
       }
 
       // Check collision before moving
       let newX = bPos.x + moveX;
       let newZ = bPos.z + moveZ;
-      let collision = checkEntityCollision(bPos.x, bPos.z, newX, newZ, bPos.y, 5);
+      let collision = checkEntityCollision(bPos.x, bPos.z, newX, newZ, bPos.y, 5, {
+        colliders: nearbyColliders,
+        doors: nearbyDoors
+      });
       if (!collision.blocked) {
         bPos.x = newX;
         bPos.z = newZ;
@@ -650,7 +670,7 @@ export function updateBots(delta) {
         }
 
         // Bot gun position (right hand area)
-        const botGunPos = new THREE.Vector3(bPos.x + 2, bPos.y + 3.5, bPos.z + 1.5);
+        _botGunPos.set(bPos.x + 2, bPos.y + 3.5, bPos.z + 1.5);
 
         // Add bullet spread for bots
         const botSpread = 0.05;
@@ -660,15 +680,17 @@ export function updateBots(delta) {
         if (Math.random() < bot.accuracy) {
           let isHeadshot = Math.random() > 0.9;
           if (bot.target === 'player') {
-            const botHeadPos = _tempVec3.set(bPos.x, bPos.y + 5, bPos.z);
-            const direction = new THREE.Vector3().subVectors(playerPos, botHeadPos).normalize();
+            const botHeadPos = _botHeadPos.set(bPos.x, bPos.y + 5, bPos.z);
+            const direction = _botDirection.subVectors(playerPos, botHeadPos).normalize();
             // Apply spread to direction
             direction.x += spreadX;
             direction.y += spreadY;
             direction.normalize();
 
-            const ray = new THREE.Raycaster(botHeadPos, direction, 0, 1000);
-            const intersects = ray.intersectObjects(state.objects);
+            _botRaycaster.set(botHeadPos, direction);
+            _botRaycaster.near = 0;
+            _botRaycaster.far = 1000;
+            const intersects = _botRaycaster.intersectObjects(state.objects);
 
             let isBlocked = false;
             let hitPoint = playerPos;
@@ -686,7 +708,7 @@ export function updateBots(delta) {
             }
 
             // Create bot bullet tracer
-            createTracerFromPosition(botGunPos, hitPoint);
+            createTracerFromPosition(_botGunPos, hitPoint);
 
             if (!isBlocked) {
               let dmg = calcDamage(bot.weapon.damage * diff.botToPlayerDamageFactor, isHeadshot, state.player);
@@ -698,9 +720,9 @@ export function updateBots(delta) {
             bot.target.health -= dmg;
 
             // Create bot bullet tracer for bot-vs-bot combat
-            createTracerFromPosition(botGunPos, bot.target.mesh.position);
+            createTracerFromPosition(_botGunPos, bot.target.mesh.position);
 
-            spawnBlood(bot.target.mesh.position.clone().add(new THREE.Vector3(0, 4, 0)), new THREE.Vector3(0, 1, 0));
+            spawnBlood(_missPoint.copy(bot.target.mesh.position).add(_bloodOffset), _upNormal);
             if (bot.target.health <= 0) {
               botDied(bot.target, "Bot " + bot.id);
               bot.target = null;
@@ -709,22 +731,20 @@ export function updateBots(delta) {
           }
         } else {
           // Miss - tracer goes past target
-          const missPoint = botGunPos.clone().add(
-            new THREE.Vector3(
-              (Math.random() - 0.5) * 50,
-              (Math.random() - 0.5) * 20,
-              (Math.random() - 0.5) * 50
-            )
+          _missPoint.set(
+            _botGunPos.x + (Math.random() - 0.5) * 50,
+            _botGunPos.y + (Math.random() - 0.5) * 20,
+            _botGunPos.z + (Math.random() - 0.5) * 50
           );
-          createTracerFromPosition(botGunPos, missPoint);
+          createTracerFromPosition(_botGunPos, _missPoint);
         }
       }
     }
 
     // House collision (simplified - only check nearby doors)
     if (isNearby) {
-      for (let i = 0; i < state.doors.length; i++) {
-        let d = state.doors[i];
+      for (let i = 0; i < nearbyDoors.length; i++) {
+        let d = nearbyDoors[i];
         let hPos = d.housePos;
         let dx = bPos.x - hPos.x;
         let dz = bPos.z - hPos.z;
