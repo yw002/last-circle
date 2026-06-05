@@ -5,12 +5,13 @@ import { state } from '../state.js';
 import { MAP_SIZE, RELOAD_DURATION } from '../config.js';
 import { getTerrainHeight } from '../world/terrain.js';
 import { getHousePlayerIsInside } from './house.js';
-import { playSound } from '../systems/audio.js';
+import { playImpactSound, playSound } from '../systems/audio.js';
 import { spawnBlood, spawnMuzzleFlash } from '../systems/particles.js';
 import { updateUI } from '../ui/hud.js';
 import { createWeaponTracer } from '../systems/bullets.js';
 import { showHitFromDirection } from '../ui/hitindicator.js';
 import { spawnBulletHole } from '../systems/bulletholes.js';
+import { inferImpactMaterial, spawnImpactEffect } from '../systems/impactEffects.js';
 import { showNotice } from '../ui/notices.js';
 import { calcDamage } from './damage.js';
 import { botDied } from './bots.js';
@@ -756,10 +757,6 @@ function getBulletSpread() {
 const _barrelTip = new THREE.Vector3(0, 0.06, -1.2);
 const _muzzleWorldPos = new THREE.Vector3();
 
-// Shared dust geometry and material
-const _dustGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
-const _dustMat = new THREE.MeshBasicMaterial({ color: 0x7f8c8d });
-
 // Get the world position of the gun barrel tip
 function getGunBarrelPosition() {
   if (!state.viewWeaponMesh) return state.camera.position.clone();
@@ -861,23 +858,12 @@ export function fireWeapon() {
 
   if (coverHit && (!targetHit || coverHit.distance < targetHit.distance)) {
     let n = coverHit.face ? coverHit.face.normal : new THREE.Vector3(0, 1, 0);
+    const impactMaterial = inferImpactMaterial(coverHit);
 
-    // Spawn bullet hole on surface
-    spawnBulletHole(coverHit.point, n);
-
-    // Spawn dust particles
-    for (let i = 0; i < 3; i++) {
-      const dust = new THREE.Mesh(_dustGeo, _dustMat);
-      dust.position.copy(coverHit.point);
-      state.scene.add(dust);
-      state.bloodParticles.push({
-        mesh: dust,
-        vx: n.x * 5 + (Math.random() - 0.5) * 10,
-        vy: n.y * 5 + Math.random() * 10,
-        vz: n.z * 5 + (Math.random() - 0.5) * 10,
-        age: 0
-      });
-    }
+    // Impact feedback shares the actual raycast entry point with bullet holes and trajectory.
+    playImpactSound(impactMaterial, coverHit.point);
+    spawnImpactEffect(coverHit.point, n, impactMaterial);
+    if (impactMaterial !== 'water') spawnBulletHole(coverHit.point, n);
   } else if (targetHit) {
     let ud = targetHit.object.userData;
     if (ud.isBot) {

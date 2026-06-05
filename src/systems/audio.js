@@ -128,6 +128,92 @@ function playDryFireSound(now, vol, panner) {
   click.stop(now + 0.07);
 }
 
+export function playBulletWhiz(sourcePos = null, intensity = 1) {
+  if (!audioCtx || audioCtx.state === 'suspended') return;
+  try {
+    const now = audioCtx.currentTime;
+    const vol = Math.max(0.08, Math.min(0.35, 0.18 * intensity));
+    const panner = createPanner(sourcePos);
+
+    if (noiseBuffer) {
+      const noise = audioCtx.createBufferSource();
+      noise.buffer = noiseBuffer;
+      const noiseGain = audioCtx.createGain();
+      const noiseFilter = audioCtx.createBiquadFilter();
+      noiseFilter.type = 'bandpass';
+      noiseFilter.frequency.value = 5200;
+      noiseFilter.Q.value = 5;
+      noiseGain.gain.setValueAtTime(vol, now);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+      noise.connect(noiseFilter);
+      noiseFilter.connect(noiseGain);
+      connectToOutput(noiseGain, panner);
+      noise.start(now);
+      noise.stop(now + 0.18);
+    }
+
+    const snap = audioCtx.createOscillator();
+    const snapGain = audioCtx.createGain();
+    snap.type = 'triangle';
+    snap.frequency.setValueAtTime(1800, now);
+    snap.frequency.exponentialRampToValueAtTime(720, now + 0.055);
+    snapGain.gain.setValueAtTime(vol * 0.45, now);
+    snapGain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+    snap.connect(snapGain);
+    connectToOutput(snapGain, panner);
+    snap.start(now);
+    snap.stop(now + 0.09);
+  } catch (e) {}
+}
+
+export function playImpactSound(material = 'dirt', sourcePos = null) {
+  if (!audioCtx || audioCtx.state === 'suspended') return;
+  try {
+    const now = audioCtx.currentTime;
+    const vol = sourcePos ? 0.45 : 0.22;
+    const panner = createPanner(sourcePos);
+
+    const profiles = {
+      metal: { freq: 1700, end: 520, noiseFreq: 5200, noiseVol: 0.25, oscVol: 0.45, dur: 0.14 },
+      wood: { freq: 850, end: 180, noiseFreq: 1400, noiseVol: 0.32, oscVol: 0.28, dur: 0.12 },
+      stone: { freq: 620, end: 120, noiseFreq: 2300, noiseVol: 0.34, oscVol: 0.22, dur: 0.1 },
+      water: { freq: 420, end: 160, noiseFreq: 900, noiseVol: 0.38, oscVol: 0.12, dur: 0.16 },
+      building: { freq: 700, end: 130, noiseFreq: 1800, noiseVol: 0.3, oscVol: 0.22, dur: 0.11 },
+      dirt: { freq: 420, end: 80, noiseFreq: 700, noiseVol: 0.34, oscVol: 0.18, dur: 0.13 }
+    };
+    const profile = profiles[material] || profiles.dirt;
+
+    const thud = audioCtx.createOscillator();
+    const thudGain = audioCtx.createGain();
+    thud.type = material === 'metal' ? 'triangle' : 'sine';
+    thud.frequency.setValueAtTime(profile.freq, now);
+    thud.frequency.exponentialRampToValueAtTime(profile.end, now + profile.dur * 0.55);
+    thudGain.gain.setValueAtTime(vol * profile.oscVol, now);
+    thudGain.gain.exponentialRampToValueAtTime(0.001, now + profile.dur);
+    thud.connect(thudGain);
+    connectToOutput(thudGain, panner);
+    thud.start(now);
+    thud.stop(now + profile.dur + 0.03);
+
+    if (noiseBuffer) {
+      const noise = audioCtx.createBufferSource();
+      noise.buffer = noiseBuffer;
+      const noiseGain = audioCtx.createGain();
+      const noiseFilter = audioCtx.createBiquadFilter();
+      noiseFilter.type = material === 'water' ? 'lowpass' : 'bandpass';
+      noiseFilter.frequency.value = profile.noiseFreq;
+      noiseFilter.Q.value = 1.5;
+      noiseGain.gain.setValueAtTime(vol * profile.noiseVol, now);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + profile.dur);
+      noise.connect(noiseFilter);
+      noiseFilter.connect(noiseGain);
+      connectToOutput(noiseGain, panner);
+      noise.start(now);
+      noise.stop(now + profile.dur + 0.03);
+    }
+  } catch (e) {}
+}
+
 function applyAmmoTone(type, now, vol, panner, options) {
   if (!options || typeof options.remainingAmmo !== 'number' || typeof options.maxAmmo !== 'number') return;
   if (type === 'hit' || type === 'melee' || options.maxAmmo <= 1) return;

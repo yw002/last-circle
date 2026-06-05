@@ -256,6 +256,9 @@ function initTrees() {
       }
 
       tree.position.set(x, y - 6, z);
+      tree.traverse((child) => {
+        if (child.isMesh && !child.userData.impactMaterial) child.userData.impactMaterial = 'wood';
+      });
       state.scene.add(tree);
       registerStaticObject(tree, x, z, 1300);
       tree.updateMatrixWorld(true);
@@ -297,6 +300,7 @@ function initRocks() {
     else mat = rockMossyMat;
 
     const rock = new THREE.Mesh(rockGeo, mat);
+    rock.userData = { impactMaterial: 'stone' };
     rock.scale.set(1 + Math.random() * 2, 0.5 + Math.random() * 0.5, 1 + Math.random() * 2);
     rock.position.set(x, y + rock.geometry.parameters.radius * 0.5, z);
     rock.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
@@ -366,6 +370,7 @@ function initRivers() {
       geo.computeVertexNormals();
 
       const riverSegment = new THREE.Mesh(geo, riverMat);
+      riverSegment.userData = { impactMaterial: 'water' };
       state.scene.add(riverSegment);
       registerStaticObject(riverSegment, (p1.x + p2.x) * 0.5, (p1.z + p2.z) * 0.5, 1000);
     }
@@ -392,6 +397,7 @@ function initRivers() {
       geo.computeVertexNormals();
 
       const bedSegment = new THREE.Mesh(geo, riverBedMat);
+      bedSegment.userData = { impactMaterial: 'stone' };
       state.scene.add(bedSegment);
       registerStaticObject(bedSegment, (p1.x + p2.x) * 0.5, (p1.z + p2.z) * 0.5, 1000);
     }
@@ -405,6 +411,7 @@ function initRivers() {
       const side = Math.random() > 0.5 ? 1 : -1;
       const reedGeo = new THREE.CylinderGeometry(0.2, 0.3, 8, 4);
       const reed = new THREE.Mesh(reedGeo, reedMat);
+      reed.userData = { impactMaterial: 'wood' };
       reed.position.set(p.x + side * (14 + Math.random() * 6), p.y + 4, p.z + (Math.random() - 0.5) * 10);
       reed.rotation.z = (Math.random() - 0.5) * 0.3;
       state.scene.add(reed);
@@ -423,6 +430,7 @@ function initLakes() {
     const lakeGeo = new THREE.CircleGeometry(lRadius, 24);
     lakeGeo.rotateX(-Math.PI / 2);
     const lake = new THREE.Mesh(lakeGeo, lakeMat);
+    lake.userData = { impactMaterial: 'water' };
     const ly = getTerrainHeight(lx, lz) - 0.5;
     lake.position.set(lx, ly, lz);
     state.scene.add(lake);
@@ -432,6 +440,7 @@ function initLakes() {
     const shoreGeo = new THREE.RingGeometry(lRadius - 5, lRadius + 15, 24);
     shoreGeo.rotateX(-Math.PI / 2);
     const shore = new THREE.Mesh(shoreGeo, shoreMat);
+    shore.userData = { impactMaterial: 'dirt' };
     shore.position.set(lx, ly - 0.2, lz);
     state.scene.add(shore);
     registerStaticObject(shore, lx, lz, 1200);
@@ -445,6 +454,7 @@ function initLakes() {
       const by = getTerrainHeight(bx, bz);
       const bushGeo = new THREE.SphereGeometry(5 + Math.random() * 8, 6, 6);
       const bush = new THREE.Mesh(bushGeo, bushMat);
+      bush.userData = { impactMaterial: 'wood' };
       bush.position.set(bx, by + 3, bz);
       bush.scale.y = 0.6;
       state.scene.add(bush);
@@ -458,6 +468,7 @@ function initLakes() {
       const lilyGeo = new THREE.CircleGeometry(3, 8);
       lilyGeo.rotateX(-Math.PI / 2);
       const lily = new THREE.Mesh(lilyGeo, lilyMat);
+      lily.userData = { impactMaterial: 'water' };
       lily.position.set(lx + Math.cos(angle) * dist, ly + 0.1, lz + Math.sin(angle) * dist);
       state.scene.add(lily);
       registerStaticObject(lily, lily.position.x, lily.position.z, 600);
@@ -488,6 +499,7 @@ function initStreams() {
     const streamCurve = new THREE.CatmullRomCurve3(streamPoints);
     const streamGeo = new THREE.TubeGeometry(streamCurve, 15, 2, 6, false);
     const stream = new THREE.Mesh(streamGeo, riverMat);
+    stream.userData = { impactMaterial: 'water' };
     state.scene.add(stream);
     registerStaticObject(stream, (startX + endX) * 0.5, (startZ + endZ) * 0.5, 900);
 
@@ -497,6 +509,7 @@ function initStreams() {
       const p = streamCurve.getPointAt(t);
       const stoneGeo = new THREE.SphereGeometry(1 + Math.random() * 1.5, 6, 6);
       const stone = new THREE.Mesh(stoneGeo, stoneMat);
+      stone.userData = { impactMaterial: 'stone' };
       stone.position.set(p.x + (Math.random() - 0.5) * 8, p.y, p.z + (Math.random() - 0.5) * 8);
       stone.scale.y = 0.5;
       state.scene.add(stone);
@@ -600,16 +613,16 @@ function initHouses() {
       currentAngle: 0
     });
 
-    leftWallF.userData = { isBuilding: true };
-    leftWallB.userData = { isBuilding: true };
-    rightWallF.userData = { isBuilding: true };
-    rightWallB.userData = { isBuilding: true };
-    backWall.userData = { isBuilding: true };
-    frontWallL.userData = { isBuilding: true };
-    frontWallR.userData = { isBuilding: true };
-    door.userData = { isBuilding: true };
-    roof.userData = { isBuilding: true };
-    floor.userData = { isBuilding: true };
+    leftWallF.userData = { isBuilding: true, impactMaterial: 'building' };
+    leftWallB.userData = { isBuilding: true, impactMaterial: 'building' };
+    rightWallF.userData = { isBuilding: true, impactMaterial: 'building' };
+    rightWallB.userData = { isBuilding: true, impactMaterial: 'building' };
+    backWall.userData = { isBuilding: true, impactMaterial: 'building' };
+    frontWallL.userData = { isBuilding: true, impactMaterial: 'building' };
+    frontWallR.userData = { isBuilding: true, impactMaterial: 'building' };
+    door.userData = { isBuilding: true, impactMaterial: 'wood' };
+    roof.userData = { isBuilding: true, impactMaterial: 'metal' };
+    floor.userData = { isBuilding: true, impactMaterial: 'wood' };
     state.objects.push(leftWallF, leftWallB, rightWallF, rightWallB, backWall, frontWallL, frontWallR, door, roof, floor);
 
     spawnLoot(x, y, z);
