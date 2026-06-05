@@ -135,9 +135,11 @@ export function optimizeRenderer(renderer) {
   // Enable frustum culling
   renderer.info.render.frame++;
 
-  // Set pixel ratio based on performance
+  // Keep the renderer from undoing scene-level pixel ratio caps on high-DPI screens.
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  renderer.setPixelRatio(isMobile ? 1 : Math.min(window.devicePixelRatio, 1.5));
+  const currentRatio = renderer.getPixelRatio ? renderer.getPixelRatio() : 1;
+  const targetRatio = isMobile ? 1 : Math.min(currentRatio || 1, window.devicePixelRatio, 1.0);
+  renderer.setPixelRatio(targetRatio);
 
   return renderer;
 }
