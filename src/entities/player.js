@@ -810,6 +810,7 @@ export function fireWeapon() {
   if (now - state.player.lastFire < state.player.weapon.fireRate) return;
 
   if (state.player.weapon.ammo <= 0) {
+    playSound('dry_fire');
     // Only show notice every 2 seconds to avoid spam
     if (now - lastEmptyNoticeTime > 2000) {
       showNotice("弹匣为空！按 R 换弹", "#e74c3c");
@@ -824,7 +825,10 @@ export function fireWeapon() {
   state.player.weapon.ammo--;
   state.player.lastFire = now;
   updateUI();
-  playSound(state.player.weapon.sound);
+  playSound(state.player.weapon.sound, null, {
+    remainingAmmo: state.player.weapon.ammo,
+    maxAmmo: state.player.weapon.maxAmmo
+  });
 
   // Add crosshair spread (CS:GO style)
   addCrosshairSpread();

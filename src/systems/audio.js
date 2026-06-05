@@ -63,6 +63,85 @@ function connectToOutput(node, panner) {
   }
 }
 
+function playLowAmmoTail(now, vol, panner, intensity = 1) {
+  const clamped = Math.max(0.18, Math.min(0.85, intensity));
+
+  // Low-ammo cue sits between realistic dry mechanics and readable combat feedback.
+  const bolt = audioCtx.createOscillator();
+  const boltGain = audioCtx.createGain();
+  bolt.type = 'triangle';
+  bolt.frequency.setValueAtTime(1350, now + 0.019);
+  bolt.frequency.exponentialRampToValueAtTime(360, now + 0.055);
+  boltGain.gain.setValueAtTime(0, now);
+  boltGain.gain.linearRampToValueAtTime(vol * 0.19 * clamped, now + 0.023);
+  boltGain.gain.exponentialRampToValueAtTime(0.001, now + 0.078);
+  bolt.connect(boltGain);
+  connectToOutput(boltGain, panner);
+  bolt.start(now + 0.015);
+  bolt.stop(now + 0.095);
+
+  if (noiseBuffer) {
+    const scrape = audioCtx.createBufferSource();
+    scrape.buffer = noiseBuffer;
+    const scrapeGain = audioCtx.createGain();
+    const scrapeFilter = audioCtx.createBiquadFilter();
+    scrapeFilter.type = 'bandpass';
+    scrapeFilter.frequency.value = 1900;
+    scrapeFilter.Q.value = 1.4;
+    scrapeGain.gain.setValueAtTime(vol * 0.105 * clamped, now + 0.022);
+    scrapeGain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+    scrape.connect(scrapeFilter);
+    scrapeFilter.connect(scrapeGain);
+    connectToOutput(scrapeGain, panner);
+    scrape.start(now + 0.02);
+    scrape.stop(now + 0.09);
+  }
+}
+
+function playLastRoundLockSound(now, vol, panner) {
+  // Last-round lockback is audible, but still tucked behind the shot.
+  const lock = audioCtx.createOscillator();
+  const lockGain = audioCtx.createGain();
+  lock.type = 'triangle';
+  lock.frequency.setValueAtTime(1120, now + 0.07);
+  lock.frequency.exponentialRampToValueAtTime(420, now + 0.122);
+  lockGain.gain.setValueAtTime(0, now);
+  lockGain.gain.linearRampToValueAtTime(vol * 0.33, now + 0.08);
+  lockGain.gain.exponentialRampToValueAtTime(0.001, now + 0.158);
+  lock.connect(lockGain);
+  connectToOutput(lockGain, panner);
+  lock.start(now + 0.07);
+  lock.stop(now + 0.185);
+}
+
+function playDryFireSound(now, vol, panner) {
+  const click = audioCtx.createOscillator();
+  const clickGain = audioCtx.createGain();
+  click.type = 'square';
+  click.frequency.setValueAtTime(2400, now);
+  click.frequency.exponentialRampToValueAtTime(280, now + 0.035);
+  clickGain.gain.setValueAtTime(vol * 0.8, now);
+  clickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+  click.connect(clickGain);
+  connectToOutput(clickGain, panner);
+  click.start(now);
+  click.stop(now + 0.07);
+}
+
+function applyAmmoTone(type, now, vol, panner, options) {
+  if (!options || typeof options.remainingAmmo !== 'number' || typeof options.maxAmmo !== 'number') return;
+  if (type === 'hit' || type === 'melee' || options.maxAmmo <= 1) return;
+
+  const remaining = options.remainingAmmo;
+  const lowThreshold = Math.max(3, Math.ceil(options.maxAmmo * 0.15));
+  if (remaining <= 0) {
+    playLastRoundLockSound(now, vol, panner);
+  } else if (remaining <= lowThreshold) {
+    const intensity = 0.4 + (lowThreshold - remaining) / lowThreshold * 0.48;
+    playLowAmmoTail(now, vol, panner, intensity);
+  }
+}
+
 // ========== PISTOL SOUND (6 layers) ==========
 function playPistolSound(now, vol, panner) {
   // Layer 1: Mechanical hammer click
@@ -739,7 +818,7 @@ export function playThunderSound() {
 }
 
 // ========== MAIN PLAY SOUND DISPATCHER ==========
-export function playSound(type, sourcePos = null) {
+export function playSound(type, sourcePos = null, options = null) {
   if (!audioCtx || audioCtx.state === 'suspended') return;
   try {
     const now = audioCtx.currentTime;
@@ -747,6 +826,7 @@ export function playSound(type, sourcePos = null) {
     const panner = createPanner(sourcePos);
 
     switch (type) {
+      case 'dry_fire': playDryFireSound(now, vol, panner); break;
       case 'pistol': playPistolSound(now, vol, panner); break;
       case 'ar':
       case 'ar_fast': playARSound(now, vol, panner, type === 'ar_fast'); break;
@@ -755,6 +835,7 @@ export function playSound(type, sourcePos = null) {
       case 'hit': playHitSound(now, vol, panner); break;
       default: playARSound(now, vol, panner, false); break;
     }
+    applyAmmoTone(type, now, vol, panner, options);
   } catch (e) {}
 }
 
