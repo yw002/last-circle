@@ -192,6 +192,7 @@ let fpsCurrent = 60;
 let fpsTotalFrames = 0;
 let fpsTotalTime = 0;
 let fpsAverage = 0;
+const recentFpsSamples = [];
 const profileStats = new Map();
 let profileLastLog = 0;
 let profileEnabled = true;
@@ -224,14 +225,41 @@ export function logPerformanceProfile(now = performance.now()) {
     .sort((a, b) => b.avg - a.avg)
     .slice(0, 6);
 
-  console.table(rows.map(row => ({
+  const renderInfo = state.renderer ? state.renderer.info.render : null;
+  const memoryInfo = state.renderer ? state.renderer.info.memory : null;
+  const renderFrames = renderInfo ? Math.max(1, renderInfo.frame) : 1;
+  const diagnostics = state.renderer ? {
+    step: 'renderer',
+    avgMs: '-',
+    maxMs: '-',
+    calls: Math.round(renderInfo.calls / renderFrames),
+    triangles: Math.round(renderInfo.triangles / renderFrames),
+    geometries: memoryInfo.geometries,
+    textures: memoryInfo.textures,
+    sceneChildren: state.scene ? state.scene.children.length : 0,
+    pixelRatio: state.renderer.getPixelRatio().toFixed(2),
+    fps10s: getRecentAverageFPS()
+  } : null;
+
+  const tableRows = rows.map(row => ({
     step: row.label,
     avgMs: row.avg.toFixed(2),
-    maxMs: row.max.toFixed(2)
-  })));
+    maxMs: row.max.toFixed(2),
+    calls: '',
+    triangles: '',
+    geometries: '',
+    textures: '',
+    sceneChildren: '',
+    pixelRatio: '',
+    fps10s: ''
+  }));
+  if (diagnostics) tableRows.push(diagnostics);
+
+  console.table(tableRows);
 
   profileStats.clear();
   profileLastLog = now;
+  if (state.renderer) state.renderer.info.reset();
 }
 
 export function setPerformanceProfiling(enabled) {
@@ -257,6 +285,11 @@ export function updateFPS(delta) {
     fpsAverage = Math.round(fpsTotalFrames / fpsTotalTime);
   }
 
+  // A short moving average makes perf regressions visible without waiting for the lifetime avg to recover.
+  recentFpsSamples.push({ time: performance.now(), delta });
+  const cutoff = performance.now() - 10000;
+  while (recentFpsSamples.length && recentFpsSamples[0].time < cutoff) recentFpsSamples.shift();
+
   return fpsCurrent;
 }
 
@@ -268,6 +301,12 @@ export function getAverageFPS() {
   return fpsAverage;
 }
 
+export function getRecentAverageFPS() {
+  let total = 0;
+  for (let i = 0; i < recentFpsSamples.length; i++) total += recentFpsSamples[i].delta;
+  return total > 0 ? Math.round(recentFpsSamples.length / total) : fpsCurrent;
+}
+
 export function resetFPS() {
   fpsFrames = 0;
   fpsTime = 0;
@@ -275,6 +314,7 @@ export function resetFPS() {
   fpsTotalFrames = 0;
   fpsTotalTime = 0;
   fpsAverage = 0;
+  recentFpsSamples.length = 0;
 }
 
 // Adaptive quality based on FPS

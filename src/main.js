@@ -31,6 +31,7 @@ import { initMinimap, updateMinimap } from './ui/minimap.js';
 import { initHitIndicator } from './ui/hitindicator.js';
 import { optimizeRenderer, optimizeScene, updateFPS, getAverageFPS, resetFPS, adaptQuality, profileStep, logPerformanceProfile } from './systems/performance.js';
 import { rebuildSpatialIndex, resetStaticSpatialIndex, getNearbyLoot } from './systems/spatial.js';
+import { updateStaticVisibility } from './systems/staticVisibility.js';
 
 // Disable right-click menu
 document.addEventListener('contextmenu', e => e.preventDefault());
@@ -179,6 +180,7 @@ function animate() {
     logPerformanceProfile(time);
 
     runFrameStep('spatial rebuild', () => rebuildSpatialIndex());
+    runFrameStep('static visibility', () => updateStaticVisibility(time));
 
     // Update audio listener position (throttled to every 100ms)
     runFrameStep('audio listener', () => {

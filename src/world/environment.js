@@ -5,6 +5,7 @@ import { state } from '../state.js';
 import { MAP_SIZE } from '../config.js';
 import { getBaseTerrainHeight, getTerrainHeight } from './terrain.js';
 import { spawnLoot } from './loot.js';
+import { registerStaticObject } from '../systems/staticVisibility.js';
 
 // ========== SHARED TREE RESOURCES ==========
 // Pine tree
@@ -256,6 +257,7 @@ function initTrees() {
 
       tree.position.set(x, y - 6, z);
       state.scene.add(tree);
+      registerStaticObject(tree, x, z, 1300);
       tree.updateMatrixWorld(true);
 
       if (trunk) {
@@ -299,6 +301,7 @@ function initRocks() {
     rock.position.set(x, y + rock.geometry.parameters.radius * 0.5, z);
     rock.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
     state.scene.add(rock);
+    registerStaticObject(rock, x, z, 900);
     state.objects.push(rock);
 
     state.rockPositions.push({ x, z });
@@ -364,6 +367,7 @@ function initRivers() {
 
       const riverSegment = new THREE.Mesh(geo, riverMat);
       state.scene.add(riverSegment);
+      registerStaticObject(riverSegment, (p1.x + p2.x) * 0.5, (p1.z + p2.z) * 0.5, 1000);
     }
 
     // River bed (darker bottom)
@@ -389,6 +393,7 @@ function initRivers() {
 
       const bedSegment = new THREE.Mesh(geo, riverBedMat);
       state.scene.add(bedSegment);
+      registerStaticObject(bedSegment, (p1.x + p2.x) * 0.5, (p1.z + p2.z) * 0.5, 1000);
     }
 
     // Add reeds along river
@@ -403,6 +408,7 @@ function initRivers() {
       reed.position.set(p.x + side * (14 + Math.random() * 6), p.y + 4, p.z + (Math.random() - 0.5) * 10);
       reed.rotation.z = (Math.random() - 0.5) * 0.3;
       state.scene.add(reed);
+      registerStaticObject(reed, reed.position.x, reed.position.z, 700);
     }
   }
 }
@@ -420,6 +426,7 @@ function initLakes() {
     const ly = getTerrainHeight(lx, lz) - 0.5;
     lake.position.set(lx, ly, lz);
     state.scene.add(lake);
+    registerStaticObject(lake, lx, lz, 1200);
 
     const shoreMat = new THREE.MeshLambertMaterial({ color: 0xc2b280 });
     const shoreGeo = new THREE.RingGeometry(lRadius - 5, lRadius + 15, 24);
@@ -427,6 +434,7 @@ function initLakes() {
     const shore = new THREE.Mesh(shoreGeo, shoreMat);
     shore.position.set(lx, ly - 0.2, lz);
     state.scene.add(shore);
+    registerStaticObject(shore, lx, lz, 1200);
 
     const bushMat = new THREE.MeshLambertMaterial({ color: 0x3a6a2a });
     for (let b = 0; b < 15; b++) {
@@ -440,6 +448,7 @@ function initLakes() {
       bush.position.set(bx, by + 3, bz);
       bush.scale.y = 0.6;
       state.scene.add(bush);
+      registerStaticObject(bush, bx, bz, 800);
     }
 
     const lilyMat = new THREE.MeshLambertMaterial({ color: 0x2d7a2d, side: THREE.DoubleSide });
@@ -451,6 +460,7 @@ function initLakes() {
       const lily = new THREE.Mesh(lilyGeo, lilyMat);
       lily.position.set(lx + Math.cos(angle) * dist, ly + 0.1, lz + Math.sin(angle) * dist);
       state.scene.add(lily);
+      registerStaticObject(lily, lily.position.x, lily.position.z, 600);
     }
   }
 }
@@ -479,6 +489,7 @@ function initStreams() {
     const streamGeo = new THREE.TubeGeometry(streamCurve, 15, 2, 6, false);
     const stream = new THREE.Mesh(streamGeo, riverMat);
     state.scene.add(stream);
+    registerStaticObject(stream, (startX + endX) * 0.5, (startZ + endZ) * 0.5, 900);
 
     const stoneMat = new THREE.MeshLambertMaterial({ color: 0x8a8a8a });
     for (let i = 0; i < 15; i++) {
@@ -489,6 +500,7 @@ function initStreams() {
       stone.position.set(p.x + (Math.random() - 0.5) * 8, p.y, p.z + (Math.random() - 0.5) * 8);
       stone.scale.y = 0.5;
       state.scene.add(stone);
+      registerStaticObject(stone, stone.position.x, stone.position.z, 550);
     }
   }
 }
@@ -578,6 +590,7 @@ function initHouses() {
 
     houseGroup.position.set(x, y, z);
     state.scene.add(houseGroup);
+    registerStaticObject(houseGroup, x, z, 1500);
 
     state.doors.push({
       pivot: doorPivot,
