@@ -29,7 +29,8 @@ import { initVolcano, updateVolcano } from './entities/volcano.js';
 import { updateUI } from './ui/hud.js';
 import { initMinimap, updateMinimap } from './ui/minimap.js';
 import { initHitIndicator } from './ui/hitindicator.js';
-import { optimizeRenderer, optimizeScene, updateFPS, getAverageFPS, resetFPS, adaptQuality } from './systems/performance.js';
+import { optimizeRenderer, optimizeScene, updateFPS, getAverageFPS, resetFPS, adaptQuality, profileStep, logPerformanceProfile } from './systems/performance.js';
+import { rebuildSpatialIndex, resetStaticSpatialIndex, getNearbyLoot } from './systems/spatial.js';
 
 // Disable right-click menu
 document.addEventListener('contextmenu', e => e.preventDefault());
@@ -52,19 +53,24 @@ function reportFrameError(label, error) {
 }
 
 function runFrameStep(label, fn) {
-  try {
-    fn();
-  } catch (error) {
-    reportFrameError(label, error);
-  }
+  return profileStep(label, () => {
+    try {
+      return fn();
+    } catch (error) {
+      reportFrameError(label, error);
+      return undefined;
+    }
+  });
 }
 
 function renderFrame() {
-  try {
-    state.renderer.render(state.scene, state.camera);
-  } catch (error) {
-    reportFrameError('render', error);
-  }
+  profileStep('render', () => {
+    try {
+      state.renderer.render(state.scene, state.camera);
+    } catch (error) {
+      reportFrameError('render', error);
+    }
+  });
 }
 
 function init() {
@@ -120,6 +126,7 @@ function init() {
   preGenerateHouses();
   initTerrain();
   initEnvironment();
+  resetStaticSpatialIndex();
   initGrass(); // Zelda-style flowing grass
   initAnimals();
   initVolcano(); // Create massive volcano
@@ -168,6 +175,10 @@ function animate() {
   try {
     const time = performance.now();
     const delta = Math.min((time - state.prevTime) / 1000, 0.1);
+    state.frameId++;
+    logPerformanceProfile(time);
+
+    runFrameStep('spatial rebuild', () => rebuildSpatialIndex());
 
     // Update audio listener position (throttled to every 100ms)
     runFrameStep('audio listener', () => {
@@ -182,8 +193,9 @@ function animate() {
       if (!state._lastLootUpdate || time - state._lastLootUpdate > 50) {
         const playerPos = state.controls.getObject().position;
         const px = playerPos.x, pz = playerPos.z;
-        for (let i = 0; i < state.lootItems.length; i++) {
-          const l = state.lootItems[i];
+        const nearbyLoot = getNearbyLoot(px, pz);
+        for (let i = 0; i < nearbyLoot.length; i++) {
+          const l = nearbyLoot[i];
           if (!l.mesh) continue;
           const lp = l.mesh.position;
           const dx = lp.x - px, dz = lp.z - pz;

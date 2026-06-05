@@ -14,10 +14,16 @@ import { showNotice } from '../ui/notices.js';
 import { playSound } from '../systems/audio.js';
 import { spawnBlood } from '../systems/particles.js';
 import { checkEntityCollision } from '../systems/collision.js';
+import { getNearbyBots, getNearbyColliders, getNearbyDoors } from '../systems/spatial.js';
 
 let ufos = [];
 let aliens = [];
 let alienBullets = [];
+const _alienMoveDir = new THREE.Vector3();
+const _alienHeadPos = new THREE.Vector3();
+const _alienShotDir = new THREE.Vector3();
+const _alienBulletDir = new THREE.Vector3();
+const _alienRaycaster = new THREE.Raycaster();
 
 // UFO model
 function createUFOMesh() {
@@ -406,7 +412,8 @@ export function updateAliens(delta) {
         }
       }
 
-      state.bots.forEach(bot => {
+      const nearbyBots = getNearbyBots(aPos.x, aPos.z);
+      nearbyBots.forEach(bot => {
         if (bot.alive && !bot.isParachuting) {
           let dSq = aPos.distanceToSquared(bot.mesh.position);
           if (dSq < minDistSq) {
@@ -449,7 +456,7 @@ export function updateAliens(delta) {
       aPos.y += Math.sin(now * 0.003) * 0.5;
     } else if (alien.state === 'attack' && alien.target) {
       let targetPos = alien.target === 'player' ? playerPos : alien.target.mesh.position;
-      let dir = new THREE.Vector3().subVectors(targetPos, aPos);
+      let dir = _alienMoveDir.subVectors(targetPos, aPos);
       dir.y = 0;
       let dist = dir.length();
       dir.normalize();
@@ -472,7 +479,10 @@ export function updateAliens(delta) {
       // Check collision
       let newX = aPos.x + moveX;
       let newZ = aPos.z + moveZ;
-      let collision = checkEntityCollision(aPos.x, aPos.z, newX, newZ, getTerrainHeight(newX, newZ), 5);
+      let collision = checkEntityCollision(aPos.x, aPos.z, newX, newZ, getTerrainHeight(newX, newZ), 5, {
+        colliders: getNearbyColliders(aPos.x, aPos.z),
+        doors: getNearbyDoors(aPos.x, aPos.z)
+      });
       if (!collision.blocked) {
         aPos.x = newX;
         aPos.z = newZ;
@@ -490,10 +500,12 @@ export function updateAliens(delta) {
         playSound('ar', { x: aPos.x, y: aPos.y, z: aPos.z });
 
         // Check line of sight before shooting
-        const alienHeadPos = new THREE.Vector3(aPos.x, aPos.y + 3, aPos.z);
-        const direction = new THREE.Vector3().subVectors(targetPos, alienHeadPos).normalize();
-        const ray = new THREE.Raycaster(alienHeadPos, direction, 0, 500);
-        const intersects = ray.intersectObjects(state.objects);
+        const alienHeadPos = _alienHeadPos.set(aPos.x, aPos.y + 3, aPos.z);
+        const direction = _alienShotDir.subVectors(targetPos, alienHeadPos).normalize();
+        _alienRaycaster.set(alienHeadPos, direction);
+        _alienRaycaster.near = 0;
+        _alienRaycaster.far = 500;
+        const intersects = _alienRaycaster.intersectObjects(state.objects);
 
         let isBlocked = false;
         let hitPoint = targetPos;
@@ -572,7 +584,7 @@ function spawnAlienBullet(fromPos, toPos) {
   bullet.position.copy(fromPos);
   state.scene.add(bullet);
 
-  let dir = new THREE.Vector3().subVectors(toPos, fromPos).normalize();
+  let dir = _alienBulletDir.subVectors(toPos, fromPos).normalize();
   let speed = 150;
 
   alienBullets.push({

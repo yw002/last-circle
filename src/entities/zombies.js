@@ -11,6 +11,7 @@ import { playerHit } from './player.js';
 import { botDied } from './bots.js';
 import { createTracerFromPosition } from '../systems/bullets.js';
 import { checkEntityCollision } from '../systems/collision.js';
+import { getNearbyBots, getNearbyColliders, getNearbyDoors } from '../systems/spatial.js';
 import { spawnSingleLoot } from '../world/loot.js';
 import { addKillFeed } from '../ui/notices.js';
 import { updateUI } from '../ui/hud.js';
@@ -115,6 +116,10 @@ const zGeos = {
 };
 
 const ZOMBIE_COUNT = 30; // Reduced from 60 for better performance
+const _zombieDir = new THREE.Vector3();
+const _zombieBloodPos = new THREE.Vector3();
+const _zombieUp = new THREE.Vector3(0, 1, 0);
+const _zombieBloodOffset = new THREE.Vector3(0, 4, 0);
 
 export function initZombies() {
   for (let i = 0; i < ZOMBIE_COUNT; i++) {
@@ -335,6 +340,18 @@ export function updateZombies(delta) {
     if (!zombie.alive) return;
 
     let zPos = zombie.mesh.position;
+    const pdx = zPos.x - playerPos.x;
+    const pdz = zPos.z - playerPos.z;
+    const playerDistSq = pdx * pdx + pdz * pdz;
+    const isNearby = playerDistSq < 400 * 400;
+
+    if (playerDistSq > 650 * 650) {
+      zombie.mesh.visible = false;
+      return;
+    }
+    zombie.mesh.visible = true;
+    if (!isNearby && (state.frameId + zombie.id) % 4 !== 0) return;
+    const stepDelta = isNearby ? delta : delta * 4;
 
     if (zombie.target === 'player' && playerIsSafe) {
       zombie.target = null;
@@ -348,7 +365,7 @@ export function updateZombies(delta) {
       let closestTarget = null;
 
       if (state.player.alive && !state.player.isParachuting && !playerIsSafe) {
-        let dSq = zPos.distanceToSquared(playerPos);
+        let dSq = playerDistSq;
         if (dSq < minDistSq) {
           minDistSq = dSq;
           closestTarget = 'player';
@@ -357,7 +374,8 @@ export function updateZombies(delta) {
 
       // Add bounding box rejection for bot search
       const range = Math.sqrt(minDistSq);
-      state.bots.forEach(bot => {
+      const nearbyBots = getNearbyBots(zPos.x, zPos.z);
+      nearbyBots.forEach(bot => {
         if (!bot.alive || bot.isParachuting) return;
         const botPos = bot.mesh.position;
         const dx = Math.abs(zPos.x - botPos.x);
@@ -382,7 +400,7 @@ export function updateZombies(delta) {
 
     if (zombie.target) {
       let targetPos = zombie.target === 'player' ? playerPos : zombie.target.mesh.position;
-      let dir = new THREE.Vector3().subVectors(targetPos, zPos);
+      let dir = _zombieDir.subVectors(targetPos, zPos);
       dir.y = 0;
       let dist = dir.length();
       dir.normalize();
@@ -409,7 +427,7 @@ export function updateZombies(delta) {
         if (now - zombie.lastAttack > 1400) {
           zombie.lastAttack = now;
 
-          spawnBlood(zPos.clone().add(new THREE.Vector3(0, 4.5, 1)), new THREE.Vector3(0, 1, 0));
+          spawnBlood(_zombieBloodPos.set(zPos.x, zPos.y + 4.5, zPos.z + 1), _zombieUp);
 
           if (zombie.target === 'player') {
             playerHit(12, zPos); // Pass zombie position for hit direction
@@ -419,7 +437,7 @@ export function updateZombies(delta) {
             // Zombie-vs-bot damage reduced by 20x
             zombie.target.health -= 0.75;
             playZombieSound('bite', { x: zombie.target.mesh.position.x, y: zombie.target.mesh.position.y, z: zombie.target.mesh.position.z });
-            spawnBlood(zombie.target.mesh.position.clone().add(new THREE.Vector3(0, 4, 0)), new THREE.Vector3(0, 1, 0));
+            spawnBlood(_zombieBloodPos.copy(zombie.target.mesh.position).add(_zombieBloodOffset), _zombieUp);
             if (zombie.target.health <= 0) {
               botDied(zombie.target, "丧尸 (Zombie)");
               zombie.target = null;
@@ -434,11 +452,16 @@ export function updateZombies(delta) {
 
     // Movement with collision
     let oldZx = zPos.x, oldZz = zPos.z;
-    let newX = zPos.x + zombie.vx * delta;
-    let newZ = zPos.z + zombie.vz * delta;
+    let newX = zPos.x + zombie.vx * stepDelta;
+    let newZ = zPos.z + zombie.vz * stepDelta;
 
     // Check collision before moving
-    let collision = checkEntityCollision(oldZx, oldZz, newX, newZ, zPos.y, 5);
+    const nearbyColliders = getNearbyColliders(zPos.x, zPos.z);
+    const nearbyDoors = getNearbyDoors(zPos.x, zPos.z);
+    let collision = checkEntityCollision(oldZx, oldZz, newX, newZ, zPos.y, 5, {
+      colliders: nearbyColliders,
+      doors: nearbyDoors
+    });
     if (!collision.blocked) {
       zPos.x = newX;
       zPos.z = newZ;

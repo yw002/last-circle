@@ -105,5 +105,7 @@ export const state = {
 
   // Game state
   gameStarted: false,
-  prevTime: 0
+  prevTime: 0,
+  frameId: 0,
+  _allAnimals: null
 };

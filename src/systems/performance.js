@@ -190,6 +190,53 @@ let fpsCurrent = 60;
 let fpsTotalFrames = 0;
 let fpsTotalTime = 0;
 let fpsAverage = 0;
+const profileStats = new Map();
+let profileLastLog = 0;
+let profileEnabled = true;
+
+export function profileStep(label, fn) {
+  if (!profileEnabled) return fn();
+
+  const start = performance.now();
+  try {
+    return fn();
+  } finally {
+    const elapsed = performance.now() - start;
+    const stat = profileStats.get(label) || { total: 0, max: 0, count: 0 };
+    stat.total += elapsed;
+    stat.max = Math.max(stat.max, elapsed);
+    stat.count++;
+    profileStats.set(label, stat);
+  }
+}
+
+export function logPerformanceProfile(now = performance.now()) {
+  if (!profileEnabled || now - profileLastLog < 2000 || profileStats.size === 0) return;
+
+  const rows = [...profileStats.entries()]
+    .map(([label, stat]) => ({
+      label,
+      avg: stat.total / stat.count,
+      max: stat.max
+    }))
+    .sort((a, b) => b.avg - a.avg)
+    .slice(0, 6);
+
+  console.table(rows.map(row => ({
+    step: row.label,
+    avgMs: row.avg.toFixed(2),
+    maxMs: row.max.toFixed(2)
+  })));
+
+  profileStats.clear();
+  profileLastLog = now;
+}
+
+export function setPerformanceProfiling(enabled) {
+  profileEnabled = enabled;
+  profileStats.clear();
+  profileLastLog = performance.now();
+}
 
 export function updateFPS(delta) {
   fpsFrames++;

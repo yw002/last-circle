@@ -11,6 +11,7 @@ import { updateUI } from '../ui/hud.js';
 import { showNotice } from '../ui/notices.js';
 import { playerHit } from './player.js';
 import { checkEntityCollision } from '../systems/collision.js';
+import { getNearbyColliders, getNearbyDoors } from '../systems/spatial.js';
 
 // ========== SHARED RESOURCES ==========
 const sharedMats = {
@@ -129,6 +130,7 @@ function getMaterial(color) {
 }
 
 let allAnimals = [];
+const _animalDir = new THREE.Vector3();
 
 function addExistingParts(group, parts) {
   // Some animal variants intentionally omit limbs; only pass real Object3D instances to Three.
@@ -138,6 +140,7 @@ function addExistingParts(group, parts) {
 }
 
 export function initAnimals() {
+  state._allAnimals = allAnimals;
   initBirds();
   initDeers();
   initBoars();
@@ -405,6 +408,7 @@ function spawnAnimal(type, x, z, config) {
   };
 
   allAnimals.push(animal);
+  state._allAnimals = allAnimals;
   return animal;
 }
 
@@ -586,16 +590,28 @@ export function updateAnimals(delta) {
 
     const config = animal.config;
     const aPos = animal.mesh.position;
-    const distToPlayer = aPos.distanceTo(playerPos);
+    const dxPlayer = aPos.x - playerPos.x;
+    const dzPlayer = aPos.z - playerPos.z;
+    const distToPlayerSq = dxPlayer * dxPlayer + dzPlayer * dzPlayer;
 
     // Skip distant animals
-    if (distToPlayer > 500) {
+    if (distToPlayerSq > 500 * 500) {
       animal.mesh.visible = false;
+      animal._farHidden = true;
+      if ((state.frameId + animal.id) % 30 !== 0) return;
+      animal.vx *= 0.98;
+      animal.vz *= 0.98;
       return;
     }
     animal.mesh.visible = true;
+    animal._farHidden = false;
+
+    const isMidRange = distToPlayerSq > 250 * 250;
+    if (isMidRange && (state.frameId + animal.id) % 3 !== 0) return;
+    const stepDelta = isMidRange ? delta * 3 : delta;
 
     const COLLISION_DIST = 4.0;
+    const distToPlayer = Math.sqrt(distToPlayerSq);
 
     // State machine
     if (config.charges && distToPlayer < (config.fleeDistance || 35)) {
@@ -612,7 +628,7 @@ export function updateAnimals(delta) {
     // Behavior
     switch (animal.state) {
       case 'flee': {
-        let dir = new THREE.Vector3().subVectors(aPos, playerPos);
+        let dir = _animalDir.subVectors(aPos, playerPos);
         dir.y = 0; dir.normalize();
         animal.vx = dir.x * config.speed;
         animal.vz = dir.z * config.speed;
@@ -620,7 +636,7 @@ export function updateAnimals(delta) {
         break;
       }
       case 'charge': {
-        let dir = new THREE.Vector3().subVectors(playerPos, aPos);
+        let dir = _animalDir.subVectors(playerPos, aPos);
         dir.y = 0; dir.normalize();
         animal.vx = dir.x * config.speed;
         animal.vz = dir.z * config.speed;
@@ -638,7 +654,7 @@ export function updateAnimals(delta) {
         break;
       }
       case 'attack': {
-        let dir = new THREE.Vector3().subVectors(playerPos, aPos);
+        let dir = _animalDir.subVectors(playerPos, aPos);
         dir.y = 0; dir.normalize();
         animal.vx = dir.x * config.speed * 0.9;
         animal.vz = dir.z * config.speed * 0.9;
@@ -669,15 +685,20 @@ export function updateAnimals(delta) {
     // Movement with collision
     const oldX = aPos.x;
     const oldZ = aPos.z;
-    let newX = aPos.x + animal.vx * delta;
-    let newZ = aPos.z + animal.vz * delta;
+    let newX = aPos.x + animal.vx * stepDelta;
+    let newZ = aPos.z + animal.vz * stepDelta;
 
     // Check collision before moving (skip for flying and swimming animals)
     const isFlying = ['eagle', 'hawk', 'owl'].includes(animal.type);
     const isSwimming = animal.type === 'fish';
 
     if (!isFlying && !isSwimming) {
-      let collision = checkEntityCollision(oldX, oldZ, newX, newZ, aPos.y, 4);
+      const nearbyColliders = getNearbyColliders(aPos.x, aPos.z);
+      const nearbyDoors = getNearbyDoors(aPos.x, aPos.z);
+      let collision = checkEntityCollision(oldX, oldZ, newX, newZ, aPos.y, 4, {
+        colliders: nearbyColliders,
+        doors: nearbyDoors
+      });
       if (!collision.blocked) {
         aPos.x = newX;
         aPos.z = newZ;
@@ -696,8 +717,9 @@ export function updateAnimals(delta) {
 
     // House wall collision for animals
     if (animal.type !== 'fish' && animal.type !== 'eagle' && animal.type !== 'hawk' && animal.type !== 'owl') {
-      for (let i = 0; i < state.doors.length; i++) {
-        const d = state.doors[i];
+      const nearbyDoors = getNearbyDoors(aPos.x, aPos.z);
+      for (let i = 0; i < nearbyDoors.length; i++) {
+        const d = nearbyDoors[i];
         const hPos = d.housePos;
         const adx = aPos.x - hPos.x;
         const adz = aPos.z - hPos.z;
@@ -768,14 +790,14 @@ export function updateAnimals(delta) {
 
     // Leg animation
     let moveSpeedSq = animal.vx * animal.vx + animal.vz * animal.vz;
-    if (moveSpeedSq > 1 && animal.legFL) {
+    if (moveSpeedSq > 1 && animal.legFL && animal.legFR && animal.legBL && animal.legBR) {
       let swingFreq = animal.state === 'flee' ? 0.024 : 0.012;
       let swing = Math.sin(now * swingFreq) * 0.65;
       animal.legFL.rotation.x = swing;
       animal.legFR.rotation.x = -swing;
       animal.legBL.rotation.x = -swing;
       animal.legBR.rotation.x = swing;
-    } else if (animal.legFL) {
+    } else if (animal.legFL && animal.legFR && animal.legBL && animal.legBR) {
       animal.legFL.rotation.x = 0;
       animal.legFR.rotation.x = 0;
       animal.legBL.rotation.x = 0;

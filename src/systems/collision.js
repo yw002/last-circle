@@ -7,15 +7,17 @@ import { MAP_SIZE } from '../config.js';
 // Temporary vectors for collision calculations
 const _tempBox = new THREE.Box3();
 const _tempSize = new THREE.Vector3();
+const _tempCenter = new THREE.Vector3();
 
 // Check if a position collides with any tree/rock collider
-export function checkColliderCollision(x, y, z, entityHeight = 5) {
+export function checkColliderCollision(x, y, z, entityHeight = 5, colliders = state.colliders) {
   // Create a small bounding box around the entity
   _tempSize.set(2, entityHeight, 2);
-  _tempBox.setFromCenterAndSize(new THREE.Vector3(x, y, z), _tempSize);
+  _tempCenter.set(x, y, z);
+  _tempBox.setFromCenterAndSize(_tempCenter, _tempSize);
 
-  for (let i = 0; i < state.colliders.length; i++) {
-    const box = state.colliders[i];
+  for (let i = 0; i < colliders.length; i++) {
+    const box = colliders[i];
     if (_tempBox.intersectsBox(box)) {
       // Only block if entity is below the top of the collider
       if (y - entityHeight / 2 < box.max.y) {
@@ -27,7 +29,7 @@ export function checkColliderCollision(x, y, z, entityHeight = 5) {
 }
 
 // Check if a position is inside a house (for preventing entry)
-export function checkHouseWallCollision(x, y, z, doors) {
+export function checkHouseWallCollision(x, y, z, doors = state.doors) {
   for (let i = 0; i < doors.length; i++) {
     const d = doors[i];
     const hPos = d.housePos;
@@ -66,14 +68,17 @@ export function checkBoundary(x, z) {
 }
 
 // Combined collision check for entity movement
-export function checkEntityCollision(oldX, oldZ, newX, newZ, y, entityHeight = 5) {
+export function checkEntityCollision(oldX, oldZ, newX, newZ, y, entityHeight = 5, options = {}) {
+  const colliders = options.colliders || state.colliders;
+  const doors = options.doors || state.doors;
+
   // Check tree/rock collision
-  if (checkColliderCollision(newX, y, newZ, entityHeight)) {
+  if (!options.skipColliders && checkColliderCollision(newX, y, newZ, entityHeight, colliders)) {
     return { blocked: true, x: oldX, z: oldZ };
   }
 
   // Check house wall collision
-  if (checkHouseWallCollision(newX, y, newZ, state.doors)) {
+  if (!options.skipHouses && checkHouseWallCollision(newX, y, newZ, doors)) {
     return { blocked: true, x: oldX, z: oldZ };
   }
 

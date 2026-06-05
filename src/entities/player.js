@@ -17,12 +17,16 @@ import { botDied } from './bots.js';
 import { zombieDied } from './zombies.js';
 import { killAnimal, getAllAnimals } from './animals.js';
 import { alienDied, getAllAliens } from './aliens.js';
+import { getNearbyColliders, getNearbyDoors, getNearbyLoot } from '../systems/spatial.js';
 
 // Crosshair spread state
 let crosshairSpread = 0;
 const CROSSHAIR_SPREAD_DECAY = 3; // Slower recovery
 const CROSSHAIR_SPREAD_PER_SHOT = 2.0; // More spread per shot
 const CROSSHAIR_MAX_SPREAD = 5;
+const _playerBox = new THREE.Box3();
+const _playerBoxSizePara = new THREE.Vector3(1, 10, 1);
+const _playerBoxSize = new THREE.Vector3(3, 10, 3);
 
 export function updateCrosshairSpread(delta) {
   // Recover spread over time
@@ -983,6 +987,8 @@ export function updatePlayer(delta) {
   if (!state.player.alive) return;
 
   let pPos = state.controls.getObject().position;
+  const nearbyDoors = getNearbyDoors(pPos.x, pPos.z);
+  const nearbyColliders = getNearbyColliders(pPos.x, pPos.z);
 
   if (state.player.isParachuting) {
     let fallSpeed = state.isSprinting ? -120 : -35;
@@ -1005,8 +1011,8 @@ export function updatePlayer(delta) {
 
     let groundY = getTerrainHeight(pPos.x, pPos.z) + 10;
 
-    for (let i = 0; i < state.housePositions.length; i++) {
-      let hPos = state.housePositions[i];
+    for (let i = 0; i < nearbyDoors.length; i++) {
+      let hPos = nearbyDoors[i].housePos;
       let dx = Math.abs(pPos.x - hPos.x);
       let dz = Math.abs(pPos.z - hPos.z);
       if (dx <= 15.6 && dz <= 15.6) {
@@ -1017,9 +1023,9 @@ export function updatePlayer(delta) {
       }
     }
 
-    let pBoxPara = new THREE.Box3().setFromCenterAndSize(pPos, new THREE.Vector3(1, 10, 1));
-    for (let box of state.colliders) {
-      if (pBoxPara.intersectsBox(box)) {
+    _playerBox.setFromCenterAndSize(pPos, _playerBoxSizePara);
+    for (let box of nearbyColliders) {
+      if (_playerBox.intersectsBox(box)) {
         if (box.max.y + 10 > groundY) {
           groundY = box.max.y + 10;
         }
@@ -1055,10 +1061,10 @@ export function updatePlayer(delta) {
     state.controls.moveRight(state.velocity.x * delta);
     state.controls.moveForward(-state.velocity.z * delta);
 
-    let pBoxXZ = new THREE.Box3().setFromCenterAndSize(pPos, new THREE.Vector3(3, 10, 3));
+    _playerBox.setFromCenterAndSize(pPos, _playerBoxSize);
     let hitColliderXZ = false;
-    for (let box of state.colliders) {
-      if (pBoxXZ.intersectsBox(box)) {
+    for (let box of nearbyColliders) {
+      if (_playerBox.intersectsBox(box)) {
         if (pPos.y - 4.5 < box.max.y) {
           hitColliderXZ = true;
           break;
@@ -1072,8 +1078,8 @@ export function updatePlayer(delta) {
     }
 
     // House wall collision
-    for (let i = 0; i < state.doors.length; i++) {
-      let d = state.doors[i];
+    for (let i = 0; i < nearbyDoors.length; i++) {
+      let d = nearbyDoors[i];
       let hPos = d.housePos;
       let dx = pPos.x - hPos.x;
       let dz = pPos.z - hPos.z;
@@ -1115,8 +1121,8 @@ export function updatePlayer(delta) {
     let hitColliderY = false;
     let landingY = 0;
 
-    for (let i = 0; i < state.housePositions.length; i++) {
-      let hPos = state.housePositions[i];
+    for (let i = 0; i < nearbyDoors.length; i++) {
+      let hPos = nearbyDoors[i].housePos;
       let dx = Math.abs(pPos.x - hPos.x);
       let dz = Math.abs(pPos.z - hPos.z);
       if (dx <= 15.6 && dz <= 15.6) {
@@ -1130,9 +1136,9 @@ export function updatePlayer(delta) {
     }
 
     if (!hitColliderY) {
-      let pBoxY = new THREE.Box3().setFromCenterAndSize(pPos, new THREE.Vector3(3, 10, 3));
-      for (let box of state.colliders) {
-        if (pBoxY.intersectsBox(box)) {
+      _playerBox.setFromCenterAndSize(pPos, _playerBoxSize);
+      for (let box of nearbyColliders) {
+        if (_playerBox.intersectsBox(box)) {
           if (oldY - 4.5 >= box.max.y - 1.2) {
             hitColliderY = true;
             landingY = box.max.y + 5.0;
@@ -1160,19 +1166,20 @@ export function updatePlayer(delta) {
     // Loot pickup
     let nearbyLoot = null;
     let nearbyIndex = -1;
-    for (let i = state.lootItems.length - 1; i >= 0; i--) {
-      if (pPos.distanceToSquared(state.lootItems[i].mesh.position) < 225) {
-        nearbyLoot = state.lootItems[i];
-        nearbyIndex = i;
+    const nearbyLootItems = getNearbyLoot(pPos.x, pPos.z);
+    for (let i = nearbyLootItems.length - 1; i >= 0; i--) {
+      if (pPos.distanceToSquared(nearbyLootItems[i].mesh.position) < 225) {
+        nearbyLoot = nearbyLootItems[i];
+        nearbyIndex = state.lootItems.indexOf(nearbyLoot);
         break;
       }
     }
 
     // Door interaction
     let nearbyDoor = null;
-    for (let i = 0; i < state.doors.length; i++) {
-      let d = state.doors[i];
-      let doorWorldPos = d.housePos.clone().add(new THREE.Vector3(0, 4.75, 15));
+    for (let i = 0; i < nearbyDoors.length; i++) {
+      let d = nearbyDoors[i];
+      let doorWorldPos = d.doorWorldPos;
       if (pPos.distanceToSquared(doorWorldPos) < 256) {
         nearbyDoor = d;
         break;
@@ -1245,7 +1252,7 @@ export function updatePlayer(delta) {
           }
         }
 
-        if (picked) {
+        if (picked && nearbyIndex >= 0) {
           state.scene.remove(nearbyLoot.mesh);
           state.lootItems.splice(nearbyIndex, 1);
           updateUI();
