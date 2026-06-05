@@ -754,11 +754,7 @@ function getBulletSpread() {
 
 // Reusable resources for bullet effects
 const _barrelTip = new THREE.Vector3(0, 0.06, -1.2);
-const _tracerPoints = [new THREE.Vector3(), new THREE.Vector3()];
-let _tracerLine = null;
-let _tracerGeometry = null;
-let _tracerMaterial = null;
-let _tracerTimeout = null;
+const _muzzleWorldPos = new THREE.Vector3();
 
 // Shared dust geometry and material
 const _dustGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
@@ -767,38 +763,9 @@ const _dustMat = new THREE.MeshBasicMaterial({ color: 0x7f8c8d });
 // Get the world position of the gun barrel tip
 function getGunBarrelPosition() {
   if (!state.viewWeaponMesh) return state.camera.position.clone();
-  const worldPos = _barrelTip.clone();
-  state.viewWeaponMesh.localToWorld(worldPos);
-  return worldPos;
-}
-
-// Create or update bullet tracer line (reuses single line object)
-function createBulletTracer(startPos, endPos) {
-  if (!_tracerLine) {
-    _tracerGeometry = new THREE.BufferGeometry();
-    _tracerMaterial = new THREE.LineBasicMaterial({
-      color: 0xffff00,
-      transparent: true,
-      opacity: 0.8,
-      linewidth: 2
-    });
-    _tracerLine = new THREE.Line(_tracerGeometry, _tracerMaterial);
-    state.scene.add(_tracerLine);
-  }
-
-  // Update positions
-  _tracerPoints[0].copy(startPos);
-  _tracerPoints[1].copy(endPos);
-  _tracerGeometry.setFromPoints(_tracerPoints);
-  _tracerLine.visible = true;
-
-  // Clear previous timeout
-  if (_tracerTimeout) clearTimeout(_tracerTimeout);
-
-  // Hide after delay
-  _tracerTimeout = setTimeout(() => {
-    if (_tracerLine) _tracerLine.visible = false;
-  }, 80);
+  _muzzleWorldPos.copy(_barrelTip);
+  state.viewWeaponMesh.localToWorld(_muzzleWorldPos);
+  return _muzzleWorldPos;
 }
 
 // Cooldown for empty magazine notice
@@ -845,6 +812,8 @@ export function fireWeapon() {
 
   state.player.recoilY += 0.3;
 
+  // Capture the muzzle before applying the visible weapon kick so the trail starts at the fired position.
+  const muzzleStart = getGunBarrelPosition().clone();
   spawnMuzzleFlash(state.player.weapon.name);
 
   if (state.viewWeaponMesh) {
@@ -859,8 +828,6 @@ export function fireWeapon() {
 
   state.raycaster.setFromCamera(new THREE.Vector2(spreadX, spreadY), state.camera);
   const intersects = state.raycaster.intersectObjects(state.objects);
-
-  // Get gun barrel position for tracer (using new system)
 
   let coverHit = null;
   let targetHit = null;
@@ -889,9 +856,8 @@ export function fireWeapon() {
     hitPoint = state.camera.position.clone().add(dir.multiplyScalar(state.player.weapon.range));
   }
 
-  // Create bullet tracer
-  // Create bullet tracer using new system
-  createWeaponTracer(state.viewWeaponMesh, hitPoint);
+  // Visual trajectory uses the exact muzzle position and the same impact point used by damage/decals.
+  createWeaponTracer(muzzleStart, hitPoint);
 
   if (coverHit && (!targetHit || coverHit.distance < targetHit.distance)) {
     let n = coverHit.face ? coverHit.face.normal : new THREE.Vector3(0, 1, 0);
