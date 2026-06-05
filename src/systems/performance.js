@@ -187,10 +187,16 @@ export function createTextureAtlas(textures, size = 1024) {
 let fpsFrames = 0;
 let fpsTime = 0;
 let fpsCurrent = 60;
+let fpsTotalFrames = 0;
+let fpsTotalTime = 0;
+let fpsAverage = 0;
 
 export function updateFPS(delta) {
   fpsFrames++;
   fpsTime += delta;
+  // Average FPS only receives deltas from active gameplay callers.
+  fpsTotalFrames++;
+  fpsTotalTime += delta;
 
   if (fpsTime >= 1.0) {
     fpsCurrent = Math.round(fpsFrames / fpsTime);
@@ -198,11 +204,28 @@ export function updateFPS(delta) {
     fpsTime = 0;
   }
 
+  if (fpsTotalTime > 0) {
+    fpsAverage = Math.round(fpsTotalFrames / fpsTotalTime);
+  }
+
   return fpsCurrent;
 }
 
 export function getFPS() {
   return fpsCurrent;
+}
+
+export function getAverageFPS() {
+  return fpsAverage;
+}
+
+export function resetFPS() {
+  fpsFrames = 0;
+  fpsTime = 0;
+  fpsCurrent = 60;
+  fpsTotalFrames = 0;
+  fpsTotalTime = 0;
+  fpsAverage = 0;
 }
 
 // Adaptive quality based on FPS

@@ -29,7 +29,7 @@ import { initVolcano, updateVolcano } from './entities/volcano.js';
 import { updateUI } from './ui/hud.js';
 import { initMinimap, updateMinimap } from './ui/minimap.js';
 import { initHitIndicator } from './ui/hitindicator.js';
-import { optimizeRenderer, optimizeScene, updateFPS, adaptQuality } from './systems/performance.js';
+import { optimizeRenderer, optimizeScene, updateFPS, getAverageFPS, resetFPS, adaptQuality } from './systems/performance.js';
 
 // Disable right-click menu
 document.addEventListener('contextmenu', e => e.preventDefault());
@@ -104,6 +104,7 @@ function init() {
     resumeAudio();
     if (!state.gameStarted) {
       state.gameStarted = true;
+      resetFPS();
       initBots();
       initZombies();
       initGhosts();
@@ -138,22 +139,6 @@ function animate() {
     const time = performance.now();
     const delta = Math.min((time - state.prevTime) / 1000, 0.1);
 
-    // FPS tracking and adaptive quality
-    const fps = updateFPS(delta);
-    if (fps < 30) {
-      adaptQuality(fps);
-    }
-
-    // Update FPS display
-    const fpsEl = document.getElementById('fps-counter');
-    if (fpsEl) {
-      fpsEl.textContent = `FPS: ${fps}`;
-      // Color based on FPS
-      if (fps >= 50) fpsEl.style.color = '#00ff00';
-      else if (fps >= 30) fpsEl.style.color = '#ffff00';
-      else fpsEl.style.color = '#ff0000';
-    }
-
     // Update audio listener position (throttled to every 100ms)
     if (!state._lastAudioUpdate || time - state._lastAudioUpdate > 100) {
     updateAudioListener(state.camera);
@@ -186,6 +171,22 @@ function animate() {
   }
 
   if (state.controls.isLocked && state.player.alive) {
+    // Count performance only during active gameplay, excluding initial and pause overlays.
+    const fps = updateFPS(delta);
+    const avgFps = getAverageFPS();
+    if (fps < 30) {
+      adaptQuality(fps);
+    }
+
+    // Keep average FPS directly under the realtime FPS readout.
+    const fpsEl = document.getElementById('fps-counter');
+    if (fpsEl) {
+      fpsEl.innerHTML = `FPS: ${fps}<br><span class="fps-avg">avg: ${avgFps}</span>`;
+      if (fps >= 50) fpsEl.style.color = '#00ff00';
+      else if (fps >= 30) fpsEl.style.color = '#ffff00';
+      else fpsEl.style.color = '#ff0000';
+    }
+
     // ADS is now handled by updateADS() system
 
     // Reload progress bar
