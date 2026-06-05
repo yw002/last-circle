@@ -130,6 +130,13 @@ function getMaterial(color) {
 
 let allAnimals = [];
 
+function addExistingParts(group, parts) {
+  // Some animal variants intentionally omit limbs; only pass real Object3D instances to Three.
+  parts.forEach(part => {
+    if (part) group.add(part);
+  });
+}
+
 export function initAnimals() {
   initBirds();
   initDeers();
@@ -330,7 +337,7 @@ function createAnimalBody(type, config) {
   }
   if (body) group.add(body);
   if (head) group.add(head);
-  if (legFL) group.add(legFL, legFR, legBL, legBR);
+  addExistingParts(group, [legFL, legFR, legBL, legBR]);
 
   // Tail for some animals
   if (['deer', 'wolf', 'tiger', 'horse', 'elk', 'bison'].includes(type)) {
