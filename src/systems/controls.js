@@ -1,11 +1,36 @@
 // Keyboard and mouse input handling
 
 import { state } from '../state.js';
-import { reloadWeapon, switchWeapon, cancelReload, fireWeapon } from '../entities/player.js';
+import { weapons } from '../config.js';
+import { reloadWeapon, switchWeapon, cancelReload, fireWeapon, equipWeapon } from '../entities/player.js';
+import { showNotice } from '../ui/notices.js';
 import { toggleADS } from './ads.js';
 import { toggleCollisionDebug } from './collisionDebug.js';
 
 let lastWheelSwitchTime = 0;
+let cheatBuffer = '';
+
+function handleWeaponCheat(event) {
+  if (!state.controls.isLocked || !state.player.alive) return false;
+  if (!event.key || !/^[a-z0-9]$/i.test(event.key)) return false;
+
+  cheatBuffer = (cheatBuffer + event.key.toLowerCase()).slice(-12);
+  const match = cheatBuffer.match(/weapon([1-6])$/);
+  if (!match) return false;
+
+  const specialWeapons = weapons.filter(w => w.special);
+  const weapon = specialWeapons[Number(match[1]) - 1];
+  if (!weapon) return false;
+
+  const slot = state.player.currentWeaponIndex || 0;
+  const grantedWeapon = { ...weapon, ammo: weapon.maxAmmo, scope: null };
+  state.player.inventory[slot] = grantedWeapon;
+  equipWeapon(slot);
+  showNotice(`作弊码: ${grantedWeapon.name}`, '#d15cff');
+  cheatBuffer = '';
+  event.preventDefault();
+  return true;
+}
 
 function clearInputState() {
   // Pointer lock can be interrupted by the browser; clear held inputs to avoid a stuck controls state.
@@ -22,6 +47,8 @@ export function initControls() {
   document.addEventListener('contextmenu', e => e.preventDefault());
 
   document.addEventListener('keydown', (event) => {
+    if (handleWeaponCheat(event)) return;
+
     switch (event.code) {
       case 'ArrowUp': case 'KeyW': state.moveForward = true; break;
       case 'ArrowLeft': case 'KeyA': state.moveLeft = true; break;
