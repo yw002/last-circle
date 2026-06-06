@@ -3,6 +3,7 @@
 import { state } from '../state.js';
 import { reloadWeapon, switchWeapon, cancelReload, fireWeapon } from '../entities/player.js';
 import { toggleADS } from './ads.js';
+import { toggleCollisionDebug } from './collisionDebug.js';
 
 function clearInputState() {
   // Pointer lock can be interrupted by the browser; clear held inputs to avoid a stuck controls state.
@@ -35,6 +36,10 @@ export function initControls() {
       case 'KeyR': reloadWeapon(); break;
       case 'Digit1': case 'Numpad1': event.preventDefault(); switchWeapon(0); break;
       case 'Digit2': case 'Numpad2': event.preventDefault(); switchWeapon(1); break;
+      case 'F3':
+        event.preventDefault();
+        toggleCollisionDebug();
+        break;
     }
   });
 
