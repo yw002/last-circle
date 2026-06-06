@@ -957,7 +957,7 @@ export function fireWeapon() {
         let n = targetHit.face ? targetHit.face.normal : new THREE.Vector3(0, 1, 0);
         spawnBlood(targetHit.point, n);
         const isKill = bot.health <= 0;
-        registerCombatHit({ targetType: 'bot', isHeadshot: ud.isHeadshot, isKill, point: targetHit.point, normal: n });
+        registerCombatHit({ targetType: 'bot', isHeadshot: ud.isHeadshot, isKill, point: targetHit.point, normal: n, entity: bot, damage: dmg });
         if (isKill) botDied(bot, "You");
       }
     } else if (ud.isZombie) {
@@ -969,7 +969,7 @@ export function fireWeapon() {
         let n = targetHit.face ? targetHit.face.normal : new THREE.Vector3(0, 1, 0);
         spawnBlood(targetHit.point, n);
         const isKill = zombie.health <= 0;
-        registerCombatHit({ targetType: 'zombie', isHeadshot: ud.isHeadshot, isKill, point: targetHit.point, normal: n });
+        registerCombatHit({ targetType: 'zombie', isHeadshot: ud.isHeadshot, isKill, point: targetHit.point, normal: n, entity: zombie, damage: dmg });
         if (isKill) zombieDied(zombie);
       }
     } else if (ud.isAnimal) {
@@ -981,7 +981,7 @@ export function fireWeapon() {
         let n = targetHit.face ? targetHit.face.normal : new THREE.Vector3(0, 1, 0);
         spawnBlood(targetHit.point, n);
         const isKill = animal.health <= 0;
-        registerCombatHit({ targetType: 'animal', isHeadshot: false, isKill, point: targetHit.point, normal: n });
+        registerCombatHit({ targetType: 'animal', isHeadshot: false, isKill, point: targetHit.point, normal: n, entity: animal, damage: state.player.weapon.damage });
         if (isKill) {
           killAnimal(animal, ud.animalType);
         }
@@ -996,7 +996,7 @@ export function fireWeapon() {
         let n = targetHit.face ? targetHit.face.normal : new THREE.Vector3(0, 1, 0);
         spawnBlood(targetHit.point, n);
         const isKill = alien.health <= 0;
-        registerCombatHit({ targetType: 'alien', isHeadshot: ud.isHeadshot, isKill, point: targetHit.point, normal: n });
+        registerCombatHit({ targetType: 'alien', isHeadshot: ud.isHeadshot, isKill, point: targetHit.point, normal: n, entity: alien, damage: dmg });
         if (isKill) {
           alienDied(alien);
         }

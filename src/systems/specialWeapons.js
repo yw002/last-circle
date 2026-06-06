@@ -105,7 +105,9 @@ function damageTarget(target, amount, options = {}) {
     isHeadshot: !!options.isHeadshot,
     isKill: killed,
     point,
-    normal
+    normal,
+    entity,
+    damage
   });
 
   if (shouldReveal) revealNearbyFromMarked(target);

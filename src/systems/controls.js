@@ -6,6 +6,7 @@ import { reloadWeapon, switchWeapon, cancelReload, fireWeapon, equipWeapon } fro
 import { showNotice } from '../ui/notices.js';
 import { toggleADS } from './ads.js';
 import { toggleCollisionDebug } from './collisionDebug.js';
+import { toggleHealthBars } from './combatFeedback.js';
 
 let lastWheelSwitchTime = 0;
 let cheatBuffer = '';
@@ -68,6 +69,10 @@ export function initControls() {
       case 'F3':
         event.preventDefault();
         toggleCollisionDebug();
+        break;
+      case 'F4':
+        event.preventDefault();
+        toggleHealthBars();
         break;
     }
   });

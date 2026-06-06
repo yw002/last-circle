@@ -156,6 +156,62 @@ body {
   100% { opacity: 0; transform: scale(0.98) translateY(-18px); }
 }
 
+#target-healthbars {
+  position: absolute;
+  inset: 0;
+  z-index: 17;
+  pointer-events: none;
+}
+
+.target-healthbar {
+  position: absolute;
+  width: 54px;
+  height: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.72);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+  overflow: hidden;
+}
+
+.target-healthbar-fill {
+  width: 100%;
+  height: 100%;
+  background: #44ff66;
+  transition: width 0.12s ease-out, background-color 0.12s ease-out;
+}
+
+.damage-number {
+  position: absolute;
+  color: #fff0df;
+  font-size: 17px;
+  font-weight: 800;
+  text-shadow: 0 1px 3px #000, 0 0 8px rgba(0, 0, 0, 0.9);
+  white-space: nowrap;
+}
+
+.damage-number.headshot {
+  color: #fff36a;
+  font-size: 21px;
+}
+
+.damage-number.kill {
+  color: #ff5c5c;
+}
+
+.healthbar-toggle-toast {
+  position: absolute;
+  left: 50%;
+  top: 58%;
+  transform: translate(-50%, -50%);
+  z-index: 120;
+  color: #ffffff;
+  font-size: 20px;
+  font-weight: 700;
+  text-shadow: 0 2px 4px #000;
+  pointer-events: none;
+}
+
 /* FPS Counter - positioned above kill feed */
 #fps-counter {
   position: absolute;
