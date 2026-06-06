@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { state } from '../state.js';
 import { playBulletWhiz } from './audio.js';
+import { triggerNearMissDust } from './combatFeedback.js';
 
 const TRACER_DURATION = 0.18; // seconds
 const TRACER_COLOR = 0xffff00; // Yellow
@@ -80,6 +81,20 @@ function maybePlayWhiz(startPos, endPos) {
   playBulletWhiz(_closest, 1 - Math.sqrt(distSq) / 55);
 }
 
+function getEnemyNearMissIntensity(startPos, endPos) {
+  if (!state.controls) return 0;
+
+  const playerPos = state.controls.getObject().position;
+  _segment.subVectors(endPos, startPos);
+  const lenSq = _segment.lengthSq();
+  if (lenSq < 1) return 0;
+
+  const t = Math.max(0, Math.min(1, _closest.subVectors(playerPos, startPos).dot(_segment) / lenSq));
+  _closest.copy(startPos).add(_segment.multiplyScalar(t));
+  const dist = _closest.distanceTo(playerPos);
+  return dist < 70 ? 1 - dist / 70 : 0;
+}
+
 function getDistanceVisuals(length, options) {
   const t = Math.max(0, Math.min(1, length / 850));
   const isEnemy = options && options.source === 'enemy';
@@ -111,7 +126,11 @@ function shouldShowEnemyTracer() {
 // Spawn a bullet tracer from start to end
 export function spawnTracer(startPos, endPos, options = null) {
   if (options && options.sample === 'weapon' && !shouldShowWeaponTracer(options.weapon)) return;
-  if (options && options.sample === 'enemy' && !shouldShowEnemyTracer()) {
+  let nearMissIntensity = 0;
+  if (options && options.sample === 'enemy') {
+    nearMissIntensity = getEnemyNearMissIntensity(startPos, endPos);
+  }
+  if (options && options.sample === 'enemy' && nearMissIntensity <= 0 && !shouldShowEnemyTracer()) {
     if (options.whiz) maybePlayWhiz(startPos, endPos);
     return;
   }
@@ -140,6 +159,7 @@ export function spawnTracer(startPos, endPos, options = null) {
   tracer.mesh.material.opacity = visuals.opacity;
   tracer.mesh.material.color.setHex(options && options.source === 'enemy' ? 0xffb84a : TRACER_COLOR);
   if (options && options.whiz) maybePlayWhiz(startPos, endPos);
+  if (nearMissIntensity > 0.2) triggerNearMissDust(_closest, nearMissIntensity);
 
   activeTracers.push(tracer);
 }

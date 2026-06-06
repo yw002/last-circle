@@ -666,6 +666,33 @@ function playHitSound(now, vol, panner) {
   low.stop(now + 0.15);
 }
 
+export function playCombatFeedbackSound(type = 'hit') {
+  if (!audioCtx || audioCtx.state === 'suspended') return;
+  try {
+    const now = audioCtx.currentTime;
+    const profiles = {
+      hit: { f1: 620, f2: 330, gain: 0.11, dur: 0.055 },
+      headshot: { f1: 980, f2: 430, gain: 0.16, dur: 0.075 },
+      kill: { f1: 420, f2: 760, gain: 0.14, dur: 0.11 }
+    };
+    const p = profiles[type] || profiles.hit;
+
+    // UI cue is short and dry so it reads as feedback, not an in-world sound.
+    const cue = audioCtx.createOscillator();
+    const cueGain = audioCtx.createGain();
+    cue.type = type === 'kill' ? 'triangle' : 'sine';
+    cue.frequency.setValueAtTime(p.f1, now);
+    cue.frequency.exponentialRampToValueAtTime(p.f2, now + p.dur * 0.65);
+    cueGain.gain.setValueAtTime(0, now);
+    cueGain.gain.linearRampToValueAtTime(p.gain, now + 0.01);
+    cueGain.gain.exponentialRampToValueAtTime(0.001, now + p.dur);
+    cue.connect(cueGain);
+    cueGain.connect(audioCtx.destination);
+    cue.start(now);
+    cue.stop(now + p.dur + 0.02);
+  } catch (e) {}
+}
+
 // ========== ZOMBIE SOUNDS ==========
 export function playZombieSound(type, sourcePos = null) {
   if (!audioCtx || audioCtx.state === 'suspended') return;

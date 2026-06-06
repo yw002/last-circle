@@ -20,6 +20,7 @@ import { killAnimal, getAllAnimals } from './animals.js';
 import { alienDied, getAllAliens } from './aliens.js';
 import { getNearbyColliders, getNearbyDoors, getNearbyLoot } from '../systems/spatial.js';
 import { checkSweptColliderCollision } from '../systems/collision.js';
+import { registerCombatHit } from '../systems/combatFeedback.js';
 
 // Crosshair spread state
 let crosshairSpread = 0;
@@ -924,13 +925,9 @@ export function fireWeapon() {
         playSound('hit');
         let n = targetHit.face ? targetHit.face.normal : new THREE.Vector3(0, 1, 0);
         spawnBlood(targetHit.point, n);
-        document.getElementById('crosshair').style.background = 'red';
-        document.getElementById('crosshair').style.transform = 'translate(-50%, -50%) scale(1.5)';
-        setTimeout(() => {
-          document.getElementById('crosshair').style.background = 'rgba(0,255,0,0.8)';
-          document.getElementById('crosshair').style.transform = 'translate(-50%, -50%) scale(1)';
-        }, 100);
-        if (bot.health <= 0) botDied(bot, "You");
+        const isKill = bot.health <= 0;
+        registerCombatHit({ targetType: 'bot', isHeadshot: ud.isHeadshot, isKill, point: targetHit.point, normal: n });
+        if (isKill) botDied(bot, "You");
       }
     } else if (ud.isZombie) {
       let zombie = state.zombies[ud.zombieIndex];
@@ -940,13 +937,9 @@ export function fireWeapon() {
         playSound('hit');
         let n = targetHit.face ? targetHit.face.normal : new THREE.Vector3(0, 1, 0);
         spawnBlood(targetHit.point, n);
-        document.getElementById('crosshair').style.background = 'red';
-        document.getElementById('crosshair').style.transform = 'translate(-50%, -50%) scale(1.5)';
-        setTimeout(() => {
-          document.getElementById('crosshair').style.background = 'rgba(0,255,0,0.8)';
-          document.getElementById('crosshair').style.transform = 'translate(-50%, -50%) scale(1)';
-        }, 100);
-        if (zombie.health <= 0) zombieDied(zombie);
+        const isKill = zombie.health <= 0;
+        registerCombatHit({ targetType: 'zombie', isHeadshot: ud.isHeadshot, isKill, point: targetHit.point, normal: n });
+        if (isKill) zombieDied(zombie);
       }
     } else if (ud.isAnimal) {
       let animals = getAllAnimals();
@@ -956,13 +949,9 @@ export function fireWeapon() {
         playSound('hit');
         let n = targetHit.face ? targetHit.face.normal : new THREE.Vector3(0, 1, 0);
         spawnBlood(targetHit.point, n);
-        document.getElementById('crosshair').style.background = 'red';
-        document.getElementById('crosshair').style.transform = 'translate(-50%, -50%) scale(1.5)';
-        setTimeout(() => {
-          document.getElementById('crosshair').style.background = 'rgba(0,255,0,0.8)';
-          document.getElementById('crosshair').style.transform = 'translate(-50%, -50%) scale(1)';
-        }, 100);
-        if (animal.health <= 0) {
+        const isKill = animal.health <= 0;
+        registerCombatHit({ targetType: 'animal', isHeadshot: false, isKill, point: targetHit.point, normal: n });
+        if (isKill) {
           killAnimal(animal, ud.animalType);
         }
       }
@@ -975,13 +964,9 @@ export function fireWeapon() {
         playSound('hit');
         let n = targetHit.face ? targetHit.face.normal : new THREE.Vector3(0, 1, 0);
         spawnBlood(targetHit.point, n);
-        document.getElementById('crosshair').style.background = 'red';
-        document.getElementById('crosshair').style.transform = 'translate(-50%, -50%) scale(1.5)';
-        setTimeout(() => {
-          document.getElementById('crosshair').style.background = 'rgba(0,255,0,0.8)';
-          document.getElementById('crosshair').style.transform = 'translate(-50%, -50%) scale(1)';
-        }, 100);
-        if (alien.health <= 0) {
+        const isKill = alien.health <= 0;
+        registerCombatHit({ targetType: 'alien', isHeadshot: ud.isHeadshot, isKill, point: targetHit.point, normal: n });
+        if (isKill) {
           alienDied(alien);
         }
       }

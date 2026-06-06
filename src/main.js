@@ -33,6 +33,7 @@ import { optimizeRenderer, optimizeScene, updateFPS, getAverageFPS, resetFPS, ad
 import { rebuildSpatialIndex, resetStaticSpatialIndex, getNearbyLoot } from './systems/spatial.js';
 import { updateStaticVisibility } from './systems/staticVisibility.js';
 import { updateCollisionDebug } from './systems/collisionDebug.js';
+import { updateCombatFeedback } from './systems/combatFeedback.js';
 
 // Disable right-click menu
 document.addEventListener('contextmenu', e => e.preventDefault());
@@ -278,6 +279,7 @@ function animate() {
       runFrameStep('bullet hole update', () => updateBulletHoles());
       runFrameStep('ads update', () => updateADS(delta));
       runFrameStep('collision debug update', () => updateCollisionDebug());
+      runFrameStep('combat feedback update', () => updateCombatFeedback(delta));
 
       // Throttle minimap to ~15 FPS
       runFrameStep('minimap update', () => {

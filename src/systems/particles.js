@@ -145,7 +145,16 @@ export function spawnWorldMuzzleFlash(position, direction = null, options = null
   const flash = getWorldMuzzleFlash();
   if (!flash) return;
 
-  const scale = (options && options.scale) || 1;
+  let distanceBoost = 1;
+  if (state.controls) {
+    const playerPos = state.controls.getObject().position;
+    const distSq = position.distanceToSquared(playerPos);
+    if (distSq < 180 * 180) distanceBoost = 1.35;
+    else if (distSq < 420 * 420) distanceBoost = 1.15;
+    else if (distSq > 900 * 900) distanceBoost = 0.75;
+  }
+
+  const scale = ((options && options.scale) || 1) * distanceBoost;
   flash.group.position.copy(position);
   flash.group.scale.setScalar(scale * (0.8 + Math.random() * 0.35));
   flash.group.rotation.z = Math.random() * Math.PI;
@@ -158,8 +167,8 @@ export function spawnWorldMuzzleFlash(position, direction = null, options = null
   // World flashes are deliberately short: enough to read enemy fire, cheap enough for firefights.
   flash.startTime = performance.now();
   flash.duration = (options && options.duration) || 70;
-  flash.core.material.opacity = 0.95;
-  flash.flare.material.opacity = 0.78;
+  flash.core.material.opacity = Math.min(1, 0.95 * distanceBoost);
+  flash.flare.material.opacity = Math.min(0.95, 0.78 * distanceBoost);
   flash.group.visible = true;
   flash.active = true;
   activeWorldMuzzleFlashes.push(flash);
