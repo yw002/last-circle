@@ -19,6 +19,7 @@ const WEATHER = {
 let currentWeather = WEATHER.SUNNY;
 let gameStartTime = 0;
 let weatherInitialized = false;
+let lastLightningStrikeTime = 0;
 
 // Snow particles
 let snowParticles = [];
@@ -215,9 +216,12 @@ export function updateWeather(delta) {
 
   // Lightning during storm and blizzard
   if ((currentWeather === WEATHER.STORM || currentWeather === WEATHER.BLIZZARD)) {
-    if (!state.isLightningFlashing && Math.random() < 0.008) {
+    const now = Date.now();
+    // Keep lightning atmospheric: random, but with a real cooldown so it does not spam the player.
+    if (!state.isLightningFlashing && now - lastLightningStrikeTime > 9000 && Math.random() < 0.0025) {
       state.isLightningFlashing = true;
-      state.lightningFlashTime = Date.now();
+      state.lightningFlashTime = now;
+      lastLightningStrikeTime = now;
       triggerLightningStrike();
     }
 

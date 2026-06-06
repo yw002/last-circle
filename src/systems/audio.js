@@ -799,50 +799,50 @@ export function playGhostWhisper(pos) {
   } catch (e) {}
 }
 
-// ========== THUNDER - High Fidelity ==========
+// ========== THUNDER - softened storm ambience ==========
 export function playThunderSound() {
   if (!audioCtx || audioCtx.state === 'suspended') return;
   try {
     const now = audioCtx.currentTime;
 
-    // Layer 1: Initial lightning crack (sharp transient)
+    // Layer 1: Initial crack, softened to avoid jump-scare spikes.
     const crack = audioCtx.createOscillator();
     const crackGain = audioCtx.createGain();
-    crack.type = 'sawtooth';
-    crack.frequency.setValueAtTime(200, now);
-    crack.frequency.exponentialRampToValueAtTime(30, now + 0.3);
+    crack.type = 'triangle';
+    crack.frequency.setValueAtTime(150, now);
+    crack.frequency.exponentialRampToValueAtTime(35, now + 0.35);
     crackGain.gain.setValueAtTime(0, now);
-    crackGain.gain.linearRampToValueAtTime(1.2, now + 0.05);
-    crackGain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+    crackGain.gain.linearRampToValueAtTime(0.45, now + 0.08);
+    crackGain.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
     crack.connect(crackGain);
     crackGain.connect(audioCtx.destination);
     crack.start(now);
     crack.stop(now + 0.6);
 
-    // Layer 2: Deep rumble (low frequency roll)
+    // Layer 2: Deep rumble kept lower in the mix.
     const rumble = audioCtx.createOscillator();
     const rumbleGain = audioCtx.createGain();
     rumble.type = 'sine';
-    rumble.frequency.setValueAtTime(50, now + 0.1);
-    rumble.frequency.exponentialRampToValueAtTime(8, now + 3.0);
+    rumble.frequency.setValueAtTime(42, now + 0.15);
+    rumble.frequency.exponentialRampToValueAtTime(12, now + 2.8);
     rumbleGain.gain.setValueAtTime(0, now);
-    rumbleGain.gain.linearRampToValueAtTime(0.8, now + 0.3);
-    rumbleGain.gain.setValueAtTime(0.8, now + 1.0);
-    rumbleGain.gain.exponentialRampToValueAtTime(0.001, now + 4.0);
+    rumbleGain.gain.linearRampToValueAtTime(0.34, now + 0.45);
+    rumbleGain.gain.setValueAtTime(0.34, now + 1.0);
+    rumbleGain.gain.exponentialRampToValueAtTime(0.001, now + 3.4);
     rumble.connect(rumbleGain);
     rumbleGain.connect(audioCtx.destination);
     rumble.start(now + 0.1);
-    rumble.stop(now + 4.5);
+    rumble.stop(now + 3.8);
 
     // Layer 3: Mid-range body (gives thunder its "weight")
     const body = audioCtx.createOscillator();
     const bodyGain = audioCtx.createGain();
-    body.type = 'sawtooth';
-    body.frequency.setValueAtTime(80, now + 0.05);
-    body.frequency.exponentialRampToValueAtTime(20, now + 0.8);
+    body.type = 'triangle';
+    body.frequency.setValueAtTime(70, now + 0.08);
+    body.frequency.exponentialRampToValueAtTime(24, now + 0.9);
     bodyGain.gain.setValueAtTime(0, now);
-    bodyGain.gain.linearRampToValueAtTime(0.6, now + 0.1);
-    bodyGain.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
+    bodyGain.gain.linearRampToValueAtTime(0.26, now + 0.16);
+    bodyGain.gain.exponentialRampToValueAtTime(0.001, now + 1.35);
     body.connect(bodyGain);
     bodyGain.connect(audioCtx.destination);
     body.start(now + 0.05);
@@ -854,12 +854,12 @@ export function playThunderSound() {
       noise.buffer = noiseBuffer;
       const noiseGain = audioCtx.createGain();
       const noiseFilter = audioCtx.createBiquadFilter();
-      noiseFilter.type = 'bandpass';
-      noiseFilter.frequency.value = 800;
-      noiseFilter.Q.value = 2;
+      noiseFilter.type = 'lowpass';
+      noiseFilter.frequency.value = 1100;
+      noiseFilter.Q.value = 0.8;
       noiseGain.gain.setValueAtTime(0, now);
-      noiseGain.gain.linearRampToValueAtTime(0.8, now + 0.02);
-      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+      noiseGain.gain.linearRampToValueAtTime(0.22, now + 0.05);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
       noise.connect(noiseFilter);
       noiseFilter.connect(noiseGain);
       noiseGain.connect(audioCtx.destination);
@@ -871,15 +871,15 @@ export function playThunderSound() {
     const boom = audioCtx.createOscillator();
     const boomGain = audioCtx.createGain();
     boom.type = 'sine';
-    boom.frequency.setValueAtTime(30, now + 0.2);
-    boom.frequency.exponentialRampToValueAtTime(5, now + 2.0);
+    boom.frequency.setValueAtTime(28, now + 0.25);
+    boom.frequency.exponentialRampToValueAtTime(9, now + 1.8);
     boomGain.gain.setValueAtTime(0, now);
-    boomGain.gain.linearRampToValueAtTime(0.5, now + 0.3);
-    boomGain.gain.exponentialRampToValueAtTime(0.001, now + 3.0);
+    boomGain.gain.linearRampToValueAtTime(0.2, now + 0.45);
+    boomGain.gain.exponentialRampToValueAtTime(0.001, now + 2.5);
     boom.connect(boomGain);
     boomGain.connect(audioCtx.destination);
     boom.start(now + 0.2);
-    boom.stop(now + 3.5);
+    boom.stop(now + 3.0);
 
     // Layer 6: Echo/reflection (delayed quieter version)
     setTimeout(() => {
@@ -888,11 +888,11 @@ export function playThunderSound() {
         const echoNow = audioCtx.currentTime;
         const echo = audioCtx.createOscillator();
         const echoGain = audioCtx.createGain();
-        echo.type = 'sawtooth';
-        echo.frequency.setValueAtTime(60, echoNow);
-        echo.frequency.exponentialRampToValueAtTime(15, echoNow + 1.0);
+        echo.type = 'triangle';
+        echo.frequency.setValueAtTime(52, echoNow);
+        echo.frequency.exponentialRampToValueAtTime(18, echoNow + 1.0);
         echoGain.gain.setValueAtTime(0, echoNow);
-        echoGain.gain.linearRampToValueAtTime(0.4, echoNow + 0.2);
+        echoGain.gain.linearRampToValueAtTime(0.16, echoNow + 0.25);
         echoGain.gain.exponentialRampToValueAtTime(0.001, echoNow + 2.0);
         echo.connect(echoGain);
         echoGain.connect(audioCtx.destination);
