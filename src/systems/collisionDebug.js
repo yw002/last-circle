@@ -25,6 +25,7 @@ const dynamicHelpers = [];
 const _box = new THREE.Box3();
 const _center = new THREE.Vector3();
 const _size = new THREE.Vector3();
+const _playerDebugCenter = new THREE.Vector3();
 let terrainWire = null;
 
 function ensureGroup() {
@@ -133,7 +134,8 @@ function updateDynamicDebug() {
   let index = 0;
   const playerPos = state.controls.getObject().position;
   if (!dynamicHelpers[index]) addDynamicHelper(colors.player);
-  setHelperBox(dynamicHelpers[index++], playerPos, new THREE.Vector3(3, 10, 3));
+  _playerDebugCenter.set(playerPos.x, playerPos.y - 5, playerPos.z);
+  setHelperBox(dynamicHelpers[index++], _playerDebugCenter, new THREE.Vector3(3, 10, 3));
 
   for (let i = 0; i < state.bots.length; i++) {
     const bot = state.bots[i];

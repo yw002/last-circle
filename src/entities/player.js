@@ -25,9 +25,13 @@ let crosshairSpread = 0;
 const CROSSHAIR_SPREAD_DECAY = 3; // Slower recovery
 const CROSSHAIR_SPREAD_PER_SHOT = 2.0; // More spread per shot
 const CROSSHAIR_MAX_SPREAD = 5;
+const PLAYER_EYE_HEIGHT = 10;
+const PLAYER_COLLIDER_HEIGHT = 10;
+const PLAYER_HALF_HEIGHT = PLAYER_COLLIDER_HEIGHT * 0.5;
 const _playerBox = new THREE.Box3();
-const _playerBoxSizePara = new THREE.Vector3(1, 10, 1);
-const _playerBoxSize = new THREE.Vector3(3, 10, 3);
+const _playerBoxSizePara = new THREE.Vector3(1, PLAYER_COLLIDER_HEIGHT, 1);
+const _playerBoxSize = new THREE.Vector3(3, PLAYER_COLLIDER_HEIGHT, 3);
+const _playerCollisionCenter = new THREE.Vector3();
 
 export function updateCrosshairSpread(delta) {
   // Recover spread over time
@@ -765,6 +769,48 @@ function getGunBarrelPosition() {
   return _muzzleWorldPos;
 }
 
+function getRoofSurfaceY(hPos, x, z) {
+  const dx = Math.abs(x - hPos.x);
+  const dz = Math.abs(z - hPos.z);
+  if (dx > 15.6 || dz > 15.6) return null;
+  return hPos.baseHeight + 38.1 - 14 * (Math.max(dx, dz) / 15.556);
+}
+
+function setPlayerBoxFromEye(pPos, size) {
+  _playerCollisionCenter.set(pPos.x, pPos.y - PLAYER_EYE_HEIGHT + PLAYER_HALF_HEIGHT, pPos.z);
+  _playerBox.setFromCenterAndSize(_playerCollisionCenter, size);
+}
+
+function resolvePlayerGroundY(pPos, nearbyDoors, nearbyColliders) {
+  let groundSurfaceY = getTerrainHeight(pPos.x, pPos.z);
+
+  for (let i = 0; i < nearbyDoors.length; i++) {
+    const roofSurfaceY = getRoofSurfaceY(nearbyDoors[i].housePos, pPos.x, pPos.z);
+    if (roofSurfaceY !== null && roofSurfaceY > groundSurfaceY) {
+      groundSurfaceY = roofSurfaceY;
+    }
+  }
+
+  setPlayerBoxFromEye(pPos, _playerBoxSize);
+  for (let i = 0; i < nearbyColliders.length; i++) {
+    const box = nearbyColliders[i];
+    if (_playerBox.intersectsBox(box) && box.max.y > groundSurfaceY) {
+      groundSurfaceY = box.max.y;
+    }
+  }
+
+  return groundSurfaceY + PLAYER_EYE_HEIGHT;
+}
+
+function applyGroundSafety(pPos, nearbyDoors, nearbyColliders) {
+  const minY = resolvePlayerGroundY(pPos, nearbyDoors, nearbyColliders);
+  if (pPos.y < minY) {
+    pPos.y = minY;
+    state.velocity.y = Math.max(0, state.velocity.y);
+    state.canJump = true;
+  }
+}
+
 // Cooldown for empty magazine notice
 let lastEmptyNoticeTime = 0;
 
@@ -965,28 +1011,7 @@ export function updatePlayer(delta) {
     state.controls.moveForward(-state.velocity.z * delta);
     pPos.y += state.velocity.y * delta;
 
-    let groundY = getTerrainHeight(pPos.x, pPos.z) + 10;
-
-    for (let i = 0; i < nearbyDoors.length; i++) {
-      let hPos = nearbyDoors[i].housePos;
-      let dx = Math.abs(pPos.x - hPos.x);
-      let dz = Math.abs(pPos.z - hPos.z);
-      if (dx <= 15.6 && dz <= 15.6) {
-        let roofSurfaceY = hPos.baseHeight + 38.1 - 14 * (Math.max(dx, dz) / 15.556);
-        if (roofSurfaceY + 10 > groundY) {
-          groundY = roofSurfaceY + 10;
-        }
-      }
-    }
-
-    _playerBox.setFromCenterAndSize(pPos, _playerBoxSizePara);
-    for (let box of nearbyColliders) {
-      if (_playerBox.intersectsBox(box)) {
-        if (box.max.y + 10 > groundY) {
-          groundY = box.max.y + 10;
-        }
-      }
-    }
+    let groundY = resolvePlayerGroundY(pPos, nearbyDoors, nearbyColliders);
 
     if (pPos.y <= groundY) {
       pPos.y = groundY;
@@ -1017,11 +1042,11 @@ export function updatePlayer(delta) {
     state.controls.moveRight(state.velocity.x * delta);
     state.controls.moveForward(-state.velocity.z * delta);
 
-    _playerBox.setFromCenterAndSize(pPos, _playerBoxSize);
+    setPlayerBoxFromEye(pPos, _playerBoxSize);
     let hitColliderXZ = false;
     for (let box of nearbyColliders) {
       if (_playerBox.intersectsBox(box)) {
-        if (pPos.y - 4.5 < box.max.y) {
+        if (pPos.y - PLAYER_EYE_HEIGHT < box.max.y) {
           hitColliderXZ = true;
           break;
         }
@@ -1079,25 +1104,23 @@ export function updatePlayer(delta) {
 
     for (let i = 0; i < nearbyDoors.length; i++) {
       let hPos = nearbyDoors[i].housePos;
-      let dx = Math.abs(pPos.x - hPos.x);
-      let dz = Math.abs(pPos.z - hPos.z);
-      if (dx <= 15.6 && dz <= 15.6) {
-        let roofSurfaceY = hPos.baseHeight + 38.1 - 14 * (Math.max(dx, dz) / 15.556);
-        if (oldY - 4.5 >= roofSurfaceY - 2.0 && (pPos.y - 5.0) <= roofSurfaceY) {
+      let roofSurfaceY = getRoofSurfaceY(hPos, pPos.x, pPos.z);
+      if (roofSurfaceY !== null) {
+        if (oldY - PLAYER_EYE_HEIGHT >= roofSurfaceY - 2.0 && (pPos.y - PLAYER_EYE_HEIGHT) <= roofSurfaceY) {
           hitColliderY = true;
-          landingY = roofSurfaceY + 5.0;
+          landingY = roofSurfaceY + PLAYER_EYE_HEIGHT;
           break;
         }
       }
     }
 
     if (!hitColliderY) {
-      _playerBox.setFromCenterAndSize(pPos, _playerBoxSize);
+      setPlayerBoxFromEye(pPos, _playerBoxSize);
       for (let box of nearbyColliders) {
         if (_playerBox.intersectsBox(box)) {
-          if (oldY - 4.5 >= box.max.y - 1.2) {
+          if (oldY - PLAYER_EYE_HEIGHT >= box.max.y - 1.2) {
             hitColliderY = true;
-            landingY = box.max.y + 5.0;
+            landingY = box.max.y + PLAYER_EYE_HEIGHT;
             break;
           }
         }
@@ -1109,7 +1132,7 @@ export function updatePlayer(delta) {
       state.velocity.y = 0;
       state.canJump = true;
     } else {
-      let groundY = getTerrainHeight(pPos.x, pPos.z) + 10;
+      let groundY = getTerrainHeight(pPos.x, pPos.z) + PLAYER_EYE_HEIGHT;
       if (pPos.y <= groundY + 0.5 && state.velocity.y <= 0) {
         state.velocity.y = 0;
         pPos.y = groundY;
@@ -1118,6 +1141,8 @@ export function updatePlayer(delta) {
         state.canJump = false;
       }
     }
+
+    applyGroundSafety(pPos, nearbyDoors, nearbyColliders);
 
     // Loot pickup
     let nearbyLoot = null;
