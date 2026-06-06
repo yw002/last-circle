@@ -9,8 +9,10 @@ export function getHouseObjectIsInside(position) {
     let hPos = d.housePos;
     let dx = Math.abs(position.x - hPos.x);
     let dz = Math.abs(position.z - hPos.z);
-    let dy = position.y - hPos.y;
-    if (dx < 14.5 && dz < 14.5 && dy > 0 && dy < 24) {
+    const baseY = hPos.baseHeight ?? hPos.y;
+    const footY = position.y - 10;
+    const headY = position.y;
+    if (dx < 14.5 && dz < 14.5 && headY > baseY && footY < baseY + 24) {
       return d;
     }
   }

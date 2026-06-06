@@ -773,7 +773,8 @@ function getRoofSurfaceY(hPos, x, z) {
   const dx = Math.abs(x - hPos.x);
   const dz = Math.abs(z - hPos.z);
   if (dx > 15.6 || dz > 15.6) return null;
-  return hPos.baseHeight + 38.1 - 14 * (Math.max(dx, dz) / 15.556);
+  const baseHeight = hPos.baseHeight ?? hPos.y;
+  return baseHeight + 38.1 - 14 * (Math.max(dx, dz) / 15.556);
 }
 
 function setPlayerBoxFromEye(pPos, size) {
@@ -1064,9 +1065,11 @@ export function updatePlayer(delta) {
       let hPos = d.housePos;
       let dx = pPos.x - hPos.x;
       let dz = pPos.z - hPos.z;
-      let dy = pPos.y - hPos.y;
+      const baseY = hPos.baseHeight ?? hPos.y;
+      const footY = pPos.y - PLAYER_EYE_HEIGHT;
+      const headY = pPos.y;
 
-      if (dy > 0 && dy < 24) {
+      if (headY > baseY && footY < baseY + 24) {
         let absX = Math.abs(dx);
         let absZ = Math.abs(dz);
 

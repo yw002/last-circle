@@ -723,9 +723,10 @@ export function updateAnimals(delta) {
         const hPos = d.housePos;
         const adx = aPos.x - hPos.x;
         const adz = aPos.z - hPos.z;
-        const ady = aPos.y - hPos.y;
+        const baseY = hPos.baseHeight ?? hPos.y;
+        const animalHeight = 5 * (animal.config.scale || 1);
 
-        if (ady > 0 && ady < 24) {
+        if (aPos.y + animalHeight > baseY && aPos.y < baseY + 24) {
           const absX = Math.abs(adx);
           const absZ = Math.abs(adz);
 

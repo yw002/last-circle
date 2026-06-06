@@ -605,9 +605,12 @@ function initHouses() {
     state.scene.add(houseGroup);
     registerStaticObject(houseGroup, x, z, 1500);
 
+    const housePos = new THREE.Vector3(x, y, z);
+    housePos.baseHeight = y;
+
     state.doors.push({
       pivot: doorPivot,
-      housePos: new THREE.Vector3(x, y, z),
+      housePos,
       isOpen: false,
       targetAngle: 0,
       currentAngle: 0

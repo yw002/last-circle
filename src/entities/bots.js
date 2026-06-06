@@ -751,8 +751,8 @@ export function updateBots(delta) {
 
         if (Math.abs(dx) > 20 || Math.abs(dz) > 20) continue;
 
-        let dy = bPos.y - hPos.y;
-        if (dy > 0 && dy < 24) {
+        const baseY = hPos.baseHeight ?? hPos.y;
+        if (bPos.y + 8 > baseY && bPos.y < baseY + 24) {
           let absX = Math.abs(dx);
           let absZ = Math.abs(dz);
           if (absX < 16.2 && absZ < 16.2) {

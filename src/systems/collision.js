@@ -35,10 +35,12 @@ export function checkHouseWallCollision(x, y, z, doors = state.doors) {
     const hPos = d.housePos;
     const dx = x - hPos.x;
     const dz = z - hPos.z;
-    const dy = y - hPos.y;
+    const baseY = hPos.baseHeight ?? hPos.y;
+    const footY = y - 10;
+    const headY = y;
 
-    // Only check if within house height
-    if (dy > 0 && dy < 24) {
+    // Check body overlap with the wall height, not just the camera/eye height.
+    if (headY > baseY && footY < baseY + 24) {
       const absX = Math.abs(dx);
       const absZ = Math.abs(dz);
 
