@@ -5,6 +5,8 @@ import { reloadWeapon, switchWeapon, cancelReload, fireWeapon } from '../entitie
 import { toggleADS } from './ads.js';
 import { toggleCollisionDebug } from './collisionDebug.js';
 
+let lastWheelSwitchTime = 0;
+
 function clearInputState() {
   // Pointer lock can be interrupted by the browser; clear held inputs to avoid a stuck controls state.
   state.moveForward = false;
@@ -71,6 +73,32 @@ export function initControls() {
   document.addEventListener('mouseup', (e) => {
     if (e.button === 0) state.isMouseDown = false;
   });
+
+  document.addEventListener('wheel', (event) => {
+    if (!state.controls.isLocked || !state.player.alive) return;
+    if (!state.player.inventory || state.player.inventory.length < 2) return;
+
+    const now = performance.now();
+    if (now - lastWheelSwitchTime < 140) {
+      event.preventDefault();
+      return;
+    }
+
+    // Mouse wheel cycles weapon slots through the same path as number keys.
+    const direction = event.deltaY > 0 ? 1 : -1;
+    const slotCount = state.player.inventory.length;
+    let nextIndex = state.player.currentWeaponIndex;
+
+    for (let i = 0; i < slotCount; i++) {
+      nextIndex = (nextIndex + direction + slotCount) % slotCount;
+      if (state.player.inventory[nextIndex]) {
+        event.preventDefault();
+        lastWheelSwitchTime = now;
+        switchWeapon(nextIndex);
+        break;
+      }
+    }
+  }, { passive: false });
 
   window.addEventListener('blur', clearInputState);
   document.addEventListener('visibilitychange', () => {
