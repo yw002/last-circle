@@ -721,7 +721,7 @@ export function playerHit(dmg, attackerPos = null) {
 
   // Show hit direction indicator
   if (attackerPos) {
-    showHitFromDirection(attackerPos);
+    showHitFromDirection(attackerPos, dmg);
   }
 
   document.getElementById('hit-overlay').style.opacity = '1';
@@ -901,7 +901,7 @@ export function fireWeapon() {
   }
 
   // Visual trajectory uses the exact muzzle position and the same impact point used by damage/decals.
-  createWeaponTracer(muzzleStart, hitPoint);
+  createWeaponTracer(muzzleStart, hitPoint, state.player.weapon);
 
   if (coverHit && (!targetHit || coverHit.distance < targetHit.distance)) {
     let n = coverHit.face ? coverHit.face.normal : new THREE.Vector3(0, 1, 0);

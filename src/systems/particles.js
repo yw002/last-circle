@@ -12,6 +12,11 @@ const shellGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.2, 6);
 // Muzzle flash state
 let muzzleFlashEndTime = 0;
 const MUZZLE_FLASH_DURATION = 80; // milliseconds
+const worldMuzzleFlashPool = [];
+const activeWorldMuzzleFlashes = [];
+const _worldFlashDir = new THREE.Vector3();
+const _worldFlashTarget = new THREE.Vector3();
+const _worldFlashDefaultDir = new THREE.Vector3(0, 0, 1);
 
 export function spawnBlood(point, normal) {
   for (let i = 0; i < 12; i++) {
@@ -104,6 +109,62 @@ export function updateMuzzleFlash() {
   }
 }
 
+function getWorldMuzzleFlash() {
+  for (let i = 0; i < worldMuzzleFlashPool.length; i++) {
+    if (!worldMuzzleFlashPool[i].active) {
+      worldMuzzleFlashPool[i].active = true;
+      worldMuzzleFlashPool[i].group.visible = true;
+      return worldMuzzleFlashPool[i];
+    }
+  }
+
+  if (worldMuzzleFlashPool.length >= 36) return null;
+
+  const group = new THREE.Group();
+  const core = new THREE.Mesh(
+    new THREE.SphereGeometry(0.35, 8, 8),
+    new THREE.MeshBasicMaterial({ color: 0xfff2a0, transparent: true, opacity: 0.9, depthWrite: false })
+  );
+  const flare = new THREE.Mesh(
+    new THREE.ConeGeometry(0.22, 1.4, 6, 1, true),
+    new THREE.MeshBasicMaterial({ color: 0xff8c18, transparent: true, opacity: 0.78, depthWrite: false })
+  );
+  flare.rotation.x = Math.PI / 2;
+  flare.position.z = 0.55;
+  group.add(core, flare);
+  group.visible = false;
+  state.scene.add(group);
+
+  const entry = { group, core, flare, startTime: 0, duration: 70, active: false };
+  worldMuzzleFlashPool.push(entry);
+  return entry;
+}
+
+export function spawnWorldMuzzleFlash(position, direction = null, options = null) {
+  if (!position || !state.scene) return;
+  const flash = getWorldMuzzleFlash();
+  if (!flash) return;
+
+  const scale = (options && options.scale) || 1;
+  flash.group.position.copy(position);
+  flash.group.scale.setScalar(scale * (0.8 + Math.random() * 0.35));
+  flash.group.rotation.z = Math.random() * Math.PI;
+
+  _worldFlashDir.copy(direction || _worldFlashDefaultDir);
+  if (_worldFlashDir.lengthSq() < 0.001) _worldFlashDir.copy(_worldFlashDefaultDir);
+  _worldFlashTarget.copy(position).add(_worldFlashDir.normalize());
+  flash.group.lookAt(_worldFlashTarget);
+
+  // World flashes are deliberately short: enough to read enemy fire, cheap enough for firefights.
+  flash.startTime = performance.now();
+  flash.duration = (options && options.duration) || 70;
+  flash.core.material.opacity = 0.95;
+  flash.flare.material.opacity = 0.78;
+  flash.group.visible = true;
+  flash.active = true;
+  activeWorldMuzzleFlashes.push(flash);
+}
+
 function spawnBulletCasing() {
   if (state.shellCasings.length > 20) {
     state.scene.remove(state.shellCasings[0].mesh);
@@ -127,6 +188,21 @@ function spawnBulletCasing() {
 export function updateParticles(delta) {
   // Update muzzle flash
   updateMuzzleFlash();
+
+  const now = performance.now();
+  for (let i = activeWorldMuzzleFlashes.length - 1; i >= 0; i--) {
+    const flash = activeWorldMuzzleFlashes[i];
+    const t = (now - flash.startTime) / flash.duration;
+    if (t >= 1) {
+      flash.active = false;
+      flash.group.visible = false;
+      activeWorldMuzzleFlashes.splice(i, 1);
+    } else {
+      const opacity = 1 - t;
+      flash.core.material.opacity = 0.95 * opacity;
+      flash.flare.material.opacity = 0.78 * opacity;
+    }
+  }
 
   // Update blood particles (swap-and-pop for O(1) removal)
   const bloodArr = state.bloodParticles;
