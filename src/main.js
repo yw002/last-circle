@@ -135,11 +135,14 @@ function init() {
   // Initialize zone
   initZone();
 
-  // Start button handler
-  document.getElementById('start-btn').addEventListener('click', () => {
-    document.getElementById('overlay').style.display = 'none';
-    state.controls.lock();
+  const overlayEl = document.getElementById('overlay');
+  const startBtnEl = document.getElementById('start-btn');
+
+  // Start/resume only hides the menu after pointer lock is actually restored.
+  startBtnEl.addEventListener('click', () => {
     resumeAudio();
+    state.prevTime = performance.now();
+    state.controls.lock();
     if (!state.gameStarted) {
       state.gameStarted = true;
       resetFPS();
@@ -150,13 +153,18 @@ function init() {
     }
   });
 
+  state.controls.addEventListener('lock', () => {
+    overlayEl.style.display = 'none';
+    state.prevTime = performance.now();
+  });
+
   // Pause handler
   state.controls.addEventListener('unlock', () => {
     if (state.player.alive && state.aliveCount > 1) {
-      document.getElementById('overlay').style.display = 'flex';
+      overlayEl.style.display = 'flex';
       document.getElementById('title').innerText = "暂停 (PAUSED)";
       document.getElementById('subtitle').innerText = "点击按钮继续";
-      document.getElementById('start-btn').innerText = "继续游戏";
+      startBtnEl.innerText = "继续游戏";
     }
   });
 
