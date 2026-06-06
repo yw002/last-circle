@@ -19,6 +19,7 @@ import { zombieDied } from './zombies.js';
 import { killAnimal, getAllAnimals } from './animals.js';
 import { alienDied, getAllAliens } from './aliens.js';
 import { getNearbyColliders, getNearbyDoors, getNearbyLoot } from '../systems/spatial.js';
+import { checkSweptColliderCollision } from '../systems/collision.js';
 
 // Crosshair spread state
 let crosshairSpread = 0;
@@ -32,6 +33,7 @@ const _playerBox = new THREE.Box3();
 const _playerBoxSizePara = new THREE.Vector3(1, PLAYER_COLLIDER_HEIGHT, 1);
 const _playerBoxSize = new THREE.Vector3(3, PLAYER_COLLIDER_HEIGHT, 3);
 const _playerCollisionCenter = new THREE.Vector3();
+const PLAYER_COLLIDER_RADIUS = 1.5;
 
 export function updateCrosshairSpread(delta) {
   // Recover spread over time
@@ -795,6 +797,7 @@ function resolvePlayerGroundY(pPos, nearbyDoors, nearbyColliders) {
   setPlayerBoxFromEye(pPos, _playerBoxSize);
   for (let i = 0; i < nearbyColliders.length; i++) {
     const box = nearbyColliders[i];
+    if (box.userData && box.userData.standable === false) continue;
     if (_playerBox.intersectsBox(box) && box.max.y > groundSurfaceY) {
       groundSurfaceY = box.max.y;
     }
@@ -1044,7 +1047,16 @@ export function updatePlayer(delta) {
     state.controls.moveForward(-state.velocity.z * delta);
 
     setPlayerBoxFromEye(pPos, _playerBoxSize);
-    let hitColliderXZ = false;
+    let hitColliderXZ = checkSweptColliderCollision(
+      oldX,
+      oldZ,
+      pPos.x,
+      pPos.z,
+      pPos.y,
+      PLAYER_COLLIDER_HEIGHT,
+      nearbyColliders,
+      PLAYER_COLLIDER_RADIUS
+    );
     for (let box of nearbyColliders) {
       if (_playerBox.intersectsBox(box)) {
         if (pPos.y - PLAYER_EYE_HEIGHT < box.max.y) {
@@ -1120,6 +1132,7 @@ export function updatePlayer(delta) {
     if (!hitColliderY) {
       setPlayerBoxFromEye(pPos, _playerBoxSize);
       for (let box of nearbyColliders) {
+        if (box.userData && box.userData.standable === false) continue;
         if (_playerBox.intersectsBox(box)) {
           if (oldY - PLAYER_EYE_HEIGHT >= box.max.y - 1.2) {
             hitColliderY = true;
