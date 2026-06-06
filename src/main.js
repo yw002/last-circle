@@ -34,6 +34,7 @@ import { rebuildSpatialIndex, resetStaticSpatialIndex, getNearbyLoot } from './s
 import { updateStaticVisibility } from './systems/staticVisibility.js';
 import { updateCollisionDebug } from './systems/collisionDebug.js';
 import { updateCombatFeedback } from './systems/combatFeedback.js';
+import { updateSpecialWeapons } from './systems/specialWeapons.js';
 
 // Disable right-click menu
 document.addEventListener('contextmenu', e => e.preventDefault());
@@ -91,7 +92,7 @@ function init() {
   initClouds();
 
   // Set default weapon - random automatic rifle with full ammo
-  const autoRifles = weapons.filter(w => w.type === 'ar' || w.type === 'smg');
+  const autoRifles = weapons.filter(w => w.special || w.type === 'ar' || w.type === 'smg');
   const defaultWeapon = { ...autoRifles[Math.floor(Math.random() * autoRifles.length)] };
   defaultWeapon.ammo = defaultWeapon.maxAmmo; // Full magazine
   state.player.weapon = defaultWeapon;
@@ -280,6 +281,7 @@ function animate() {
       runFrameStep('ads update', () => updateADS(delta));
       runFrameStep('collision debug update', () => updateCollisionDebug());
       runFrameStep('combat feedback update', () => updateCombatFeedback(delta));
+      runFrameStep('special weapon update', () => updateSpecialWeapons(delta));
 
       // Throttle minimap to ~15 FPS
       runFrameStep('minimap update', () => {

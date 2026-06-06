@@ -21,6 +21,7 @@ import { alienDied, getAllAliens } from './aliens.js';
 import { getNearbyColliders, getNearbyDoors, getNearbyLoot } from '../systems/spatial.js';
 import { checkSweptColliderCollision } from '../systems/collision.js';
 import { registerCombatHit } from '../systems/combatFeedback.js';
+import { fireSpecialWeapon } from '../systems/specialWeapons.js';
 
 // Crosshair spread state
 let crosshairSpread = 0;
@@ -320,7 +321,7 @@ export function updateWeaponModel() {
       disassemblyLever, slideStop, safety
     );
 
-  } else if (wName === 'S686' || wName === 'S1897' || wName === 'S12K' || wName === 'DBS') {
+  } else if (wName === 'S686' || wName === 'S1897' || wName === 'S12K' || wName === 'DBS' || (state.player.weapon.special && state.player.weapon.type === 'shotgun')) {
     // ========== 100-STAR SHOTGUN ==========
     // Double barrels
     const barrel1 = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.3, SEG), metalMat);
@@ -402,7 +403,7 @@ export function updateWeaponModel() {
       triggerGuard, trigger, hammer, ejector, latch
     );
 
-  } else if (wName === 'Kar98k' || wName === 'M24' || wName === 'AWM') {
+  } else if (wName === 'Kar98k' || wName === 'M24' || wName === 'AWM' || (state.player.weapon.special && state.player.weapon.type === 'sniper')) {
     // ========== 100-STAR SNIPER RIFLE ==========
     // Long barrel with fluting
     const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.04, 1.6, SEG), metalMat);
@@ -532,7 +533,7 @@ export function updateWeaponModel() {
       bipodLegL, bipodLegR, bipodFootL, bipodFootR
     );
 
-  } else if (wName === 'UZI' || wName === 'Vector' || wName === 'MP5K') {
+  } else if (wName === 'UZI' || wName === 'Vector' || wName === 'MP5K' || (state.player.weapon.special && state.player.weapon.type === 'smg')) {
     // ========== 100-STAR SMG ==========
     const body = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.14, 0.65), metalMat);
     body.position.set(0, 0.03, 0);
@@ -716,6 +717,22 @@ export function updateWeaponModel() {
       boltRelease, magRelease, selector, triggerGuard, trigger
     );
   }
+
+  if (state.player.weapon.special) {
+    const effectColor = state.player.weapon.effectColor || wColor;
+    const glowMat = new THREE.MeshBasicMaterial({ color: effectColor, transparent: true, opacity: 0.75 });
+    const coilMat = new THREE.MeshBasicMaterial({ color: effectColor, transparent: true, opacity: 0.45, wireframe: true });
+    // Special weapons share the base gun silhouettes but add visible energy hardware.
+    const core = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.7, 16), glowMat);
+    core.rotation.x = Math.PI / 2;
+    core.position.set(0, 0.14, -0.42);
+    const coil = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.008, 8, 24), coilMat);
+    coil.rotation.x = Math.PI / 2;
+    coil.position.set(0, 0.14, -0.78);
+    const cell = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.08, 0.28), glowMat);
+    cell.position.set(0.075, 0.02, -0.05);
+    state.viewWeaponMesh.add(core, coil, cell);
+  }
 }
 export function playerHit(dmg, attackerPos = null) {
   if (state.player.isParachuting) return;
@@ -824,11 +841,12 @@ export function fireWeapon() {
   let now = Date.now();
   if (now - state.player.lastFire < state.player.weapon.fireRate) return;
 
-  if (state.player.weapon.ammo <= 0) {
+  const ammoCost = Math.max(1, state.player.weapon.ammoCost || 1);
+  if (state.player.weapon.ammo < ammoCost) {
     playSound('dry_fire');
     // Only show notice every 2 seconds to avoid spam
     if (now - lastEmptyNoticeTime > 2000) {
-      showNotice("弹匣为空！按 R 换弹", "#e74c3c");
+      showNotice(state.player.weapon.ammo <= 0 ? "弹匣为空！按 R 换弹" : `弹药不足！需要 ${ammoCost} 发`, "#e74c3c");
       lastEmptyNoticeTime = now;
     }
     // Auto-reload if has ammo (silent)
@@ -837,7 +855,7 @@ export function fireWeapon() {
     }
     return;
   }
-  state.player.weapon.ammo--;
+  state.player.weapon.ammo -= ammoCost;
   state.player.lastFire = now;
   updateUI();
   playSound(state.player.weapon.sound, null, {
@@ -902,6 +920,19 @@ export function fireWeapon() {
     // No hit - tracer goes to max range
     const dir = state.raycaster.ray.direction.clone();
     hitPoint = state.camera.position.clone().add(dir.multiplyScalar(state.player.weapon.range));
+  }
+
+  if (state.player.weapon.special) {
+    const effectiveTargetHit = targetHit && (!coverHit || targetHit.distance < coverHit.distance) ? targetHit : null;
+    fireSpecialWeapon({
+      weapon: state.player.weapon,
+      muzzleStart,
+      hitPoint,
+      targetHit: effectiveTargetHit,
+      coverHit,
+      intersects
+    });
+    return;
   }
 
   // Visual trajectory uses the exact muzzle position and the same impact point used by damage/decals.

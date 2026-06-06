@@ -211,6 +211,21 @@ export function createWeaponMesh(weaponData, scaleMultiplier = 1.0) {
     }
   }
 
+  if (weaponData.special) {
+    const glowMat = new THREE.MeshBasicMaterial({
+      color: weaponData.effectColor || weaponData.color,
+      transparent: true,
+      opacity: 0.7
+    });
+    // Special loot gets an energy core so it reads differently before pickup.
+    const core = new THREE.Mesh(new THREE.SphereGeometry(0.45, 10, 10), glowMat);
+    core.position.set(0, 0.75, 0);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.9, 0.06, 8, 24), glowMat);
+    ring.rotation.x = Math.PI / 2;
+    ring.position.set(0, 0.75, 0);
+    group.add(core, ring);
+  }
+
   group.scale.set(scaleMultiplier, scaleMultiplier, scaleMultiplier);
   return group;
 }

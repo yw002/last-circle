@@ -488,7 +488,8 @@ export function initBots() {
       bodyMat.color.setHex(bArmor.color);
     }
 
-    let w = weapons[Math.floor(Math.random() * weapons.length)];
+    const botWeaponPool = weapons.filter(w => !w.special);
+    let w = botWeaponPool[Math.floor(Math.random() * botWeaponPool.length)];
     let diff = difficulties[CURRENT_DIFFICULTY];
 
     state.bots.push({

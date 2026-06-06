@@ -157,7 +157,7 @@ export function spawnTracer(startPos, endPos, options = null) {
   tracer.active = true;
   tracer.mesh.visible = true;
   tracer.mesh.material.opacity = visuals.opacity;
-  tracer.mesh.material.color.setHex(options && options.source === 'enemy' ? 0xffb84a : TRACER_COLOR);
+  tracer.mesh.material.color.setHex((options && options.color) || (options && options.source === 'enemy' ? 0xffb84a : TRACER_COLOR));
   if (options && options.whiz) maybePlayWhiz(startPos, endPos);
   if (nearMissIntensity > 0.2) triggerNearMissDust(_closest, nearMissIntensity);
 
