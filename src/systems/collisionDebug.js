@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { state } from '../state.js';
 import { getAllAliens } from '../entities/aliens.js';
 import { MAP_SIZE } from '../config.js';
+import { getTerrainHeight } from '../world/terrain.js';
 
 const colors = {
   static: 0x00ffff,
@@ -24,6 +25,7 @@ const dynamicHelpers = [];
 const _box = new THREE.Box3();
 const _center = new THREE.Vector3();
 const _size = new THREE.Vector3();
+let terrainWire = null;
 
 function ensureGroup() {
   if (group) return;
@@ -44,6 +46,36 @@ function makeBoxHelper(box, color) {
 function addBoxFromCenter(center, size, color) {
   _box.setFromCenterAndSize(center, size);
   return makeBoxHelper(_box, color);
+}
+
+function buildTerrainDebug() {
+  if (terrainWire) return;
+
+  const segments = 100;
+  const geometry = new THREE.PlaneGeometry(MAP_SIZE, MAP_SIZE, segments, segments);
+  geometry.rotateX(-Math.PI / 2);
+  const positions = geometry.attributes.position.array;
+
+  // This mirrors the actual ground collision query used by player/entity movement.
+  for (let i = 0; i < positions.length; i += 3) {
+    const x = positions[i];
+    const z = positions[i + 2];
+    positions[i + 1] = getTerrainHeight(x, z) + 0.35;
+  }
+  geometry.computeVertexNormals();
+
+  terrainWire = new THREE.Mesh(
+    geometry,
+    new THREE.MeshBasicMaterial({
+      color: 0x44ff44,
+      wireframe: true,
+      transparent: true,
+      opacity: 0.35,
+      depthTest: false
+    })
+  );
+  terrainWire.name = 'terrain-collision-debug';
+  group.add(terrainWire);
 }
 
 function buildHouseDebug() {
@@ -69,6 +101,7 @@ function buildStaticDebug() {
     makeBoxHelper(state.colliders[i], colors.static);
   }
 
+  buildTerrainDebug();
   buildHouseDebug();
   addBoxFromCenter(new THREE.Vector3(0, 50, -MAP_SIZE / 2), new THREE.Vector3(MAP_SIZE, 100, 4), colors.boundary);
   addBoxFromCenter(new THREE.Vector3(0, 50, MAP_SIZE / 2), new THREE.Vector3(MAP_SIZE, 100, 4), colors.boundary);
