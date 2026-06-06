@@ -99,14 +99,15 @@ function getDustFromPool() {
 
 export function registerCombatHit({ targetType = 'bot', isHeadshot = false, isKill = false, point = null, normal = null } = {}) {
   const profile = getTargetProfile(targetType);
-  const feedbackClass = isKill ? 'combat-kill' : isHeadshot ? 'combat-headshot' : 'combat-hit';
-  const text = isKill ? profile.kill : isHeadshot ? profile.head : profile.hit;
+  const showHeadshot = isHeadshot && isKill;
+  const feedbackClass = showHeadshot ? 'combat-headshot' : isKill ? 'combat-kill' : 'combat-hit';
+  const text = showHeadshot ? profile.head : isKill ? profile.kill : profile.hit;
 
   pulseCrosshair(feedbackClass);
   showCenterText(text, profile.className, isKill || isHeadshot);
-  playCombatFeedbackSound(isKill ? 'kill' : isHeadshot ? 'headshot' : 'hit');
+  playCombatFeedbackSound(showHeadshot ? 'headshot' : isKill ? 'kill' : 'hit');
   if (isKill) registerKill();
-  if (isHeadshot && targetType === 'zombie' && point) spawnMonsterHeadshotBurst(point, normal);
+  if (showHeadshot && targetType === 'zombie' && point) spawnMonsterHeadshotBurst(point, normal);
 }
 
 export function spawnMonsterHeadshotBurst(point, normal = null) {
