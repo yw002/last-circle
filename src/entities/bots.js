@@ -7,7 +7,7 @@ import { getTerrainHeight } from '../world/terrain.js';
 import { getHousePlayerIsInside } from './house.js';
 import { calcDamage } from './damage.js';
 import { playSound } from '../systems/audio.js';
-import { spawnBlood } from '../systems/particles.js';
+import { spawnBlood, spawnWorldMuzzleFlash } from '../systems/particles.js';
 import { playerHit } from './player.js';
 import { addKillFeed } from '../ui/notices.js';
 import { createTracerFromPosition } from '../systems/bullets.js';
@@ -20,6 +20,7 @@ import { showNotice } from '../ui/notices.js';
 const skinColors = [0xffdfc4, 0xd0a37e, 0x8d5524, 0xc68642, 0xe0ac69, 0x4a2a18, 0xf1c27d, 0x3d2314];
 const shirtColors = [0x95a5a6, 0x34495e, 0x27ae60, 0x8e44ad, 0xc0392b, 0xd35400, 0xf39c12, 0x2c3e50, 0x111111, 0xecf0f1, 0x1abc9c, 0xf1c40f];
 const pantsColors = [0x2c3e50, 0xbdc3c7, 0x34495e, 0x7f8c8d, 0x222222, 0x8b4513, 0x2e4053, 0x17202a];
+const _botMuzzleDir = new THREE.Vector3();
 
 // ========== MAXIMUM PRECISION SHARED GEOMETRIES ==========
 // Using LatheGeometry for organic shapes, 48-64 segments for absolute smoothness
@@ -487,7 +488,8 @@ export function initBots() {
       bodyMat.color.setHex(bArmor.color);
     }
 
-    let w = weapons[Math.floor(Math.random() * weapons.length)];
+    const botWeaponPool = weapons.filter(w => !w.special);
+    let w = botWeaponPool[Math.floor(Math.random() * botWeaponPool.length)];
     let diff = difficulties[CURRENT_DIFFICULTY];
 
     state.bots.push({
@@ -671,6 +673,8 @@ export function updateBots(delta) {
 
         // Bot gun position (right hand area)
         _botGunPos.set(bPos.x + 2, bPos.y + 3.5, bPos.z + 1.5);
+        _botMuzzleDir.subVectors(targetPos, _botGunPos).normalize();
+        spawnWorldMuzzleFlash(_botGunPos, _botMuzzleDir, { scale: 1.0, duration: 62 });
 
         // Add bullet spread for bots
         const botSpread = 0.05;
@@ -751,8 +755,8 @@ export function updateBots(delta) {
 
         if (Math.abs(dx) > 20 || Math.abs(dz) > 20) continue;
 
-        let dy = bPos.y - hPos.y;
-        if (dy > 0 && dy < 24) {
+        const baseY = hPos.baseHeight ?? hPos.y;
+        if (bPos.y + 8 > baseY && bPos.y < baseY + 24) {
           let absX = Math.abs(dx);
           let absZ = Math.abs(dz);
           if (absX < 16.2 && absZ < 16.2) {

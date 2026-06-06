@@ -32,6 +32,9 @@ import { initHitIndicator } from './ui/hitindicator.js';
 import { optimizeRenderer, optimizeScene, updateFPS, getAverageFPS, resetFPS, adaptQuality, profileStep, logPerformanceProfile } from './systems/performance.js';
 import { rebuildSpatialIndex, resetStaticSpatialIndex, getNearbyLoot } from './systems/spatial.js';
 import { updateStaticVisibility } from './systems/staticVisibility.js';
+import { updateCollisionDebug } from './systems/collisionDebug.js';
+import { updateCombatFeedback } from './systems/combatFeedback.js';
+import { updateSpecialWeapons } from './systems/specialWeapons.js';
 
 // Disable right-click menu
 document.addEventListener('contextmenu', e => e.preventDefault());
@@ -89,7 +92,7 @@ function init() {
   initClouds();
 
   // Set default weapon - random automatic rifle with full ammo
-  const autoRifles = weapons.filter(w => w.type === 'ar' || w.type === 'smg');
+  const autoRifles = weapons.filter(w => w.special || w.type === 'ar' || w.type === 'smg');
   const defaultWeapon = { ...autoRifles[Math.floor(Math.random() * autoRifles.length)] };
   defaultWeapon.ammo = defaultWeapon.maxAmmo; // Full magazine
   state.player.weapon = defaultWeapon;
@@ -135,11 +138,14 @@ function init() {
   // Initialize zone
   initZone();
 
-  // Start button handler
-  document.getElementById('start-btn').addEventListener('click', () => {
-    document.getElementById('overlay').style.display = 'none';
-    state.controls.lock();
+  const overlayEl = document.getElementById('overlay');
+  const startBtnEl = document.getElementById('start-btn');
+
+  // Start/resume only hides the menu after pointer lock is actually restored.
+  startBtnEl.addEventListener('click', () => {
     resumeAudio();
+    state.prevTime = performance.now();
+    state.controls.lock();
     if (!state.gameStarted) {
       state.gameStarted = true;
       resetFPS();
@@ -150,13 +156,18 @@ function init() {
     }
   });
 
+  state.controls.addEventListener('lock', () => {
+    overlayEl.style.display = 'none';
+    state.prevTime = performance.now();
+  });
+
   // Pause handler
   state.controls.addEventListener('unlock', () => {
     if (state.player.alive && state.aliveCount > 1) {
-      document.getElementById('overlay').style.display = 'flex';
+      overlayEl.style.display = 'flex';
       document.getElementById('title').innerText = "暂停 (PAUSED)";
       document.getElementById('subtitle').innerText = "点击按钮继续";
-      document.getElementById('start-btn').innerText = "继续游戏";
+      startBtnEl.innerText = "继续游戏";
     }
   });
 
@@ -268,6 +279,9 @@ function animate() {
       runFrameStep('tracer update', () => updateTracers());
       runFrameStep('bullet hole update', () => updateBulletHoles());
       runFrameStep('ads update', () => updateADS(delta));
+      runFrameStep('collision debug update', () => updateCollisionDebug());
+      runFrameStep('combat feedback update', () => updateCombatFeedback(delta));
+      runFrameStep('special weapon update', () => updateSpecialWeapons(delta));
 
       // Throttle minimap to ~15 FPS
       runFrameStep('minimap update', () => {

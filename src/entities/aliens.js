@@ -12,7 +12,7 @@ import { addKillFeed } from '../ui/notices.js';
 import { updateUI } from '../ui/hud.js';
 import { showNotice } from '../ui/notices.js';
 import { playSound } from '../systems/audio.js';
-import { spawnBlood } from '../systems/particles.js';
+import { spawnBlood, spawnWorldMuzzleFlash } from '../systems/particles.js';
 import { checkEntityCollision } from '../systems/collision.js';
 import { getNearbyBots, getNearbyColliders, getNearbyDoors } from '../systems/spatial.js';
 
@@ -502,6 +502,7 @@ export function updateAliens(delta) {
         // Check line of sight before shooting
         const alienHeadPos = _alienHeadPos.set(aPos.x, aPos.y + 3, aPos.z);
         const direction = _alienShotDir.subVectors(targetPos, alienHeadPos).normalize();
+        spawnWorldMuzzleFlash(alienHeadPos, direction, { scale: 0.85, duration: 58 });
         _alienRaycaster.set(alienHeadPos, direction);
         _alienRaycaster.near = 0;
         _alienRaycaster.far = 500;
@@ -576,9 +577,7 @@ export function updateAliens(delta) {
 function spawnAlienBullet(fromPos, toPos) {
   const bulletGeo = new THREE.SphereGeometry(0.3, 8, 8);
   const bulletMat = new THREE.MeshBasicMaterial({
-    color: 0x00ff88,
-    emissive: 0x00ff88,
-    emissiveIntensity: 1.0
+    color: 0x00ff88
   });
   const bullet = new THREE.Mesh(bulletGeo, bulletMat);
   bullet.position.copy(fromPos);

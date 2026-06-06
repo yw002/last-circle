@@ -84,6 +84,134 @@ body {
   box-shadow: 0 0 4px rgba(255, 0, 0, 0.8);
 }
 
+#crosshair.combat-hit .crosshair-line {
+  background: rgba(255, 235, 220, 1);
+  box-shadow: 0 0 6px rgba(255, 60, 40, 0.95);
+}
+
+#crosshair.combat-headshot .crosshair-line {
+  background: rgba(255, 255, 120, 1);
+  box-shadow: 0 0 8px rgba(255, 210, 40, 1);
+}
+
+#crosshair.combat-kill .crosshair-line {
+  background: rgba(255, 255, 255, 1);
+  box-shadow: 0 0 10px rgba(255, 40, 40, 1);
+}
+
+#combat-feedback {
+  position: absolute;
+  left: 50%;
+  top: 43%;
+  transform: translate(-50%, -50%);
+  z-index: 18;
+  pointer-events: none;
+  text-align: center;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9), 0 0 12px rgba(0, 0, 0, 0.65);
+}
+
+#combat-feedback-main {
+  min-height: 28px;
+  font-size: 24px;
+  opacity: 0;
+}
+
+#combat-feedback-main.strong {
+  font-size: 30px;
+}
+
+#combat-feedback-main.human {
+  color: #fff0e8;
+}
+
+#combat-feedback-main.monster {
+  color: #d8ff6a;
+}
+
+#combat-feedback-main.wildlife {
+  color: #ffd16a;
+}
+
+#combat-feedback-combo {
+  margin-top: 2px;
+  min-height: 22px;
+  color: #ff4747;
+  font-size: 18px;
+  opacity: 0;
+}
+
+@keyframes combatFeedbackPop {
+  0% { opacity: 0; transform: scale(0.9) translateY(8px); }
+  18% { opacity: 1; transform: scale(1.08) translateY(0); }
+  72% { opacity: 0.92; transform: scale(1) translateY(-2px); }
+  100% { opacity: 0; transform: scale(0.98) translateY(-14px); }
+}
+
+@keyframes combatComboPop {
+  0% { opacity: 0; transform: scale(0.95) translateY(6px); }
+  15% { opacity: 1; transform: scale(1.08) translateY(0); }
+  78% { opacity: 1; transform: scale(1) translateY(-4px); }
+  100% { opacity: 0; transform: scale(0.98) translateY(-18px); }
+}
+
+#target-healthbars {
+  position: absolute;
+  inset: 0;
+  z-index: 17;
+  pointer-events: none;
+}
+
+.target-healthbar {
+  position: absolute;
+  width: 54px;
+  height: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.72);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+  overflow: hidden;
+}
+
+.target-healthbar-fill {
+  width: 100%;
+  height: 100%;
+  background: #44ff66;
+  transition: width 0.12s ease-out, background-color 0.12s ease-out;
+}
+
+.damage-number {
+  position: absolute;
+  color: #fff0df;
+  font-size: 17px;
+  font-weight: 800;
+  text-shadow: 0 1px 3px #000, 0 0 8px rgba(0, 0, 0, 0.9);
+  white-space: nowrap;
+}
+
+.damage-number.headshot {
+  color: #fff36a;
+  font-size: 21px;
+}
+
+.damage-number.kill {
+  color: #ff5c5c;
+}
+
+.healthbar-toggle-toast {
+  position: absolute;
+  left: 50%;
+  top: 58%;
+  transform: translate(-50%, -50%);
+  z-index: 120;
+  color: #ffffff;
+  font-size: 20px;
+  font-weight: 700;
+  text-shadow: 0 2px 4px #000;
+  pointer-events: none;
+}
+
 /* FPS Counter - positioned above kill feed */
 #fps-counter {
   position: absolute;

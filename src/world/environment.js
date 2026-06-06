@@ -73,6 +73,28 @@ const lakeMat = new THREE.MeshLambertMaterial({
   side: THREE.DoubleSide
 });
 
+function createNonStandableCollider(minX, minY, minZ, maxX, maxY, maxZ, kind) {
+  const box = new THREE.Box3(
+    new THREE.Vector3(minX, minY, minZ),
+    new THREE.Vector3(maxX, maxY, maxZ)
+  );
+  // Tall vegetation should block horizontal movement, but never become a floor that lifts the player.
+  box.userData = { kind, standable: false };
+  return box;
+}
+
+function createTreeTrunkCollider(x, groundY, z, radius, height, kind = 'tree') {
+  return createNonStandableCollider(
+    x - radius,
+    groundY - 6,
+    z - radius,
+    x + radius,
+    groundY - 6 + height,
+    z + radius,
+    kind
+  );
+}
+
 export function preGenerateHouses() {
   state.housePositions = [];
   for (let i = 0; i < 200; i++) {
@@ -189,6 +211,8 @@ function initTrees() {
       const tree = new THREE.Group();
       let treeType = Math.floor(Math.random() * 7);
       let trunk;
+      let trunkCollider = null;
+      const bambooColliders = [];
 
       if (treeType === 0) {
         trunk = new THREE.Mesh(trunkGeoPine, trunkMatPine); trunk.position.y = 30;
@@ -197,6 +221,7 @@ function initTrees() {
         const l3 = new THREE.Mesh(cone3Geo, leavesMatPine); l3.position.y = 120;
         tree.add(trunk, l1, l2, l3);
         state.objects.push(trunk);
+        trunkCollider = createTreeTrunkCollider(x, y, z, 7.5, 60);
       } else if (treeType === 1) {
         trunk = new THREE.Mesh(trunkGeoOak, trunkMatOak); trunk.position.y = 22.5;
         const l1 = new THREE.Mesh(sphere1Geo, leavesMatOak); l1.position.y = 48;
@@ -204,6 +229,7 @@ function initTrees() {
         const l3 = new THREE.Mesh(sphere3Geo, leavesMatOak); l3.position.y = 78;
         tree.add(trunk, l1, l2, l3);
         state.objects.push(trunk);
+        trunkCollider = createTreeTrunkCollider(x, y, z, 9.5, 45);
       } else if (treeType === 2) {
         trunk = new THREE.Mesh(trunkGeoBirch, trunkMatBirch); trunk.position.y = 30;
         const l1 = new THREE.Mesh(birch1Geo, leavesMatBirch); l1.position.y = 62;
@@ -211,6 +237,7 @@ function initTrees() {
         const l3 = new THREE.Mesh(birch3Geo, leavesMatBirch); l3.position.y = 104;
         tree.add(trunk, l1, l2, l3);
         state.objects.push(trunk);
+        trunkCollider = createTreeTrunkCollider(x, y, z, 5.5, 60);
       } else if (treeType === 3) {
         trunk = new THREE.Mesh(trunkGeoCherry, trunkMatCherry); trunk.position.y = 20;
         const crown1 = new THREE.Mesh(new THREE.SphereGeometry(20, 8, 8), leavesMatCherry); crown1.position.y = 45;
@@ -218,6 +245,7 @@ function initTrees() {
         const crown3 = new THREE.Mesh(new THREE.SphereGeometry(14, 8, 8), leavesMatCherry); crown3.position.set(-8, 42, -3);
         tree.add(trunk, crown1, crown2, crown3);
         state.objects.push(trunk);
+        trunkCollider = createTreeTrunkCollider(x, y, z, 6.8, 40);
       } else if (treeType === 4) {
         trunk = new THREE.Mesh(trunkGeoWillow, trunkMatWillow); trunk.position.y = 25;
         for (let b = 0; b < 12; b++) {
@@ -232,6 +260,7 @@ function initTrees() {
         const crown = new THREE.Mesh(new THREE.SphereGeometry(25, 8, 8), leavesMatWillow); crown.position.y = 55;
         tree.add(trunk, crown);
         state.objects.push(trunk);
+        trunkCollider = createTreeTrunkCollider(x, y, z, 8.8, 50);
       } else if (treeType === 5) {
         for (let b = 0; b < 5; b++) {
           const bx = (Math.random() - 0.5) * 10;
@@ -239,6 +268,7 @@ function initTrees() {
           const bamboo = new THREE.Mesh(bambooGeo, bambooMat);
           bamboo.position.set(bx, 40, bz);
           tree.add(bamboo);
+          bambooColliders.push(createTreeTrunkCollider(x + bx, y, z + bz, 2.2, 80, 'bamboo'));
           for (let l = 0; l < 3; l++) {
             const leafGeo = new THREE.PlaneGeometry(8, 2);
             const leaf = new THREE.Mesh(leafGeo, bambooLeavesMat);
@@ -253,6 +283,7 @@ function initTrees() {
         const l2 = new THREE.Mesh(sphere2Geo, leavesMatOak); l2.position.y = 64;
         tree.add(trunk, l1, l2);
         state.objects.push(trunk);
+        trunkCollider = createTreeTrunkCollider(x, y, z, 9.5, 45);
       }
 
       tree.position.set(x, y - 6, z);
@@ -263,10 +294,8 @@ function initTrees() {
       registerStaticObject(tree, x, z, 1300);
       tree.updateMatrixWorld(true);
 
-      if (trunk) {
-        const colliderBox = new THREE.Box3().setFromObject(trunk);
-        state.colliders.push(colliderBox);
-      }
+      if (trunkCollider) state.colliders.push(trunkCollider);
+      for (let i = 0; i < bambooColliders.length; i++) state.colliders.push(bambooColliders[i]);
     }
   }
 }
@@ -605,9 +634,12 @@ function initHouses() {
     state.scene.add(houseGroup);
     registerStaticObject(houseGroup, x, z, 1500);
 
+    const housePos = new THREE.Vector3(x, y, z);
+    housePos.baseHeight = y;
+
     state.doors.push({
       pivot: doorPivot,
-      housePos: new THREE.Vector3(x, y, z),
+      housePos,
       isOpen: false,
       targetAngle: 0,
       currentAngle: 0

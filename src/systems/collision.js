@@ -9,6 +9,50 @@ const _tempBox = new THREE.Box3();
 const _tempSize = new THREE.Vector3();
 const _tempCenter = new THREE.Vector3();
 
+function hasVerticalOverlap(y, entityHeight, box) {
+  const footY = y - entityHeight;
+  const headY = y;
+  return headY > box.min.y && footY < box.max.y;
+}
+
+function segmentIntersectsExpandedBoxXZ(oldX, oldZ, newX, newZ, box, radius) {
+  const minX = box.min.x - radius;
+  const maxX = box.max.x + radius;
+  const minZ = box.min.z - radius;
+  const maxZ = box.max.z + radius;
+  const dx = newX - oldX;
+  const dz = newZ - oldZ;
+  let tMin = 0;
+  let tMax = 1;
+
+  // Slab test in XZ catches fast movement through narrow trunks between frames.
+  if (Math.abs(dx) < 0.0001) {
+    if (oldX < minX || oldX > maxX) return false;
+  } else {
+    const inv = 1 / dx;
+    let t1 = (minX - oldX) * inv;
+    let t2 = (maxX - oldX) * inv;
+    if (t1 > t2) [t1, t2] = [t2, t1];
+    tMin = Math.max(tMin, t1);
+    tMax = Math.min(tMax, t2);
+    if (tMin > tMax) return false;
+  }
+
+  if (Math.abs(dz) < 0.0001) {
+    if (oldZ < minZ || oldZ > maxZ) return false;
+  } else {
+    const inv = 1 / dz;
+    let t1 = (minZ - oldZ) * inv;
+    let t2 = (maxZ - oldZ) * inv;
+    if (t1 > t2) [t1, t2] = [t2, t1];
+    tMin = Math.max(tMin, t1);
+    tMax = Math.min(tMax, t2);
+    if (tMin > tMax) return false;
+  }
+
+  return true;
+}
+
 // Check if a position collides with any tree/rock collider
 export function checkColliderCollision(x, y, z, entityHeight = 5, colliders = state.colliders) {
   // Create a small bounding box around the entity
@@ -20,10 +64,19 @@ export function checkColliderCollision(x, y, z, entityHeight = 5, colliders = st
     const box = colliders[i];
     if (_tempBox.intersectsBox(box)) {
       // Only block if entity is below the top of the collider
-      if (y - entityHeight / 2 < box.max.y) {
+      if (hasVerticalOverlap(y, entityHeight, box)) {
         return true; // Collision detected
       }
     }
+  }
+  return false;
+}
+
+export function checkSweptColliderCollision(oldX, oldZ, newX, newZ, y, entityHeight = 10, colliders = state.colliders, radius = 1.5) {
+  for (let i = 0; i < colliders.length; i++) {
+    const box = colliders[i];
+    if (!hasVerticalOverlap(y, entityHeight, box)) continue;
+    if (segmentIntersectsExpandedBoxXZ(oldX, oldZ, newX, newZ, box, radius)) return true;
   }
   return false;
 }
@@ -35,10 +88,12 @@ export function checkHouseWallCollision(x, y, z, doors = state.doors) {
     const hPos = d.housePos;
     const dx = x - hPos.x;
     const dz = z - hPos.z;
-    const dy = y - hPos.y;
+    const baseY = hPos.baseHeight ?? hPos.y;
+    const footY = y - 10;
+    const headY = y;
 
-    // Only check if within house height
-    if (dy > 0 && dy < 24) {
+    // Check body overlap with the wall height, not just the camera/eye height.
+    if (headY > baseY && footY < baseY + 24) {
       const absX = Math.abs(dx);
       const absZ = Math.abs(dz);
 

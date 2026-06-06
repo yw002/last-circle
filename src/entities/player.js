@@ -19,15 +19,23 @@ import { zombieDied } from './zombies.js';
 import { killAnimal, getAllAnimals } from './animals.js';
 import { alienDied, getAllAliens } from './aliens.js';
 import { getNearbyColliders, getNearbyDoors, getNearbyLoot } from '../systems/spatial.js';
+import { checkSweptColliderCollision } from '../systems/collision.js';
+import { registerCombatHit } from '../systems/combatFeedback.js';
+import { fireSpecialWeapon } from '../systems/specialWeapons.js';
 
 // Crosshair spread state
 let crosshairSpread = 0;
 const CROSSHAIR_SPREAD_DECAY = 3; // Slower recovery
 const CROSSHAIR_SPREAD_PER_SHOT = 2.0; // More spread per shot
 const CROSSHAIR_MAX_SPREAD = 5;
+const PLAYER_EYE_HEIGHT = 10;
+const PLAYER_COLLIDER_HEIGHT = 10;
+const PLAYER_HALF_HEIGHT = PLAYER_COLLIDER_HEIGHT * 0.5;
 const _playerBox = new THREE.Box3();
-const _playerBoxSizePara = new THREE.Vector3(1, 10, 1);
-const _playerBoxSize = new THREE.Vector3(3, 10, 3);
+const _playerBoxSizePara = new THREE.Vector3(1, PLAYER_COLLIDER_HEIGHT, 1);
+const _playerBoxSize = new THREE.Vector3(3, PLAYER_COLLIDER_HEIGHT, 3);
+const _playerCollisionCenter = new THREE.Vector3();
+const PLAYER_COLLIDER_RADIUS = 1.5;
 
 export function updateCrosshairSpread(delta) {
   // Recover spread over time
@@ -313,7 +321,7 @@ export function updateWeaponModel() {
       disassemblyLever, slideStop, safety
     );
 
-  } else if (wName === 'S686' || wName === 'S1897' || wName === 'S12K' || wName === 'DBS') {
+  } else if (wName === 'S686' || wName === 'S1897' || wName === 'S12K' || wName === 'DBS' || (state.player.weapon.special && state.player.weapon.type === 'shotgun')) {
     // ========== 100-STAR SHOTGUN ==========
     // Double barrels
     const barrel1 = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.3, SEG), metalMat);
@@ -395,7 +403,7 @@ export function updateWeaponModel() {
       triggerGuard, trigger, hammer, ejector, latch
     );
 
-  } else if (wName === 'Kar98k' || wName === 'M24' || wName === 'AWM') {
+  } else if (wName === 'Kar98k' || wName === 'M24' || wName === 'AWM' || (state.player.weapon.special && state.player.weapon.type === 'sniper')) {
     // ========== 100-STAR SNIPER RIFLE ==========
     // Long barrel with fluting
     const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.04, 1.6, SEG), metalMat);
@@ -525,7 +533,7 @@ export function updateWeaponModel() {
       bipodLegL, bipodLegR, bipodFootL, bipodFootR
     );
 
-  } else if (wName === 'UZI' || wName === 'Vector' || wName === 'MP5K') {
+  } else if (wName === 'UZI' || wName === 'Vector' || wName === 'MP5K' || (state.player.weapon.special && state.player.weapon.type === 'smg')) {
     // ========== 100-STAR SMG ==========
     const body = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.14, 0.65), metalMat);
     body.position.set(0, 0.03, 0);
@@ -709,6 +717,22 @@ export function updateWeaponModel() {
       boltRelease, magRelease, selector, triggerGuard, trigger
     );
   }
+
+  if (state.player.weapon.special) {
+    const effectColor = state.player.weapon.effectColor || wColor;
+    const glowMat = new THREE.MeshBasicMaterial({ color: effectColor, transparent: true, opacity: 0.75 });
+    const coilMat = new THREE.MeshBasicMaterial({ color: effectColor, transparent: true, opacity: 0.45, wireframe: true });
+    // Special weapons share the base gun silhouettes but add visible energy hardware.
+    const core = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.7, 16), glowMat);
+    core.rotation.x = Math.PI / 2;
+    core.position.set(0, 0.14, -0.42);
+    const coil = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.008, 8, 24), coilMat);
+    coil.rotation.x = Math.PI / 2;
+    coil.position.set(0, 0.14, -0.78);
+    const cell = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.08, 0.28), glowMat);
+    cell.position.set(0.075, 0.02, -0.05);
+    state.viewWeaponMesh.add(core, coil, cell);
+  }
 }
 export function playerHit(dmg, attackerPos = null) {
   if (state.player.isParachuting) return;
@@ -717,7 +741,7 @@ export function playerHit(dmg, attackerPos = null) {
 
   // Show hit direction indicator
   if (attackerPos) {
-    showHitFromDirection(attackerPos);
+    showHitFromDirection(attackerPos, dmg);
   }
 
   document.getElementById('hit-overlay').style.opacity = '1';
@@ -765,6 +789,50 @@ function getGunBarrelPosition() {
   return _muzzleWorldPos;
 }
 
+function getRoofSurfaceY(hPos, x, z) {
+  const dx = Math.abs(x - hPos.x);
+  const dz = Math.abs(z - hPos.z);
+  if (dx > 15.6 || dz > 15.6) return null;
+  const baseHeight = hPos.baseHeight ?? hPos.y;
+  return baseHeight + 38.1 - 14 * (Math.max(dx, dz) / 15.556);
+}
+
+function setPlayerBoxFromEye(pPos, size) {
+  _playerCollisionCenter.set(pPos.x, pPos.y - PLAYER_EYE_HEIGHT + PLAYER_HALF_HEIGHT, pPos.z);
+  _playerBox.setFromCenterAndSize(_playerCollisionCenter, size);
+}
+
+function resolvePlayerGroundY(pPos, nearbyDoors, nearbyColliders) {
+  let groundSurfaceY = getTerrainHeight(pPos.x, pPos.z);
+
+  for (let i = 0; i < nearbyDoors.length; i++) {
+    const roofSurfaceY = getRoofSurfaceY(nearbyDoors[i].housePos, pPos.x, pPos.z);
+    if (roofSurfaceY !== null && roofSurfaceY > groundSurfaceY) {
+      groundSurfaceY = roofSurfaceY;
+    }
+  }
+
+  setPlayerBoxFromEye(pPos, _playerBoxSize);
+  for (let i = 0; i < nearbyColliders.length; i++) {
+    const box = nearbyColliders[i];
+    if (box.userData && box.userData.standable === false) continue;
+    if (_playerBox.intersectsBox(box) && box.max.y > groundSurfaceY) {
+      groundSurfaceY = box.max.y;
+    }
+  }
+
+  return groundSurfaceY + PLAYER_EYE_HEIGHT;
+}
+
+function applyGroundSafety(pPos, nearbyDoors, nearbyColliders) {
+  const minY = resolvePlayerGroundY(pPos, nearbyDoors, nearbyColliders);
+  if (pPos.y < minY) {
+    pPos.y = minY;
+    state.velocity.y = Math.max(0, state.velocity.y);
+    state.canJump = true;
+  }
+}
+
 // Cooldown for empty magazine notice
 let lastEmptyNoticeTime = 0;
 
@@ -773,11 +841,12 @@ export function fireWeapon() {
   let now = Date.now();
   if (now - state.player.lastFire < state.player.weapon.fireRate) return;
 
-  if (state.player.weapon.ammo <= 0) {
+  const ammoCost = Math.max(1, state.player.weapon.ammoCost || 1);
+  if (state.player.weapon.ammo < ammoCost) {
     playSound('dry_fire');
     // Only show notice every 2 seconds to avoid spam
     if (now - lastEmptyNoticeTime > 2000) {
-      showNotice("弹匣为空！按 R 换弹", "#e74c3c");
+      showNotice(state.player.weapon.ammo <= 0 ? "弹匣为空！按 R 换弹" : `弹药不足！需要 ${ammoCost} 发`, "#e74c3c");
       lastEmptyNoticeTime = now;
     }
     // Auto-reload if has ammo (silent)
@@ -786,7 +855,7 @@ export function fireWeapon() {
     }
     return;
   }
-  state.player.weapon.ammo--;
+  state.player.weapon.ammo -= ammoCost;
   state.player.lastFire = now;
   updateUI();
   playSound(state.player.weapon.sound, null, {
@@ -811,7 +880,9 @@ export function fireWeapon() {
 
   // Capture the muzzle before applying the visible weapon kick so the trail starts at the fired position.
   const muzzleStart = getGunBarrelPosition().clone();
-  spawnMuzzleFlash(state.player.weapon.name);
+  if (!state.player.weapon.special) {
+    spawnMuzzleFlash(state.player.weapon.name);
+  }
 
   if (state.viewWeaponMesh) {
     state.viewWeaponMesh.rotation.x += 0.3;
@@ -853,8 +924,21 @@ export function fireWeapon() {
     hitPoint = state.camera.position.clone().add(dir.multiplyScalar(state.player.weapon.range));
   }
 
+  if (state.player.weapon.special) {
+    const effectiveTargetHit = targetHit && (!coverHit || targetHit.distance < coverHit.distance) ? targetHit : null;
+    fireSpecialWeapon({
+      weapon: state.player.weapon,
+      muzzleStart,
+      hitPoint,
+      targetHit: effectiveTargetHit,
+      coverHit,
+      intersects
+    });
+    return;
+  }
+
   // Visual trajectory uses the exact muzzle position and the same impact point used by damage/decals.
-  createWeaponTracer(muzzleStart, hitPoint);
+  createWeaponTracer(muzzleStart, hitPoint, state.player.weapon);
 
   if (coverHit && (!targetHit || coverHit.distance < targetHit.distance)) {
     let n = coverHit.face ? coverHit.face.normal : new THREE.Vector3(0, 1, 0);
@@ -874,13 +958,9 @@ export function fireWeapon() {
         playSound('hit');
         let n = targetHit.face ? targetHit.face.normal : new THREE.Vector3(0, 1, 0);
         spawnBlood(targetHit.point, n);
-        document.getElementById('crosshair').style.background = 'red';
-        document.getElementById('crosshair').style.transform = 'translate(-50%, -50%) scale(1.5)';
-        setTimeout(() => {
-          document.getElementById('crosshair').style.background = 'rgba(0,255,0,0.8)';
-          document.getElementById('crosshair').style.transform = 'translate(-50%, -50%) scale(1)';
-        }, 100);
-        if (bot.health <= 0) botDied(bot, "You");
+        const isKill = bot.health <= 0;
+        registerCombatHit({ targetType: 'bot', isHeadshot: ud.isHeadshot, isKill, point: targetHit.point, normal: n, entity: bot, damage: dmg });
+        if (isKill) botDied(bot, "You");
       }
     } else if (ud.isZombie) {
       let zombie = state.zombies[ud.zombieIndex];
@@ -890,13 +970,9 @@ export function fireWeapon() {
         playSound('hit');
         let n = targetHit.face ? targetHit.face.normal : new THREE.Vector3(0, 1, 0);
         spawnBlood(targetHit.point, n);
-        document.getElementById('crosshair').style.background = 'red';
-        document.getElementById('crosshair').style.transform = 'translate(-50%, -50%) scale(1.5)';
-        setTimeout(() => {
-          document.getElementById('crosshair').style.background = 'rgba(0,255,0,0.8)';
-          document.getElementById('crosshair').style.transform = 'translate(-50%, -50%) scale(1)';
-        }, 100);
-        if (zombie.health <= 0) zombieDied(zombie);
+        const isKill = zombie.health <= 0;
+        registerCombatHit({ targetType: 'zombie', isHeadshot: ud.isHeadshot, isKill, point: targetHit.point, normal: n, entity: zombie, damage: dmg });
+        if (isKill) zombieDied(zombie);
       }
     } else if (ud.isAnimal) {
       let animals = getAllAnimals();
@@ -906,13 +982,9 @@ export function fireWeapon() {
         playSound('hit');
         let n = targetHit.face ? targetHit.face.normal : new THREE.Vector3(0, 1, 0);
         spawnBlood(targetHit.point, n);
-        document.getElementById('crosshair').style.background = 'red';
-        document.getElementById('crosshair').style.transform = 'translate(-50%, -50%) scale(1.5)';
-        setTimeout(() => {
-          document.getElementById('crosshair').style.background = 'rgba(0,255,0,0.8)';
-          document.getElementById('crosshair').style.transform = 'translate(-50%, -50%) scale(1)';
-        }, 100);
-        if (animal.health <= 0) {
+        const isKill = animal.health <= 0;
+        registerCombatHit({ targetType: 'animal', isHeadshot: false, isKill, point: targetHit.point, normal: n, entity: animal, damage: state.player.weapon.damage });
+        if (isKill) {
           killAnimal(animal, ud.animalType);
         }
       }
@@ -925,13 +997,9 @@ export function fireWeapon() {
         playSound('hit');
         let n = targetHit.face ? targetHit.face.normal : new THREE.Vector3(0, 1, 0);
         spawnBlood(targetHit.point, n);
-        document.getElementById('crosshair').style.background = 'red';
-        document.getElementById('crosshair').style.transform = 'translate(-50%, -50%) scale(1.5)';
-        setTimeout(() => {
-          document.getElementById('crosshair').style.background = 'rgba(0,255,0,0.8)';
-          document.getElementById('crosshair').style.transform = 'translate(-50%, -50%) scale(1)';
-        }, 100);
-        if (alien.health <= 0) {
+        const isKill = alien.health <= 0;
+        registerCombatHit({ targetType: 'alien', isHeadshot: ud.isHeadshot, isKill, point: targetHit.point, normal: n, entity: alien, damage: dmg });
+        if (isKill) {
           alienDied(alien);
         }
       }
@@ -965,28 +1033,7 @@ export function updatePlayer(delta) {
     state.controls.moveForward(-state.velocity.z * delta);
     pPos.y += state.velocity.y * delta;
 
-    let groundY = getTerrainHeight(pPos.x, pPos.z) + 10;
-
-    for (let i = 0; i < nearbyDoors.length; i++) {
-      let hPos = nearbyDoors[i].housePos;
-      let dx = Math.abs(pPos.x - hPos.x);
-      let dz = Math.abs(pPos.z - hPos.z);
-      if (dx <= 15.6 && dz <= 15.6) {
-        let roofSurfaceY = hPos.baseHeight + 38.1 - 14 * (Math.max(dx, dz) / 15.556);
-        if (roofSurfaceY + 10 > groundY) {
-          groundY = roofSurfaceY + 10;
-        }
-      }
-    }
-
-    _playerBox.setFromCenterAndSize(pPos, _playerBoxSizePara);
-    for (let box of nearbyColliders) {
-      if (_playerBox.intersectsBox(box)) {
-        if (box.max.y + 10 > groundY) {
-          groundY = box.max.y + 10;
-        }
-      }
-    }
+    let groundY = resolvePlayerGroundY(pPos, nearbyDoors, nearbyColliders);
 
     if (pPos.y <= groundY) {
       pPos.y = groundY;
@@ -1017,11 +1064,20 @@ export function updatePlayer(delta) {
     state.controls.moveRight(state.velocity.x * delta);
     state.controls.moveForward(-state.velocity.z * delta);
 
-    _playerBox.setFromCenterAndSize(pPos, _playerBoxSize);
-    let hitColliderXZ = false;
+    setPlayerBoxFromEye(pPos, _playerBoxSize);
+    let hitColliderXZ = checkSweptColliderCollision(
+      oldX,
+      oldZ,
+      pPos.x,
+      pPos.z,
+      pPos.y,
+      PLAYER_COLLIDER_HEIGHT,
+      nearbyColliders,
+      PLAYER_COLLIDER_RADIUS
+    );
     for (let box of nearbyColliders) {
       if (_playerBox.intersectsBox(box)) {
-        if (pPos.y - 4.5 < box.max.y) {
+        if (pPos.y - PLAYER_EYE_HEIGHT < box.max.y) {
           hitColliderXZ = true;
           break;
         }
@@ -1039,9 +1095,11 @@ export function updatePlayer(delta) {
       let hPos = d.housePos;
       let dx = pPos.x - hPos.x;
       let dz = pPos.z - hPos.z;
-      let dy = pPos.y - hPos.y;
+      const baseY = hPos.baseHeight ?? hPos.y;
+      const footY = pPos.y - PLAYER_EYE_HEIGHT;
+      const headY = pPos.y;
 
-      if (dy > 0 && dy < 24) {
+      if (headY > baseY && footY < baseY + 24) {
         let absX = Math.abs(dx);
         let absZ = Math.abs(dz);
 
@@ -1079,25 +1137,24 @@ export function updatePlayer(delta) {
 
     for (let i = 0; i < nearbyDoors.length; i++) {
       let hPos = nearbyDoors[i].housePos;
-      let dx = Math.abs(pPos.x - hPos.x);
-      let dz = Math.abs(pPos.z - hPos.z);
-      if (dx <= 15.6 && dz <= 15.6) {
-        let roofSurfaceY = hPos.baseHeight + 38.1 - 14 * (Math.max(dx, dz) / 15.556);
-        if (oldY - 4.5 >= roofSurfaceY - 2.0 && (pPos.y - 5.0) <= roofSurfaceY) {
+      let roofSurfaceY = getRoofSurfaceY(hPos, pPos.x, pPos.z);
+      if (roofSurfaceY !== null) {
+        if (oldY - PLAYER_EYE_HEIGHT >= roofSurfaceY - 2.0 && (pPos.y - PLAYER_EYE_HEIGHT) <= roofSurfaceY) {
           hitColliderY = true;
-          landingY = roofSurfaceY + 5.0;
+          landingY = roofSurfaceY + PLAYER_EYE_HEIGHT;
           break;
         }
       }
     }
 
     if (!hitColliderY) {
-      _playerBox.setFromCenterAndSize(pPos, _playerBoxSize);
+      setPlayerBoxFromEye(pPos, _playerBoxSize);
       for (let box of nearbyColliders) {
+        if (box.userData && box.userData.standable === false) continue;
         if (_playerBox.intersectsBox(box)) {
-          if (oldY - 4.5 >= box.max.y - 1.2) {
+          if (oldY - PLAYER_EYE_HEIGHT >= box.max.y - 1.2) {
             hitColliderY = true;
-            landingY = box.max.y + 5.0;
+            landingY = box.max.y + PLAYER_EYE_HEIGHT;
             break;
           }
         }
@@ -1109,7 +1166,7 @@ export function updatePlayer(delta) {
       state.velocity.y = 0;
       state.canJump = true;
     } else {
-      let groundY = getTerrainHeight(pPos.x, pPos.z) + 10;
+      let groundY = getTerrainHeight(pPos.x, pPos.z) + PLAYER_EYE_HEIGHT;
       if (pPos.y <= groundY + 0.5 && state.velocity.y <= 0) {
         state.velocity.y = 0;
         pPos.y = groundY;
@@ -1118,6 +1175,8 @@ export function updatePlayer(delta) {
         state.canJump = false;
       }
     }
+
+    applyGroundSafety(pPos, nearbyDoors, nearbyColliders);
 
     // Loot pickup
     let nearbyLoot = null;

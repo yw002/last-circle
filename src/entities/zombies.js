@@ -321,6 +321,7 @@ export function initZombies() {
       alive: true,
       speed: 18 + Math.random() * 5,
       lastAttack: 0,
+      lastThreatGrowl: 0,
       changeDirTime: 0,
       target: null,
       vx: 0, vz: 0
@@ -412,6 +413,11 @@ export function updateZombies(delta) {
       zombie.modelMesh.rotation.z = Math.sin(now * 0.015) * 0.08;
 
       if (Math.random() < 0.004) {
+        playZombieSound('growl', { x: zPos.x, y: zPos.y, z: zPos.z });
+      }
+      if (zombie.target === 'player' && dist < 22 && dist >= 6 && now - zombie.lastThreatGrowl > 2600) {
+        // Short pre-attack warning makes nearby zombies readable without increasing their damage.
+        zombie.lastThreatGrowl = now;
         playZombieSound('growl', { x: zPos.x, y: zPos.y, z: zPos.z });
       }
 
