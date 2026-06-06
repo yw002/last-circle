@@ -9,7 +9,6 @@ import { killAnimal, getAllAnimals } from '../entities/animals.js';
 import { alienDied, getAllAliens } from '../entities/aliens.js';
 import { playImpactSound, playSound } from './audio.js';
 import { spawnBlood } from './particles.js';
-import { createWeaponTracer, spawnTracer } from './bullets.js';
 import { spawnBulletHole } from './bulletholes.js';
 import { inferImpactMaterial, spawnImpactEffect } from './impactEffects.js';
 import { registerCombatHit, spawnMonsterHeadshotBurst } from './combatFeedback.js';
@@ -18,11 +17,13 @@ const activeDots = [];
 const activeLines = [];
 const activeBursts = [];
 const activeMarkers = [];
+const activeBolts = [];
 const _tmp = new THREE.Vector3();
 const _tmp2 = new THREE.Vector3();
 const _up = new THREE.Vector3(0, 1, 0);
 const _lineMat = new THREE.LineBasicMaterial({ color: 0x88ddff, transparent: true, opacity: 0.9 });
 const _burstGeo = new THREE.SphereGeometry(1, 8, 8);
+const _boltGeo = new THREE.SphereGeometry(1, 10, 10);
 const _markerGeo = new THREE.TorusGeometry(1.4, 0.08, 6, 24);
 
 function getEntityFromHit(hit) {
@@ -95,6 +96,7 @@ function damageTarget(target, amount, options = {}) {
 
   const point = options.point || getEntityPosition(target);
   const normal = options.normal || _up;
+  if (options.effectColor) spawnSpecialHitEffect(point, options.effectColor, options.effectKind || 'burst');
   if (point) spawnBlood(point, normal);
   playSound('hit');
 
@@ -134,6 +136,61 @@ function spawnTempLine(from, to, color = 0x88ddff, duration = 120) {
   const line = new THREE.Line(geo, mat);
   state.scene.add(line);
   activeLines.push({ line, start: performance.now(), duration });
+}
+
+function spawnSpecialMuzzle(point, color, scale = 1) {
+  if (!point) return;
+  // Colored muzzle pulses replace the normal orange gun flash for special weapons.
+  spawnBurst(point, color, 2.4 * scale, 130);
+}
+
+function spawnEnergyBolt(from, to, color, options = {}) {
+  if (!state.scene || !from || !to) return;
+  const mat = new THREE.MeshBasicMaterial({
+    color,
+    transparent: true,
+    opacity: options.opacity || 0.85,
+    depthWrite: false
+  });
+  const mesh = new THREE.Mesh(_boltGeo, mat);
+  mesh.position.copy(from);
+  mesh.scale.setScalar(options.size || 0.7);
+  state.scene.add(mesh);
+  activeBolts.push({
+    mesh,
+    from: from.clone(),
+    to: to.clone(),
+    start: performance.now(),
+    duration: options.duration || 160,
+    spin: Math.random() * Math.PI * 2
+  });
+}
+
+function spawnSpecialHitEffect(point, color, kind = 'burst') {
+  if (!point) return;
+  if (kind === 'corrosive') {
+    spawnBurst(point, color, 5, 280);
+    for (let i = 0; i < 3; i++) {
+      _tmp.copy(point);
+      _tmp.x += (Math.random() - 0.5) * 5;
+      _tmp.y += Math.random() * 4;
+      _tmp.z += (Math.random() - 0.5) * 5;
+      spawnTempLine(point, _tmp, color, 180);
+    }
+  } else if (kind === 'arc') {
+    spawnBurst(point, color, 4, 180);
+  } else if (kind === 'blood') {
+    spawnBurst(point, color, 7, 320);
+  } else if (kind === 'rift') {
+    spawnBurst(point, color, 6, 240);
+    _tmp.copy(point); _tmp.x += 5;
+    _tmp2.copy(point); _tmp2.x -= 5;
+    spawnTempLine(_tmp, _tmp2, color, 220);
+  } else if (kind === 'infection') {
+    spawnBurst(point, color, 4.5, 260);
+  } else {
+    spawnBurst(point, color, 4, 220);
+  }
 }
 
 function spawnBurst(point, color, radius = 6, duration = 320) {
@@ -192,7 +249,7 @@ function areaDamage(point, radius, baseDamage, options = {}) {
     if (distSq > radiusSq) continue;
     const falloff = 1 - Math.sqrt(distSq) / radius;
     const damage = baseDamage * (0.35 + falloff * 0.65) * (targets[i].type === 'bot' && options.botScale ? options.botScale : 1);
-    damageTarget(targets[i], damage, { useArmor: true, point: pos, normal: _up });
+    damageTarget(targets[i], damage, { useArmor: true, point: pos, normal: _up, effectColor: options.effectColor, effectKind: options.effectKind });
     if (options.push) {
       _tmp.subVectors(pos, point);
       _tmp.y = 0;
@@ -218,91 +275,123 @@ function findNearbyTargets(originTarget, radius, maxCount) {
 
 function fireCorrosive(context) {
   const { targetHit, coverHit, hitPoint, muzzleStart, weapon } = context;
-  createWeaponTracer(muzzleStart, hitPoint, weapon);
+  const color = weapon.effectColor || 0xb6ff2e;
+  spawnSpecialMuzzle(muzzleStart, color, 1.0);
+  spawnTempLine(muzzleStart, hitPoint, color, 95);
+  spawnEnergyBolt(muzzleStart, hitPoint, color, { size: 0.42, duration: 120, opacity: 0.7 });
   const target = getEntityFromHit(targetHit);
   if (!target) {
-    if (coverHit) handleCoverImpact(coverHit);
+    if (coverHit) {
+      spawnSpecialHitEffect(coverHit.point, color, 'corrosive');
+      handleCoverImpact(coverHit);
+    }
     return;
   }
   const normal = targetHit.face ? targetHit.face.normal : _up;
-  damageTarget(target, weapon.damage, { isHeadshot: target.isHeadshot, point: targetHit.point, normal });
-  addDot(target, 7, 3000, 650, weapon.effectColor || 0xb6ff2e);
-  spawnMonsterHeadshotBurst(targetHit.point, normal);
+  spawnSpecialHitEffect(targetHit.point, color, 'corrosive');
+  damageTarget(target, weapon.damage, { isHeadshot: target.isHeadshot, point: targetHit.point, normal, effectColor: color, effectKind: 'corrosive' });
+  addDot(target, 5, 2800, 650, color);
 }
 
 function fireArc(context) {
   const { targetHit, coverHit, hitPoint, muzzleStart, weapon } = context;
-  spawnTracer(muzzleStart, hitPoint, { color: weapon.effectColor || 0x7ce8ff });
+  const color = weapon.effectColor || 0x7ce8ff;
+  spawnSpecialMuzzle(muzzleStart, color, 0.9);
+  spawnTempLine(muzzleStart, hitPoint, color, 110);
   const target = getEntityFromHit(targetHit);
   if (!target) {
-    if (coverHit) handleCoverImpact(coverHit);
+    if (coverHit) {
+      spawnSpecialHitEffect(coverHit.point, color, 'arc');
+      handleCoverImpact(coverHit);
+    }
     return;
   }
   const firstPoint = targetHit.point;
-  damageTarget(target, weapon.damage, { isHeadshot: target.isHeadshot, point: firstPoint, normal: targetHit.face ? targetHit.face.normal : _up });
+  spawnSpecialHitEffect(firstPoint, color, 'arc');
+  damageTarget(target, weapon.damage, { isHeadshot: target.isHeadshot, point: firstPoint, normal: targetHit.face ? targetHit.face.normal : _up, effectColor: color, effectKind: 'arc' });
   let from = getEntityPosition(target) || firstPoint;
   const jumps = findNearbyTargets(target, 55, 2);
   for (let i = 0; i < jumps.length; i++) {
     const pos = getEntityPosition(jumps[i]);
     if (!pos) continue;
-    spawnTempLine(from, pos, weapon.effectColor || 0x7ce8ff, 150);
-    damageTarget(jumps[i], weapon.damage * (i === 0 ? 0.55 : 0.35), { isHeadshot: false, point: pos, normal: _up });
+    spawnTempLine(from, pos, color, 150);
+    spawnSpecialHitEffect(pos, color, 'arc');
+    damageTarget(jumps[i], weapon.damage * (i === 0 ? 0.55 : 0.35), { isHeadshot: false, point: pos, normal: _up, effectColor: color, effectKind: 'arc' });
     from = pos;
   }
 }
 
 function fireGravity(context) {
   const { targetHit, coverHit, hitPoint, muzzleStart, weapon } = context;
-  spawnTracer(muzzleStart, hitPoint, { color: weapon.effectColor || 0x8b5cff });
+  const color = weapon.effectColor || 0x8b5cff;
+  spawnSpecialMuzzle(muzzleStart, color, 1.2);
+  spawnEnergyBolt(muzzleStart, hitPoint, color, { size: 1.05, duration: 210, opacity: 0.82 });
   const impactPoint = targetHit ? targetHit.point : (coverHit ? coverHit.point : hitPoint);
-  spawnBurst(impactPoint, weapon.effectColor || 0x8b5cff, 16, 420);
-  areaDamage(impactPoint, 38, weapon.damage, { push: 42, botScale: 0.65 });
+  spawnBurst(impactPoint, color, 16, 420);
+  areaDamage(impactPoint, 38, weapon.damage, { push: 42, botScale: 0.65, effectColor: color, effectKind: 'gravity' });
   if (coverHit && !targetHit) handleCoverImpact(coverHit);
 }
 
 function fireBloodMist(context) {
   const { targetHit, coverHit, hitPoint, muzzleStart, weapon } = context;
-  spawnTracer(muzzleStart, hitPoint, { color: weapon.effectColor || 0xcc1f3c });
+  const color = weapon.effectColor || 0xcc1f3c;
+  spawnSpecialMuzzle(muzzleStart, color, 1.0);
+  spawnEnergyBolt(muzzleStart, hitPoint, color, { size: 0.75, duration: 150, opacity: 0.78 });
   const target = getEntityFromHit(targetHit);
   if (!target) {
-    if (coverHit) handleCoverImpact(coverHit);
+    if (coverHit) {
+      spawnSpecialHitEffect(coverHit.point, color, 'blood');
+      handleCoverImpact(coverHit);
+    }
     return;
   }
   const normal = targetHit.face ? targetHit.face.normal : _up;
-  const killed = damageTarget(target, weapon.damage, { isHeadshot: target.isHeadshot, point: targetHit.point, normal });
+  spawnSpecialHitEffect(targetHit.point, color, 'blood');
+  const killed = damageTarget(target, weapon.damage, { isHeadshot: target.isHeadshot, point: targetHit.point, normal, effectColor: color, effectKind: 'blood' });
   if (killed && target.type !== 'bot') {
-    spawnBurst(targetHit.point, weapon.effectColor || 0xcc1f3c, 18, 360);
-    areaDamage(targetHit.point, 32, 28, { botScale: 0.35 });
+    spawnBurst(targetHit.point, color, 18, 360);
+    areaDamage(targetHit.point, 32, 28, { botScale: 0.35, effectColor: color, effectKind: 'blood' });
   }
 }
 
 function fireRift(context) {
   const { intersects, hitPoint, muzzleStart, weapon } = context;
-  spawnTracer(muzzleStart, hitPoint, { color: weapon.effectColor || 0xb05cff });
+  const color = weapon.effectColor || 0xb05cff;
+  spawnSpecialMuzzle(muzzleStart, color, 0.9);
+  spawnTempLine(muzzleStart, hitPoint, color, 135);
+  spawnEnergyBolt(muzzleStart, hitPoint, color, { size: 0.55, duration: 145, opacity: 0.62 });
   let hits = 0;
   for (let i = 0; i < intersects.length && hits < 2; i++) {
     const hit = intersects[i];
     if (hit.distance > weapon.range) break;
     const target = getEntityFromHit(hit);
     if (!target || !isAlive(target)) {
+      spawnSpecialHitEffect(hit.point, color, 'rift');
       handleCoverImpact(hit);
       break;
     }
     const normal = hit.face ? hit.face.normal : _up;
-    damageTarget(target, weapon.damage * (hits === 0 ? 1 : 0.62), { isHeadshot: target.isHeadshot, point: hit.point, normal });
+    spawnSpecialHitEffect(hit.point, color, 'rift');
+    damageTarget(target, weapon.damage * (hits === 0 ? 1 : 0.62), { isHeadshot: target.isHeadshot, point: hit.point, normal, effectColor: color, effectKind: 'rift' });
     hits++;
   }
 }
 
 function fireInfection(context) {
   const { targetHit, coverHit, hitPoint, muzzleStart, weapon } = context;
-  spawnTracer(muzzleStart, hitPoint, { color: weapon.effectColor || 0xd15cff });
+  const color = weapon.effectColor || 0xd15cff;
+  spawnSpecialMuzzle(muzzleStart, color, 0.8);
+  spawnEnergyBolt(muzzleStart, hitPoint, color, { size: 0.38, duration: 130, opacity: 0.9 });
   const target = getEntityFromHit(targetHit);
   if (!target) {
-    if (coverHit) handleCoverImpact(coverHit);
+    if (coverHit) {
+      spawnSpecialHitEffect(coverHit.point, color, 'infection');
+      handleCoverImpact(coverHit);
+    }
     return;
   }
-  damageTarget(target, weapon.damage, { isHeadshot: target.isHeadshot, point: targetHit.point, normal: targetHit.face ? targetHit.face.normal : _up });
+  spawnSpecialHitEffect(targetHit.point, color, 'infection');
+  damageTarget(target, weapon.damage, { isHeadshot: target.isHeadshot, point: targetHit.point, normal: targetHit.face ? targetHit.face.normal : _up, effectColor: color, effectKind: 'infection' });
   markTarget(target);
 }
 
@@ -326,7 +415,7 @@ export function updateSpecialWeapons(delta) {
     }
     if (now >= dot.nextTick) {
       const pos = getEntityPosition(dot.target);
-      damageTarget(dot.target, dot.damagePerTick, { useArmor: false, point: pos, normal: _up });
+      damageTarget(dot.target, dot.damagePerTick, { useArmor: false, point: pos, normal: _up, effectColor: dot.color, effectKind: 'corrosive' });
       if (pos) spawnBurst(pos, dot.color, 4, 180);
       dot.nextTick += dot.tickMs;
     }
@@ -355,6 +444,20 @@ export function updateSpecialWeapons(delta) {
     } else {
       entry.mesh.scale.setScalar(0.5 + entry.radius * t);
       entry.mesh.material.opacity = 0.35 * (1 - t);
+    }
+  }
+
+  for (let i = activeBolts.length - 1; i >= 0; i--) {
+    const entry = activeBolts[i];
+    const t = (now - entry.start) / entry.duration;
+    if (t >= 1) {
+      state.scene.remove(entry.mesh);
+      entry.mesh.material.dispose();
+      activeBolts.splice(i, 1);
+    } else {
+      entry.mesh.position.lerpVectors(entry.from, entry.to, t);
+      entry.mesh.rotation.y = entry.spin + t * Math.PI * 4;
+      entry.mesh.material.opacity = (1 - t) * 0.85;
     }
   }
 

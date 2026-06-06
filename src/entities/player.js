@@ -880,7 +880,9 @@ export function fireWeapon() {
 
   // Capture the muzzle before applying the visible weapon kick so the trail starts at the fired position.
   const muzzleStart = getGunBarrelPosition().clone();
-  spawnMuzzleFlash(state.player.weapon.name);
+  if (!state.player.weapon.special) {
+    spawnMuzzleFlash(state.player.weapon.name);
+  }
 
   if (state.viewWeaponMesh) {
     state.viewWeaponMesh.rotation.x += 0.3;

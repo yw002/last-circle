@@ -75,12 +75,12 @@ export const weapons = [
   { type: "pistol", name: "P92", ammo: 20, maxAmmo: 20, damage: 35, fireRate: 350, range: 300, color: 0x555555, sound: 'pistol', scope: null },
   { type: "pistol", name: "Desert Eagle", ammo: 10, maxAmmo: 10, damage: 62, fireRate: 500, range: 300, color: 0xdddddd, sound: 'sniper', scope: null },
   // Special apocalypse weapons - player-only effects are handled by specialWeapons.js
-  { type: "ar", name: "腐蚀喷射器", ammo: 30, maxAmmo: 30, damage: 24, fireRate: 110, range: 260, color: 0x9bdc28, sound: 'ar', scope: null, special: 'corrosive', rarity: 'special', ammoCost: 2, effectColor: 0xb6ff2e, description: '命中后追加腐蚀伤害' },
-  { type: "ar", name: "电弧链枪", ammo: 24, maxAmmo: 24, damage: 34, fireRate: 260, range: 520, color: 0x54d7ff, sound: 'ar_fast', scope: null, special: 'arc_chain', rarity: 'special', ammoCost: 3, effectColor: 0x7ce8ff, description: '命中后跳电至附近敌人' },
-  { type: "shotgun", name: "重力锤发射器", ammo: 8, maxAmmo: 8, damage: 36, fireRate: 850, range: 420, color: 0x7f5cff, sound: 'shotgun', scope: null, special: 'gravity_hammer', rarity: 'special', ammoCost: 5, effectColor: 0x8b5cff, description: '小范围冲击并推开敌人' },
-  { type: "sniper", name: "血雾收割枪", ammo: 6, maxAmmo: 6, damage: 115, fireRate: 1250, range: 900, color: 0x8f1028, sound: 'sniper', scope: null, special: 'blood_mist', rarity: 'special', ammoCost: 4, effectColor: 0xcc1f3c, description: '击杀怪物时爆开血雾溅射' },
-  { type: "sniper", name: "裂隙步枪", ammo: 12, maxAmmo: 12, damage: 72, fireRate: 520, range: 1100, color: 0x9b59ff, sound: 'sniper', scope: null, special: 'rift', rarity: 'special', ammoCost: 3, effectColor: 0xb05cff, description: '紫色裂隙弹可穿透目标' },
-  { type: "smg", name: "感染标记枪", ammo: 28, maxAmmo: 28, damage: 22, fireRate: 160, range: 450, color: 0xd15cff, sound: 'ar_fast', scope: null, special: 'infection_marker', rarity: 'special', ammoCost: 2, effectColor: 0xd15cff, description: '命中后短暂标记目标' },
+  { type: "ar", name: "腐蚀喷射器", ammo: 45, maxAmmo: 45, damage: 18, fireRate: 70, range: 260, color: 0x9bdc28, sound: 'ar_fast', scope: null, special: 'corrosive', rarity: 'special', ammoCost: 1, effectColor: 0xb6ff2e, description: '全自动腐蚀流，命中后追加腐蚀伤害' },
+  { type: "ar", name: "电弧链枪", ammo: 36, maxAmmo: 36, damage: 27, fireRate: 130, range: 520, color: 0x54d7ff, sound: 'ar_fast', scope: null, special: 'arc_chain', rarity: 'special', ammoCost: 1, effectColor: 0x7ce8ff, description: '全自动电弧束，命中后跳电至附近敌人' },
+  { type: "shotgun", name: "重力锤发射器", ammo: 22, maxAmmo: 22, damage: 28, fireRate: 190, range: 420, color: 0x7f5cff, sound: 'shotgun', scope: null, special: 'gravity_hammer', rarity: 'special', ammoCost: 1, effectColor: 0x8b5cff, description: '全自动重力球，小范围冲击并推开敌人' },
+  { type: "sniper", name: "血雾收割枪", ammo: 24, maxAmmo: 24, damage: 58, fireRate: 185, range: 850, color: 0x8f1028, sound: 'ar', scope: null, special: 'blood_mist', rarity: 'special', ammoCost: 1, effectColor: 0xcc1f3c, description: '全自动血雾弹，击杀怪物时爆开溅射' },
+  { type: "sniper", name: "裂隙步枪", ammo: 30, maxAmmo: 30, damage: 46, fireRate: 155, range: 950, color: 0x9b59ff, sound: 'ar_fast', scope: null, special: 'rift', rarity: 'special', ammoCost: 1, effectColor: 0xb05cff, description: '全自动裂隙光束，可穿透目标' },
+  { type: "smg", name: "感染标记枪", ammo: 42, maxAmmo: 42, damage: 17, fireRate: 85, range: 450, color: 0xd15cff, sound: 'ar_fast', scope: null, special: 'infection_marker', rarity: 'special', ammoCost: 1, effectColor: 0xd15cff, description: '全自动感染针，命中后短暂标记目标' },
   // Melee
   { type: "melee", name: "Pan", ammo: 1, maxAmmo: 1, damage: 80, fireRate: 600, range: 5, color: 0x111111, sound: 'hit', scope: null },
   { type: "melee", name: "Machete", ammo: 1, maxAmmo: 1, damage: 60, fireRate: 500, range: 5, color: 0x888888, sound: 'hit', scope: null },
