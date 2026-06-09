@@ -566,7 +566,9 @@ function initHouses() {
   const frontSegmentGeo = new THREE.BoxGeometry(11.75, 24, 0.5);
   const frontHeaderGeo = new THREE.BoxGeometry(6.5, 10, 0.5);
   const floorMat = new THREE.MeshLambertMaterial({ color: 0x512e10, side: THREE.DoubleSide });
+  const foundationMat = new THREE.MeshLambertMaterial({ color: 0x555555 });
   const floorGeo = new THREE.BoxGeometry(30, 0.4, 30);
+  const foundationGeo = new THREE.BoxGeometry(31, 5, 31);
 
   for (let i = 0; i < state.housePositions.length; i++) {
     let h = state.housePositions[i];
@@ -606,10 +608,14 @@ function initHouses() {
     const floor = new THREE.Mesh(floorGeo, floorMat);
     floor.position.set(0, 0.2, 0);
 
+    // Deep foundation slab (prevents floating on uneven terrain)
+    const foundation = new THREE.Mesh(foundationGeo, foundationMat);
+    foundation.position.set(0, -2.3, 0); // extends 5 units below, top flush with floor
+
     houseGroup.add(
       leftWallF, leftWallB, leftWallBot, leftWallTop,
       rightWallF, rightWallB, rightWallBot, rightWallTop,
-      backWall, frontWallL, frontWallR, frontHeader, floor
+      backWall, frontWallL, frontWallR, frontHeader, floor, foundation
     );
 
     const roof = new THREE.Mesh(roofGeo, roofMat);
@@ -655,7 +661,8 @@ function initHouses() {
     door.userData = { isBuilding: true, impactMaterial: 'wood' };
     roof.userData = { isBuilding: true, impactMaterial: 'metal' };
     floor.userData = { isBuilding: true, impactMaterial: 'wood' };
-    state.objects.push(leftWallF, leftWallB, rightWallF, rightWallB, backWall, frontWallL, frontWallR, door, roof, floor);
+    foundation.userData = { isBuilding: true, impactMaterial: 'building' };
+    state.objects.push(leftWallF, leftWallB, rightWallF, rightWallB, backWall, frontWallL, frontWallR, door, roof, floor, foundation);
 
     spawnLoot(x, y, z);
   }
