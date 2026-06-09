@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { state } from '../state.js';
 import { MAP_SIZE } from '../config.js';
+import { getNearbyEntities } from './spatial.js';
 
 // Temporary vectors for collision calculations
 const _tempBox = new THREE.Box3();
@@ -143,4 +144,30 @@ export function checkEntityCollision(oldX, oldZ, newX, newZ, y, entityHeight = 5
   }
 
   return { blocked: false, x: newX, z: newZ };
+}
+
+// Resolve entity-vs-entity collisions to prevent overlapping/clipping
+export function resolveEntityCollisions(pos, myId, myRadius = 2) {
+  const nearby = getNearbyEntities(pos.x, pos.z, 1);
+  let pushX = 0, pushZ = 0;
+
+  for (let i = 0; i < nearby.length; i++) {
+    const other = nearby[i];
+    if (other.id === myId) continue;
+
+    const dx = pos.x - other.pos.x;
+    const dz = pos.z - other.pos.z;
+    const distSq = dx * dx + dz * dz;
+    const minDist = myRadius + other.radius;
+
+    if (distSq < minDist * minDist && distSq > 0.01) {
+      const dist = Math.sqrt(distSq);
+      const overlap = minDist - dist;
+      pushX += (dx / dist) * overlap * 0.5;
+      pushZ += (dz / dist) * overlap * 0.5;
+    }
+  }
+
+  pos.x += pushX;
+  pos.z += pushZ;
 }

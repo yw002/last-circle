@@ -5,6 +5,8 @@ import { state } from '../state.js';
 import { getTerrainHeight } from '../world/terrain.js';
 import { playSound } from '../systems/audio.js';
 
+import { MAP_SIZE } from '../config.js';
+
 let meteors = [];
 let meteorTimer = 0;
 let nextMeteorTime = 10 + Math.random() * 10; // 10-20 seconds between meteors
@@ -25,20 +27,36 @@ const fireMat = new THREE.MeshBasicMaterial({
 });
 
 function createMeteor() {
-  // Random position near player
+  let targetX, targetZ, spawnX, spawnZ;
+
+  const roll = Math.random();
   let playerPos = state.controls.getObject().position;
-  let playerDir = new THREE.Vector3();
-  state.camera.getWorldDirection(playerDir);
 
-  // Spawn in sky near player (30-80 units away)
-  let spawnDist = 30 + Math.random() * 50;
-  let spawnX = playerPos.x + playerDir.x * spawnDist + (Math.random() - 0.5) * 60;
-  let spawnZ = playerPos.z + playerDir.z * spawnDist + (Math.random() - 0.5) * 60;
+  if (roll < 0.1) {
+    // 10% moderately close to player (50-100 units)
+    let angle = Math.random() * Math.PI * 2;
+    let dist = 50 + Math.random() * 50;
+    targetX = playerPos.x + Math.cos(angle) * dist;
+    targetZ = playerPos.z + Math.sin(angle) * dist;
+    spawnX = targetX + (Math.random() - 0.5) * 80;
+    spawnZ = targetZ + (Math.random() - 0.5) * 80;
+  } else if (roll < 0.65) {
+    // 55% at visible distance from player (120-350 units) — player can see these fall
+    let angle = Math.random() * Math.PI * 2;
+    let dist = 120 + Math.random() * 230;
+    targetX = playerPos.x + Math.cos(angle) * dist;
+    targetZ = playerPos.z + Math.sin(angle) * dist;
+    spawnX = targetX + (Math.random() - 0.5) * 100;
+    spawnZ = targetZ + (Math.random() - 0.5) * 100;
+  } else {
+    // 35% truly random across the map
+    targetX = (Math.random() - 0.5) * MAP_SIZE * 0.95;
+    targetZ = (Math.random() - 0.5) * MAP_SIZE * 0.95;
+    spawnX = targetX + (Math.random() - 0.5) * 120;
+    spawnZ = targetZ + (Math.random() - 0.5) * 120;
+  }
+
   let spawnY = 300 + Math.random() * 200;
-
-  // Target position near player (10-30 units away)
-  let targetX = playerPos.x + (Math.random() - 0.5) * 60;
-  let targetZ = playerPos.z + (Math.random() - 0.5) * 60;
   let targetY = getTerrainHeight(targetX, targetZ);
 
   // Create meteor mesh

@@ -24,6 +24,7 @@ export const state = {
   deers: [],
   boars: [],
   ghosts: [],
+  aliens: [],
   lootItems: [],
   killFeed: [],
 
@@ -54,6 +55,9 @@ export const state = {
 
   // Alive count (player + bots)
   aliveCount: 0,
+
+  // Giant boss
+  giantAlive: false,
 
   // Blue zone
   zone: {

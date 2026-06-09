@@ -18,6 +18,7 @@ import { botDied } from './bots.js';
 import { zombieDied } from './zombies.js';
 import { killAnimal, getAllAnimals } from './animals.js';
 import { alienDied, getAllAliens } from './aliens.js';
+import { damageGiant, isGiantAlive } from './giant.js';
 import { getNearbyColliders, getNearbyDoors, getNearbyLoot } from '../systems/spatial.js';
 import { checkSweptColliderCollision } from '../systems/collision.js';
 import { registerCombatHit } from '../systems/combatFeedback.js';
@@ -84,6 +85,7 @@ export function reloadWeapon() {
 
   state.player.isReloading = true;
   state.reloadStartTime = Date.now();
+  playSound('reload');
   document.getElementById('reload-bar-bg').style.display = 'block';
   document.getElementById('reload-bar').style.width = '0%';
 
@@ -599,6 +601,56 @@ export function updateWeaponModel() {
       sight, sightPost, magRelease, selector
     );
 
+  } else if (state.player.weapon.type === 'melee') {
+    // ========== MELEE WEAPONS ==========
+    if (wName === 'Pan') {
+      // Frying pan - disc with handle
+      const panMat = new THREE.MeshLambertMaterial({ color: 0x1a1a1a });
+      // Pan body (flat disc)
+      const panBody = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.24, 0.04, SEG), panMat);
+      panBody.rotation.x = Math.PI / 2;
+      panBody.position.set(0, 0.02, -0.45);
+      // Pan rim
+      const panRim = new THREE.Mesh(new THREE.TorusGeometry(0.23, 0.018, 8, SEG), panMat);
+      panRim.position.set(0, 0.02, -0.45);
+      // Pan bottom (slightly domed)
+      const panBottom = new THREE.Mesh(new THREE.SphereGeometry(0.2, SEG, 16, 0, Math.PI * 2, 0, Math.PI * 0.15), panMat);
+      panBottom.rotation.x = Math.PI;
+      panBottom.position.set(0, 0.02, -0.43);
+      // Handle
+      const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.03, 0.32, SEG), woodMat);
+      handle.rotation.x = Math.PI / 2;
+      handle.position.set(0, -0.02, -0.05);
+      // Handle end knob
+      const knob = new THREE.Mesh(new THREE.SphereGeometry(0.035, SEG, SEG), woodMat);
+      knob.position.set(0, -0.02, 0.1);
+      state.viewWeaponMesh.add(panBody, panRim, panBottom, handle, knob);
+    } else {
+      // Machete / generic melee blade
+      const bladeMat = new THREE.MeshLambertMaterial({ color: 0x888888 });
+      // Blade
+      const blade = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.1, 0.55), bladeMat);
+      blade.position.set(0, 0.04, -0.4);
+      // Blade edge (wider bottom)
+      const bladeEdge = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.13, 0.15), bladeMat);
+      bladeEdge.position.set(0, 0.04, -0.6);
+      // Blade tip
+      const bladeTip = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.08, 0.06), bladeMat);
+      bladeTip.position.set(0, 0.02, -0.7);
+      bladeTip.rotation.x = 0.3;
+      // Guard
+      const guard = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.025, 0.06), metalMat);
+      guard.position.set(0, -0.01, -0.1);
+      // Handle
+      const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.03, 0.22, SEG), woodMat);
+      handle.rotation.x = Math.PI / 2;
+      handle.position.set(0, -0.02, 0.05);
+      // Pommel
+      const pommel = new THREE.Mesh(new THREE.SphereGeometry(0.03, SEG, SEG), metalMat);
+      pommel.position.set(0, -0.02, 0.16);
+      state.viewWeaponMesh.add(blade, bladeEdge, bladeTip, guard, handle, pommel);
+    }
+
   } else {
     // ========== 100-STAR ASSAULT RIFLE ==========
     // Upper receiver
@@ -804,10 +856,12 @@ function setPlayerBoxFromEye(pPos, size) {
 
 function resolvePlayerGroundY(pPos, nearbyDoors, nearbyColliders) {
   let groundSurfaceY = getTerrainHeight(pPos.x, pPos.z);
+  const playerFootY = pPos.y - PLAYER_EYE_HEIGHT;
 
   for (let i = 0; i < nearbyDoors.length; i++) {
     const roofSurfaceY = getRoofSurfaceY(nearbyDoors[i].housePos, pPos.x, pPos.z);
-    if (roofSurfaceY !== null && roofSurfaceY > groundSurfaceY) {
+    // Only use roof as floor if player is truly at roof level (tight threshold)
+    if (roofSurfaceY !== null && roofSurfaceY > groundSurfaceY && playerFootY >= roofSurfaceY - 1.0) {
       groundSurfaceY = roofSurfaceY;
     }
   }
@@ -825,6 +879,8 @@ function resolvePlayerGroundY(pPos, nearbyDoors, nearbyColliders) {
 }
 
 function applyGroundSafety(pPos, nearbyDoors, nearbyColliders) {
+  // Only snap to ground when falling or stationary, never during upward jump
+  if (state.velocity.y > 1.0) return;
   const minY = resolvePlayerGroundY(pPos, nearbyDoors, nearbyColliders);
   if (pPos.y < minY) {
     pPos.y = minY;
@@ -841,6 +897,104 @@ export function fireWeapon() {
   let now = Date.now();
   if (now - state.player.lastFire < state.player.weapon.fireRate) return;
 
+  // ========== MELEE ATTACK ==========
+  if (state.player.weapon.type === 'melee') {
+    state.player.lastFire = now;
+    playSound('melee');
+
+    // Swing animation
+    if (state.viewWeaponMesh) {
+      state.viewWeaponMesh.rotation.z -= 1.2;
+      state.viewWeaponMesh.rotation.x += 0.4;
+      state.viewWeaponMesh.position.z -= 0.1;
+    }
+
+    // Cone-based melee hit detection
+    const cam = state.camera;
+    const forward = cam.getWorldDirection(new THREE.Vector3());
+    forward.y = 0;
+    forward.normalize();
+    const myPos = cam.position.clone();
+    const meleeRange = 8;
+    const meleeDamage = state.player.weapon.damage;
+    let hitAny = false;
+
+    // Check bots
+    for (const bot of state.bots) {
+      if (!bot.alive) continue;
+      const dx = bot.position.x - myPos.x;
+      const dz = bot.position.z - myPos.z;
+      const dist = Math.sqrt(dx * dx + dz * dz);
+      if (dist > meleeRange) continue;
+      const toTarget = new THREE.Vector3(dx, 0, dz).normalize();
+      if (forward.dot(toTarget) > 0.4) {
+        bot.health -= meleeDamage;
+        if (bot.health <= 0) {
+          bot.alive = false;
+          bot.mesh.visible = false;
+          state.player.kills++;
+        }
+        hitAny = true;
+        break;
+      }
+    }
+
+    // Check zombies
+    if (!hitAny) {
+      for (const zombie of state.zombies) {
+        if (!zombie.alive) continue;
+        const dx = zombie.mesh.position.x - myPos.x;
+        const dz = zombie.mesh.position.z - myPos.z;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+        if (dist > meleeRange) continue;
+        const toTarget = new THREE.Vector3(dx, 0, dz).normalize();
+        if (forward.dot(toTarget) > 0.4) {
+          zombie.health -= meleeDamage;
+          if (zombie.health <= 0) {
+            zombie.alive = false;
+            zombie.mesh.visible = false;
+            state.player.kills++;
+          }
+          hitAny = true;
+          break;
+        }
+      }
+    }
+
+    // Check animals
+    if (!hitAny && state._allAnimals) {
+      for (const animal of state._allAnimals) {
+        if (!animal.alive) continue;
+        const dx = animal.mesh.position.x - myPos.x;
+        const dz = animal.mesh.position.z - myPos.z;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+        if (dist > meleeRange) continue;
+        const toTarget = new THREE.Vector3(dx, 0, dz).normalize();
+        if (forward.dot(toTarget) > 0.4) {
+          animal.health -= meleeDamage;
+          if (animal.health <= 0) {
+            animal.alive = false;
+            animal.mesh.visible = false;
+            state.player.kills++;
+          }
+          hitAny = true;
+          break;
+        }
+      }
+    }
+
+    // Show hit feedback
+    if (hitAny) {
+      showNotice(`🔪 近战命中！(-${meleeDamage} DMG)`, "#f39c12");
+      // Screen shake for impact feel
+      state.player.recoilY += 0.15;
+    }
+
+    updateUI();
+    return;
+  }
+
+  // ========== RANGED WEAPONS ==========
   const ammoCost = Math.max(1, state.player.weapon.ammoCost || 1);
   if (state.player.weapon.ammo < ammoCost) {
     playSound('dry_fire');
@@ -905,7 +1059,7 @@ export function fireWeapon() {
     if (hit.distance > state.player.weapon.range) break;
 
     let ud = hit.object.userData;
-    if (ud.isBot || ud.isZombie || ud.isAnimal || ud.isAlien) {
+    if (ud.isBot || ud.isZombie || ud.isAnimal || ud.isAlien || ud.isGiant) {
       if (!targetHit) targetHit = hit;
     } else {
       if (!coverHit) coverHit = hit;
@@ -1002,6 +1156,14 @@ export function fireWeapon() {
         if (isKill) {
           alienDied(alien);
         }
+      }
+    } else if (ud.isGiant) {
+      if (isGiantAlive()) {
+        let dmg = state.player.weapon.damage;
+        damageGiant(dmg, targetHit.point);
+        playSound('giantHit', targetHit.point ? { x: targetHit.point.x, y: targetHit.point.y, z: targetHit.point.z } : null);
+        let n = targetHit.face ? targetHit.face.normal : new THREE.Vector3(0, 1, 0);
+        spawnBlood(targetHit.point, n);
       }
     }
   } // End pellet loop

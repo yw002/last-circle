@@ -3,14 +3,14 @@
 import * as THREE from 'three';
 import { state } from '../state.js';
 import { MAP_SIZE } from '../config.js';
-import { getTerrainHeight } from '../world/terrain.js';
+import { getTerrainHeight, getGroundHeight } from '../world/terrain.js';
 import { getHousePlayerIsInside, getHouseObjectIsInside } from './house.js';
 import { playZombieSound } from '../systems/audio.js';
 import { spawnBlood } from '../systems/particles.js';
 import { playerHit } from './player.js';
 import { botDied } from './bots.js';
 import { createTracerFromPosition } from '../systems/bullets.js';
-import { checkEntityCollision } from '../systems/collision.js';
+import { checkEntityCollision, resolveEntityCollisions } from '../systems/collision.js';
 import { getNearbyBots, getNearbyColliders, getNearbyDoors } from '../systems/spatial.js';
 import { spawnSingleLoot } from '../world/loot.js';
 import { addKillFeed } from '../ui/notices.js';
@@ -36,10 +36,14 @@ const zombieDetailMat = new THREE.MeshLambertMaterial({
   emissiveIntensity: 0.6,
   side: THREE.DoubleSide
 });
-const eyeMat = new THREE.MeshBasicMaterial({ color: 0xeeff77 });
+const eyeMat = new THREE.MeshBasicMaterial({ color: 0xeeff44 });
+const eyeGlowMat = new THREE.MeshBasicMaterial({ color: 0xaaff22, transparent: true, opacity: 0.6 });
 const darkMat = new THREE.MeshLambertMaterial({ color: 0x111111 });
 const boneMat = new THREE.MeshLambertMaterial({ color: 0xddccaa });
 const pupilMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+const tornClothMat = new THREE.MeshLambertMaterial({ color: 0x3a2a1a, side: THREE.DoubleSide });
+const bloodDripMat = new THREE.MeshBasicMaterial({ color: 0x8b0000, transparent: true, opacity: 0.8 });
+const woundMat = new THREE.MeshLambertMaterial({ color: 0x4a0808, emissive: 0x2a0404, emissiveIntensity: 0.3 });
 
 // ========== MAXIMUM PRECISION ZOMBIE GEOMETRIES ==========
 const SEG_Z = 48; // Ultra-high segment count for zombies
@@ -112,24 +116,41 @@ const zGeos = {
   // Boots - torn with soles
   boot: new THREE.CylinderGeometry(0.3, 0.35, 0.9, SEG_Z / 2),
   bootSole: new THREE.BoxGeometry(0.6, 0.1, 1.1),
-  bootTongue: new THREE.BoxGeometry(0.25, 0.04, 0.5)
+  bootTongue: new THREE.BoxGeometry(0.25, 0.04, 0.5),
+
+  // Visual effects
+  eyeGlow: new THREE.SphereGeometry(0.35, 12, 12),
+  tornCloth: new THREE.PlaneGeometry(0.6, 1.2),
+  bloodDrip: new THREE.CylinderGeometry(0.06, 0.03, 0.8, 6),
+  openWound: new THREE.SphereGeometry(0.25, 8, 8)
 };
 
-const ZOMBIE_COUNT = 30; // Reduced from 60 for better performance
+const ZOMBIE_COUNT = 15; // Finite zombie count — clear them all to win this threat
 const _zombieDir = new THREE.Vector3();
 const _zombieBloodPos = new THREE.Vector3();
 const _zombieUp = new THREE.Vector3(0, 1, 0);
 const _zombieBloodOffset = new THREE.Vector3(0, 4, 0);
 
 export function initZombies() {
+  // Pick 3-4 specific houses to cluster zombies around (so player can clear them)
+  const clusterHouses = [];
+  if (state.housePositions.length > 0) {
+    const numClusters = Math.min(4, state.housePositions.length);
+    const shuffled = [...state.housePositions].sort(() => Math.random() - 0.5);
+    for (let c = 0; c < numClusters; c++) {
+      clusterHouses.push(shuffled[c]);
+    }
+  }
+
   for (let i = 0; i < ZOMBIE_COUNT; i++) {
     const zombieGroup = new THREE.Group();
 
     let x, z;
-    if (i < 45 && state.housePositions.length > 0) {
-      let house = state.housePositions[Math.floor(Math.random() * state.housePositions.length)];
+    if (clusterHouses.length > 0) {
+      // Cluster around specific houses (4-5 per house)
+      let house = clusterHouses[i % clusterHouses.length];
       let angle = Math.random() * Math.PI * 2;
-      let dist = 15 + Math.random() * 30;
+      let dist = 12 + Math.random() * 25;
       x = house.x + Math.cos(angle) * dist;
       z = house.z + Math.sin(angle) * dist;
     } else {
@@ -279,17 +300,63 @@ export function initZombies() {
     const bootSoleR = new THREE.Mesh(zGeos.bootSole, darkMat);
     bootSoleR.position.set(0.7, 0.05, 0.35);
 
+    // Eye glow effect (halo around eyes)
+    const eyeGlowL = new THREE.Mesh(zGeos.eyeGlow, eyeGlowMat);
+    eyeGlowL.position.set(-0.4, 7.7, 0.85);
+    const eyeGlowR = new THREE.Mesh(zGeos.eyeGlow, eyeGlowMat);
+    eyeGlowR.position.set(0.4, 7.7, 0.85);
+
+    // Torn clothing strips hanging from body
+    const tornStrips = [];
+    const stripCount = 2 + Math.floor(Math.random() * 4);
+    for (let s = 0; s < stripCount; s++) {
+      const strip = new THREE.Mesh(zGeos.tornCloth, tornClothMat);
+      const angle = Math.random() * Math.PI * 2;
+      const yPos = 3.0 + Math.random() * 3.0;
+      strip.position.set(Math.sin(angle) * 1.5, yPos, Math.cos(angle) * 1.0);
+      strip.rotation.set(Math.random() * 0.5, angle, Math.random() * 0.3);
+      tornStrips.push(strip);
+    }
+
+    // Blood drips
+    const drips = [];
+    const dripCount = 2 + Math.floor(Math.random() * 3);
+    for (let d = 0; d < dripCount; d++) {
+      const drip = new THREE.Mesh(zGeos.bloodDrip, bloodDripMat);
+      const angle = Math.random() * Math.PI * 2;
+      const yPos = 4.0 + Math.random() * 4.0;
+      drip.position.set(Math.sin(angle) * 1.6, yPos, Math.cos(angle) * 1.2);
+      drips.push(drip);
+    }
+
+    // Open wounds on body
+    const wounds = [];
+    const woundCount = 1 + Math.floor(Math.random() * 3);
+    for (let w = 0; w < woundCount; w++) {
+      const wound = new THREE.Mesh(zGeos.openWound, woundMat);
+      const angle = Math.random() * Math.PI * 2;
+      const yPos = 3.5 + Math.random() * 3.5;
+      wound.position.set(Math.sin(angle) * 1.4, yPos, Math.cos(angle) * 1.0);
+      wound.scale.set(0.8 + Math.random() * 0.5, 0.6, 0.8 + Math.random() * 0.5);
+      wounds.push(wound);
+    }
+
     // Add all parts
     const zombieModel = new THREE.Group();
     zombieModel.add(
       torsoLower, torsoUpper, neck, head, skull, jaw,
-      eyeL, eyeR, pupilL, pupilR, bloodWound,
+      eyeL, eyeR, eyeGlowL, eyeGlowR, pupilL, pupilR, bloodWound,
       armUpperL, elbowL, armLowerL, boneL, handL, clawL1, clawL2, clawL3,
       armUpperR, elbowR, armLowerR, handR, clawR1, clawR2, clawR3,
       legUpperL, kneeL, legLowerL, bootL, bootSoleL,
-      legUpperR, kneeR, legLowerR, bootR, bootSoleR
+      legUpperR, kneeR, legLowerR, bootR, bootSoleR,
+      ...tornStrips, ...drips, ...wounds
     );
     zombieGroup.add(zombieModel);
+
+    // Random scale variation (some zombies bigger/smaller)
+    const zScale = 0.9 + Math.random() * 0.25;
+    zombieGroup.scale.set(zScale, zScale * (0.95 + Math.random() * 0.1), zScale);
 
     zombieGroup.position.set(x, y, z);
     state.scene.add(zombieGroup);
@@ -403,8 +470,11 @@ export function updateZombies(delta) {
       let targetPos = zombie.target === 'player' ? playerPos : zombie.target.mesh.position;
       let dir = _zombieDir.subVectors(targetPos, zPos);
       dir.y = 0;
-      let dist = dir.length();
+      let distXZ = dir.length();
       dir.normalize();
+      // 3D distance including height difference
+      const dy = targetPos.y - zPos.y;
+      const dist3D = Math.sqrt(distXZ * distXZ + dy * dy);
 
       zombie.vx = dir.x * zombie.speed;
       zombie.vz = dir.z * zombie.speed;
@@ -415,13 +485,14 @@ export function updateZombies(delta) {
       if (Math.random() < 0.004) {
         playZombieSound('growl', { x: zPos.x, y: zPos.y, z: zPos.z });
       }
-      if (zombie.target === 'player' && dist < 22 && dist >= 6 && now - zombie.lastThreatGrowl > 2600) {
+      if (zombie.target === 'player' && dist3D < 22 && dist3D >= 6 && now - zombie.lastThreatGrowl > 2600) {
         // Short pre-attack warning makes nearby zombies readable without increasing their damage.
         zombie.lastThreatGrowl = now;
         playZombieSound('growl', { x: zPos.x, y: zPos.y, z: zPos.z });
       }
 
-      if (dist < 6.0) {
+      // Attack only if close in 3D distance (height difference matters)
+      if (dist3D < 6.0) {
         zombie.vx = 0; zombie.vz = 0;
 
         let targetHouse = zombie.target === 'player' ? getHousePlayerIsInside() : getHouseObjectIsInside(zombie.target.mesh.position);
@@ -478,7 +549,9 @@ export function updateZombies(delta) {
       zombie.vx = -zombie.vx * 0.5;
       zombie.vz = -zombie.vz * 0.5;
     }
-    zPos.y = getTerrainHeight(zPos.x, zPos.z);
+    zPos.y = getGroundHeight(zPos.x, zPos.z, 2);
+    resolveEntityCollisions(zPos, 'zombie_' + zombie.id, 2);
+    zPos.y = getGroundHeight(zPos.x, zPos.z, 2);
 
     // Leg animation
     let moveSpeedSq = zombie.vx * zombie.vx + zombie.vz * zombie.vz;
@@ -507,7 +580,14 @@ export function zombieDied(zombie) {
   if (idx3 > -1) state.objects.splice(idx3, 1);
 
   state.player.kills++;
-  showNotice("击杀血腥丧尸！(+1 击杀)", "#e74c3c");
+
+  // Show remaining zombie count
+  const remaining = state.zombies.filter(z => z.alive).length;
+  if (remaining === 0) {
+    showNotice("🎉 所有丧尸已清除！", "#2ecc71");
+  } else {
+    showNotice(`击杀丧尸！剩余 ${remaining}/${ZOMBIE_COUNT}`, "#e74c3c");
+  }
 
   let r = Math.random();
   if (r < 0.4) {
@@ -516,6 +596,6 @@ export function zombieDied(zombie) {
     spawnSingleLoot(zombie.mesh.position.x, zombie.mesh.position.y, zombie.mesh.position.z, 'ammo');
   }
 
-  addKillFeed(`[You] 击杀了一只 [血腥丧尸]`);
+  addKillFeed(`[You] 击杀了一只 [血腥丧尸] (${remaining} 剩余)`);
   updateUI();
 }

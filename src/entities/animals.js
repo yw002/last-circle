@@ -4,13 +4,13 @@
 import * as THREE from 'three';
 import { state } from '../state.js';
 import { MAP_SIZE } from '../config.js';
-import { getTerrainHeight } from '../world/terrain.js';
+import { getTerrainHeight, getGroundHeight } from '../world/terrain.js';
 import { spawnSingleLoot } from '../world/loot.js';
 import { addKillFeed } from '../ui/notices.js';
 import { updateUI } from '../ui/hud.js';
 import { showNotice } from '../ui/notices.js';
 import { playerHit } from './player.js';
-import { checkEntityCollision } from '../systems/collision.js';
+import { checkEntityCollision, resolveEntityCollisions } from '../systems/collision.js';
 import { getNearbyColliders, getNearbyDoors } from '../systems/spatial.js';
 
 // ========== SHARED RESOURCES ==========
@@ -384,8 +384,11 @@ function createAnimalBody(type, config) {
 }
 
 function spawnAnimal(type, x, z, config) {
-  const y = getTerrainHeight(x, z);
-  if (y < 1) return null;
+  const isFlying = ['eagle', 'hawk', 'owl'].includes(type);
+  const y = isFlying
+    ? getTerrainHeight(x, z) + 80 + Math.random() * 60
+    : getTerrainHeight(x, z);
+  if (!isFlying && y < 1) return null;
 
   const { group, body, head, legFL, legFR, legBL, legBR } = createAnimalBody(type, config);
 
@@ -404,7 +407,14 @@ function spawnAnimal(type, x, z, config) {
     legFL, legFR, legBL, legBR,
     vx: (Math.random() - 0.5) * 10, vz: (Math.random() - 0.5) * 10,
     state: 'wander', health: config.health, maxHealth: config.health,
-    alive: true, changeDirTime: 0, fearCooldown: 0, attackCooldown: 0, config
+    alive: true, changeDirTime: 0, fearCooldown: 0, attackCooldown: 0, config,
+    // Flying properties
+    flyCenterX: x, flyCenterZ: z,
+    flyAngle: Math.random() * Math.PI * 2,
+    flyRadius: 30 + Math.random() * 50,
+    flySpeed: 0.3 + Math.random() * 0.3,
+    flyPhase: Math.random() * Math.PI * 2,
+    isFlying
   };
 
   allAnimals.push(animal);
@@ -612,6 +622,81 @@ export function updateAnimals(delta) {
 
     const COLLISION_DIST = 4.0;
     const distToPlayer = Math.sqrt(distToPlayerSq);
+    // 3D distance including height difference (prevents melee from height gap)
+    const dyPlayer = aPos.y - playerPos.y;
+    const distToPlayer3D = Math.sqrt(distToPlayerSq + dyPlayer * dyPlayer);
+
+    // ========== FLYING ANIMALS (eagle, hawk, owl) ==========
+    if (animal.isFlying) {
+      // Circle around center point
+      animal.flyAngle += animal.flySpeed * stepDelta;
+      animal.flyPhase += stepDelta;
+
+      // Occasionally change center (drift)
+      if (now > animal.changeDirTime) {
+        animal.changeDirTime = now + 5000 + Math.random() * 8000;
+        // Drift center toward player area sometimes
+        if (distToPlayer < 200 * 200 && Math.random() < 0.3) {
+          animal.flyCenterX = playerPos.x + (Math.random() - 0.5) * 150;
+          animal.flyCenterZ = playerPos.z + (Math.random() - 0.5) * 150;
+        } else {
+          animal.flyCenterX += (Math.random() - 0.5) * 80;
+          animal.flyCenterZ += (Math.random() - 0.5) * 80;
+        }
+        animal.flyRadius = 30 + Math.random() * 60;
+        animal.flySpeed = 0.2 + Math.random() * 0.4;
+      }
+
+      // Flee upward when player is very close
+      const FLEE_DIST = 40;
+      if (distToPlayer < FLEE_DIST) {
+        const fleeDir = _animalDir.subVectors(aPos, playerPos);
+        fleeDir.y = Math.abs(fleeDir.y) + 20;
+        fleeDir.normalize();
+        aPos.x += fleeDir.x * config.speed * stepDelta;
+        aPos.z += fleeDir.z * config.speed * stepDelta;
+        aPos.y += fleeDir.y * stepDelta * 15;
+      } else {
+        // Normal circling
+        const targetX = animal.flyCenterX + Math.cos(animal.flyAngle) * animal.flyRadius;
+        const targetZ = animal.flyCenterZ + Math.sin(animal.flyAngle) * animal.flyRadius;
+        aPos.x += (targetX - aPos.x) * 2 * stepDelta;
+        aPos.z += (targetZ - aPos.z) * 2 * stepDelta;
+
+        // Maintain altitude with bobbing
+        const terrainY = getTerrainHeight(aPos.x, aPos.z);
+        const targetY = terrainY + 80 + Math.sin(animal.flyPhase * 0.8) * 15;
+        aPos.y += (targetY - aPos.y) * 1.5 * stepDelta;
+      }
+
+      // Face movement direction
+      const lookX = aPos.x + Math.cos(animal.flyAngle + Math.PI / 2) * 10;
+      const lookZ = aPos.z + Math.sin(animal.flyAngle + Math.PI / 2) * 10;
+      animal.mesh.lookAt(lookX, aPos.y, lookZ);
+
+      // Wing flapping animation
+      if (animal.mesh.children) {
+        for (let c = 0; c < animal.mesh.children.length; c++) {
+          const child = animal.mesh.children[c];
+          // Wings are the BoxGeometry meshes offset on X axis
+          if (child.geometry && child.geometry.parameters &&
+              child.geometry.parameters.width === 0.08 &&
+              child.geometry.parameters.depth === 3.5) {
+            const wingSide = child.position.x > 0 ? 1 : -1;
+            child.rotation.z = Math.sin(now * 0.012) * 0.6 * wingSide;
+          }
+        }
+      }
+
+      // Boundary
+      if (Math.abs(aPos.x) > MAP_SIZE / 2 || Math.abs(aPos.z) > MAP_SIZE / 2) {
+        animal.flyCenterX = (Math.random() - 0.5) * MAP_SIZE * 0.4;
+        animal.flyCenterZ = (Math.random() - 0.5) * MAP_SIZE * 0.4;
+      }
+      return; // Skip ground animal logic
+    }
+
+    // ========== GROUND ANIMALS ==========
 
     // State machine
     if (config.charges && distToPlayer < (config.fleeDistance || 35)) {
@@ -641,7 +726,7 @@ export function updateAnimals(delta) {
         animal.vx = dir.x * config.speed;
         animal.vz = dir.z * config.speed;
         animal.mesh.lookAt(playerPos.x, aPos.y, playerPos.z);
-        if (distToPlayer < COLLISION_DIST) {
+        if (distToPlayer3D < COLLISION_DIST) {
           animal.state = 'wander';
           animal.attackCooldown = now + 4000;
           animal.vx = -dir.x * 20;
@@ -659,7 +744,7 @@ export function updateAnimals(delta) {
         animal.vx = dir.x * config.speed * 0.9;
         animal.vz = dir.z * config.speed * 0.9;
         animal.mesh.lookAt(playerPos.x, aPos.y, playerPos.z);
-        if (distToPlayer < 5.0 && now > animal.attackCooldown) {
+        if (distToPlayer3D < 5.0 && now > animal.attackCooldown) {
           animal.attackCooldown = now + 1500;
           animal.vx = -dir.x * 15;
           animal.vz = -dir.z * 15;
@@ -691,6 +776,7 @@ export function updateAnimals(delta) {
     // Check collision before moving (skip for flying and swimming animals)
     const isFlying = ['eagle', 'hawk', 'owl'].includes(animal.type);
     const isSwimming = animal.type === 'fish';
+    const animalRadius = 2 * (animal.config.scale || 1);
 
     if (!isFlying && !isSwimming) {
       const nearbyColliders = getNearbyColliders(aPos.x, aPos.z);
@@ -713,7 +799,9 @@ export function updateAnimals(delta) {
       aPos.x = newX;
       aPos.z = newZ;
     }
-    aPos.y = getTerrainHeight(aPos.x, aPos.z);
+    aPos.y = getGroundHeight(aPos.x, aPos.z, animalRadius);
+    resolveEntityCollisions(aPos, 'animal_' + animal.id, animalRadius);
+    aPos.y = getGroundHeight(aPos.x, aPos.z, animalRadius);
 
     // House wall collision for animals
     if (animal.type !== 'fish' && animal.type !== 'eagle' && animal.type !== 'hawk' && animal.type !== 'owl') {
@@ -759,19 +847,21 @@ export function updateAnimals(delta) {
       }
     }
 
-    // Player collision
+    // Player collision (use 3D distance - height difference prevents push)
     const isAggressive = config.attackDistance || config.charges;
     const MIN_DIST = isAggressive ? 2.5 : 8.0;
     const dx = aPos.x - playerPos.x;
     const dz = aPos.z - playerPos.z;
     const newDistSq = dx * dx + dz * dz;
-    if (newDistSq < MIN_DIST * MIN_DIST && animal.type !== 'fish') {
-      const newDist = Math.sqrt(newDistSq);
+    const dyCol = aPos.y - playerPos.y;
+    const newDist3D = Math.sqrt(newDistSq + dyCol * dyCol);
+    if (newDist3D < MIN_DIST && animal.type !== 'fish') {
+      const newDist = Math.sqrt(newDistSq) || 0.01;
       const pushX = dx / newDist;
       const pushZ = dz / newDist;
       aPos.x = playerPos.x + pushX * MIN_DIST;
       aPos.z = playerPos.z + pushZ * MIN_DIST;
-      aPos.y = getTerrainHeight(aPos.x, aPos.z);
+      aPos.y = getGroundHeight(aPos.x, aPos.z, animalRadius);
       if (!isAggressive) {
         animal.vx = pushX * 40;
         animal.vz = pushZ * 40;
@@ -786,7 +876,7 @@ export function updateAnimals(delta) {
     if (Math.abs(aPos.x) > MAP_SIZE / 2 || Math.abs(aPos.z) > MAP_SIZE / 2) {
       aPos.x = (Math.random() - 0.5) * MAP_SIZE * 0.4;
       aPos.z = (Math.random() - 0.5) * MAP_SIZE * 0.4;
-      aPos.y = getTerrainHeight(aPos.x, aPos.z);
+      aPos.y = getGroundHeight(aPos.x, aPos.z, animalRadius);
     }
 
     // Leg animation

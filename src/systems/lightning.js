@@ -5,17 +5,32 @@ import { state } from '../state.js';
 import { getTerrainHeight } from '../world/terrain.js';
 import { playThunderSound } from './audio.js';
 
+import { MAP_SIZE } from '../config.js';
+
 export function triggerLightningStrike() {
   if (!state.controls) return;
 
+  let strikeX, strikeZ;
+  const roll = Math.random();
   let playerPos = state.controls.getObject().position;
 
-  // Strike around the player instead of directly chasing the camera/feet.
-  const angle = Math.random() * Math.PI * 2;
-  const nearStrike = Math.random() < 0.2;
-  const strikeDist = nearStrike ? 35 + Math.random() * 35 : 70 + Math.random() * 110;
-  const strikeX = playerPos.x + Math.cos(angle) * strikeDist;
-  const strikeZ = playerPos.z + Math.sin(angle) * strikeDist;
+  if (roll < 0.1) {
+    // 10% close to player for tension (50-120 units)
+    const angle = Math.random() * Math.PI * 2;
+    const strikeDist = 50 + Math.random() * 70;
+    strikeX = playerPos.x + Math.cos(angle) * strikeDist;
+    strikeZ = playerPos.z + Math.sin(angle) * strikeDist;
+  } else if (roll < 0.65) {
+    // 55% at visible distance from player (120-350 units) — player can actually see these
+    const angle = Math.random() * Math.PI * 2;
+    const strikeDist = 120 + Math.random() * 230;
+    strikeX = playerPos.x + Math.cos(angle) * strikeDist;
+    strikeZ = playerPos.z + Math.sin(angle) * strikeDist;
+  } else {
+    // 35% truly random across the map
+    strikeX = (Math.random() - 0.5) * MAP_SIZE * 0.95;
+    strikeZ = (Math.random() - 0.5) * MAP_SIZE * 0.95;
+  }
 
   createLightningBolt(strikeX, strikeZ);
   playThunderSound();

@@ -26,6 +26,7 @@ import { initAliens, updateAliens, alienDied } from './entities/aliens.js';
 import { updateMeteors } from './entities/meteors.js';
 import { updateTornadoes } from './entities/tornadoes.js';
 import { initVolcano, updateVolcano } from './entities/volcano.js';
+import { initGiant, updateGiant } from './entities/giant.js';
 import { updateUI } from './ui/hud.js';
 import { initMinimap, updateMinimap } from './ui/minimap.js';
 import { initHitIndicator } from './ui/hitindicator.js';
@@ -153,6 +154,7 @@ function init() {
       initZombies();
       initGhosts();
       initAliens();
+      initGiant();
     }
   });
 
@@ -271,6 +273,7 @@ function animate() {
       runFrameStep('meteor update', () => updateMeteors(delta));
       runFrameStep('tornado update', () => updateTornadoes(delta));
       runFrameStep('volcano update', () => updateVolcano(delta));
+      runFrameStep('giant update', () => updateGiant(delta));
       runFrameStep('zone update', () => updateZone(delta));
       runFrameStep('weather update', () => updateWeather(delta));
       runFrameStep('particle update', () => updateParticles(delta));

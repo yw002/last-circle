@@ -317,22 +317,25 @@ export function resetFPS() {
   recentFpsSamples.length = 0;
 }
 
-// Adaptive quality based on FPS
+// Adaptive quality based on FPS (FogExp2 uses density, not near/far)
 export function adaptQuality(fps) {
   if (fps < 30) {
-    // Reduce quality
-    state.scene.fog.near = 100;
-    state.scene.fog.far = 1000;
+    // Reduce quality — increase fog density to hide distant objects
+    if (state.scene.fog && state.scene.fog.density !== undefined) {
+      state.scene.fog.density = 0.001;
+    }
     return 'low';
   } else if (fps < 45) {
     // Medium quality
-    state.scene.fog.near = 200;
-    state.scene.fog.far = 1500;
+    if (state.scene.fog && state.scene.fog.density !== undefined) {
+      state.scene.fog.density = 0.0006;
+    }
     return 'medium';
   } else {
-    // High quality
-    state.scene.fog.near = 300;
-    state.scene.fog.far = 2000;
+    // High quality — maximum visibility
+    if (state.scene.fog && state.scene.fog.density !== undefined) {
+      state.scene.fog.density = 0.0004;
+    }
     return 'high';
   }
 }

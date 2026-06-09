@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { state } from '../state.js';
 import { MAP_SIZE } from '../config.js';
-import { getTerrainHeight } from '../world/terrain.js';
+import { getTerrainHeight, getGroundHeight } from '../world/terrain.js';
 import { playerHit } from './player.js';
 import { botDied } from './bots.js';
 import { spawnSingleLoot } from '../world/loot.js';
@@ -13,7 +13,7 @@ import { updateUI } from '../ui/hud.js';
 import { showNotice } from '../ui/notices.js';
 import { playSound } from '../systems/audio.js';
 import { spawnBlood, spawnWorldMuzzleFlash } from '../systems/particles.js';
-import { checkEntityCollision } from '../systems/collision.js';
+import { checkEntityCollision, resolveEntityCollisions } from '../systems/collision.js';
 import { getNearbyBots, getNearbyColliders, getNearbyDoors } from '../systems/spatial.js';
 
 let ufos = [];
@@ -177,6 +177,7 @@ export function initAliens() {
   for (let i = 0; i < 3; i++) {
     spawnUFO();
   }
+  state.aliens = aliens;
 }
 
 function spawnUFO() {
@@ -387,7 +388,7 @@ export function updateAliens(delta) {
 
     // Descend to ground if still in air
     if (alien.state === 'descending') {
-      let groundY = getTerrainHeight(aPos.x, aPos.z);
+      let groundY = getGroundHeight(aPos.x, aPos.z, 1.5);
       if (aPos.y > groundY + 2) {
         aPos.y -= 20 * delta;
       } else {
@@ -450,7 +451,9 @@ export function updateAliens(delta) {
         alien.vx = -alien.vx * 0.5;
         alien.vz = -alien.vz * 0.5;
       }
-      aPos.y = getTerrainHeight(aPos.x, aPos.z) + 2;
+      aPos.y = getGroundHeight(aPos.x, aPos.z, 1.5) + 2;
+      resolveEntityCollisions(aPos, 'alien_' + alien.id, 1.5);
+      aPos.y = getGroundHeight(aPos.x, aPos.z, 1.5) + 2;
 
       // Hover slightly
       aPos.y += Math.sin(now * 0.003) * 0.5;
@@ -488,9 +491,10 @@ export function updateAliens(delta) {
         aPos.z = newZ;
       }
 
-      aPos.y = getTerrainHeight(aPos.x, aPos.z) + 2;
+      aPos.y = getGroundHeight(aPos.x, aPos.z, 1.5) + 2;
+      resolveEntityCollisions(aPos, 'alien_' + alien.id, 1.5);
+      aPos.y = getGroundHeight(aPos.x, aPos.z, 1.5) + 2;
       aPos.y += Math.sin(now * 0.003) * 0.5;
-
       // Face target
       alien.mesh.lookAt(targetPos.x, aPos.y, targetPos.z);
 

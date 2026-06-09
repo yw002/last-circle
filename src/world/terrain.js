@@ -100,6 +100,17 @@ export function getTerrainHeight(x, z) {
   return getBaseTerrainHeight(x, z);
 }
 
+// Sample terrain at multiple points around an entity to prevent feet sinking on slopes
+export function getGroundHeight(x, z, radius = 1.5) {
+  const center = getTerrainHeight(x, z);
+  // Sample 4 cardinal points around entity footprint
+  const h1 = getTerrainHeight(x + radius, z);
+  const h2 = getTerrainHeight(x - radius, z);
+  const h3 = getTerrainHeight(x, z + radius);
+  const h4 = getTerrainHeight(x, z - radius);
+  return Math.max(center, h1, h2, h3, h4);
+}
+
 export function initTerrain() {
   // Build spatial grid after houses are generated
   buildHouseGrid();

@@ -930,6 +930,208 @@ export function playThunderSound() {
   } catch (e) {}
 }
 
+// ========== RELOAD SOUND (5 layers) ==========
+function playReloadSound(now, vol, panner) {
+  // Layer 1: Magazine release click
+  const magClick = audioCtx.createOscillator();
+  const magGain = audioCtx.createGain();
+  magClick.type = 'square';
+  magClick.frequency.setValueAtTime(1800, now);
+  magClick.frequency.exponentialRampToValueAtTime(400, now + 0.015);
+  magGain.gain.setValueAtTime(vol * 0.6, now);
+  magGain.gain.exponentialRampToValueAtTime(0.001, now + 0.025);
+  magClick.connect(magGain);
+  connectToOutput(magGain, panner);
+  magClick.start(now);
+  magClick.stop(now + 0.03);
+
+  // Layer 2: Magazine drop (hollow thud)
+  const magDrop = audioCtx.createOscillator();
+  const magDropGain = audioCtx.createGain();
+  magDrop.type = 'triangle';
+  magDrop.frequency.setValueAtTime(300, now + 0.08);
+  magDrop.frequency.exponentialRampToValueAtTime(80, now + 0.15);
+  magDropGain.gain.setValueAtTime(0, now);
+  magDropGain.gain.linearRampToValueAtTime(vol * 0.4, now + 0.08);
+  magDropGain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+  magDrop.connect(magDropGain);
+  connectToOutput(magDropGain, panner);
+  magDrop.start(now + 0.07);
+  magDrop.stop(now + 0.2);
+
+  // Layer 3: New magazine insert (metallic click)
+  if (noiseBuffer) {
+    const insert = audioCtx.createBufferSource();
+    insert.buffer = noiseBuffer;
+    const insertGain = audioCtx.createGain();
+    const insertFilter = audioCtx.createBiquadFilter();
+    insertFilter.type = 'bandpass';
+    insertFilter.frequency.value = 2800;
+    insertFilter.Q.value = 3;
+    insertGain.gain.setValueAtTime(0, now);
+    insertGain.gain.linearRampToValueAtTime(vol * 0.5, now + 0.45);
+    insertGain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+    insert.connect(insertFilter);
+    insertFilter.connect(insertGain);
+    connectToOutput(insertGain, panner);
+    insert.start(now + 0.44);
+    insert.stop(now + 0.52);
+  }
+
+  // Layer 4: Bolt/slide rack
+  const bolt = audioCtx.createOscillator();
+  const boltGain = audioCtx.createGain();
+  bolt.type = 'sawtooth';
+  bolt.frequency.setValueAtTime(600, now + 0.7);
+  bolt.frequency.exponentialRampToValueAtTime(150, now + 0.78);
+  boltGain.gain.setValueAtTime(0, now);
+  boltGain.gain.linearRampToValueAtTime(vol * 0.5, now + 0.7);
+  boltGain.gain.exponentialRampToValueAtTime(0.001, now + 0.82);
+  bolt.connect(boltGain);
+  connectToOutput(boltGain, panner);
+  bolt.start(now + 0.68);
+  bolt.stop(now + 0.85);
+
+  // Layer 5: Spring resonance
+  const spring = audioCtx.createOscillator();
+  const springGain = audioCtx.createGain();
+  spring.type = 'sine';
+  spring.frequency.setValueAtTime(2200, now + 0.75);
+  spring.frequency.exponentialRampToValueAtTime(800, now + 0.85);
+  springGain.gain.setValueAtTime(0, now);
+  springGain.gain.linearRampToValueAtTime(vol * 0.15, now + 0.75);
+  springGain.gain.exponentialRampToValueAtTime(0.001, now + 0.9);
+  spring.connect(springGain);
+  connectToOutput(springGain, panner);
+  spring.start(now + 0.74);
+  spring.stop(now + 0.95);
+}
+
+// ========== MELEE SWING SOUND (4 layers) ==========
+function playMeleeSwingSound(now, vol, panner) {
+  // Layer 1: Whoosh (filtered noise)
+  if (noiseBuffer) {
+    const whoosh = audioCtx.createBufferSource();
+    whoosh.buffer = noiseBuffer;
+    const whooshGain = audioCtx.createGain();
+    const whooshFilter = audioCtx.createBiquadFilter();
+    whooshFilter.type = 'bandpass';
+    whooshFilter.frequency.setValueAtTime(800, now);
+    whooshFilter.frequency.exponentialRampToValueAtTime(2500, now + 0.08);
+    whooshFilter.frequency.exponentialRampToValueAtTime(600, now + 0.18);
+    whooshFilter.Q.value = 2;
+    whooshGain.gain.setValueAtTime(0, now);
+    whooshGain.gain.linearRampToValueAtTime(vol * 0.7, now + 0.04);
+    whooshGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+    whoosh.connect(whooshFilter);
+    whooshFilter.connect(whooshGain);
+    connectToOutput(whooshGain, panner);
+    whoosh.start(now);
+    whoosh.stop(now + 0.22);
+  }
+
+  // Layer 2: Air displacement swoosh
+  const swoosh = audioCtx.createOscillator();
+  const swooshGain = audioCtx.createGain();
+  swoosh.type = 'sine';
+  swoosh.frequency.setValueAtTime(200, now);
+  swoosh.frequency.exponentialRampToValueAtTime(800, now + 0.06);
+  swoosh.frequency.exponentialRampToValueAtTime(150, now + 0.15);
+  swooshGain.gain.setValueAtTime(vol * 0.3, now);
+  swooshGain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+  swoosh.connect(swooshGain);
+  connectToOutput(swooshGain, panner);
+  swoosh.start(now);
+  swoosh.stop(now + 0.2);
+
+  // Layer 3: Metal ring (for pan/machete)
+  const ring = audioCtx.createOscillator();
+  const ringGain = audioCtx.createGain();
+  ring.type = 'triangle';
+  ring.frequency.setValueAtTime(1200, now + 0.02);
+  ring.frequency.exponentialRampToValueAtTime(400, now + 0.12);
+  ringGain.gain.setValueAtTime(vol * 0.2, now + 0.02);
+  ringGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+  ring.connect(ringGain);
+  connectToOutput(ringGain, panner);
+  ring.start(now + 0.01);
+  ring.stop(now + 0.17);
+
+  // Layer 4: Low thump
+  const thump = audioCtx.createOscillator();
+  const thumpGain = audioCtx.createGain();
+  thump.type = 'sine';
+  thump.frequency.setValueAtTime(80, now);
+  thump.frequency.exponentialRampToValueAtTime(30, now + 0.08);
+  thumpGain.gain.setValueAtTime(vol * 0.25, now);
+  thumpGain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+  thump.connect(thumpGain);
+  connectToOutput(thumpGain, panner);
+  thump.start(now);
+  thump.stop(now + 0.12);
+}
+
+// ========== GIANT HIT SOUND (crisp, heavy bullet impact) ==========
+function playGiantHitSound(now, vol, panner) {
+  // Layer 1: Sharp metallic crack (crisp bullet impact)
+  const crack = audioCtx.createOscillator();
+  const crackGain = audioCtx.createGain();
+  crack.type = 'sawtooth';
+  crack.frequency.setValueAtTime(1800, now);
+  crack.frequency.exponentialRampToValueAtTime(400, now + 0.015);
+  crackGain.gain.setValueAtTime(vol * 1.0, now);
+  crackGain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+  crack.connect(crackGain);
+  connectToOutput(crackGain, panner);
+  crack.start(now);
+  crack.stop(now + 0.05);
+
+  // Layer 2: Heavy deep thud (massive body impact)
+  const thud = audioCtx.createOscillator();
+  const thudGain = audioCtx.createGain();
+  thud.type = 'sine';
+  thud.frequency.setValueAtTime(200, now);
+  thud.frequency.exponentialRampToValueAtTime(30, now + 0.15);
+  thudGain.gain.setValueAtTime(vol * 0.9, now);
+  thudGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+  thud.connect(thudGain);
+  connectToOutput(thudGain, panner);
+  thud.start(now);
+  thud.stop(now + 0.25);
+
+  // Layer 3: Noise burst (flesh tear)
+  if (noiseBuffer) {
+    const noise = audioCtx.createBufferSource();
+    noise.buffer = noiseBuffer;
+    const noiseFilter = audioCtx.createBiquadFilter();
+    noiseFilter.type = 'bandpass';
+    noiseFilter.frequency.value = 2000;
+    noiseFilter.Q.value = 3;
+    const noiseGain = audioCtx.createGain();
+    noiseGain.gain.setValueAtTime(vol * 0.7, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+    noise.connect(noiseFilter);
+    noiseFilter.connect(noiseGain);
+    connectToOutput(noiseGain, panner);
+    noise.start(now);
+    noise.stop(now + 0.08);
+  }
+
+  // Layer 4: Resonant ring (echo in giant's body)
+  const ring = audioCtx.createOscillator();
+  const ringGain = audioCtx.createGain();
+  ring.type = 'triangle';
+  ring.frequency.setValueAtTime(350, now + 0.01);
+  ring.frequency.exponentialRampToValueAtTime(120, now + 0.3);
+  ringGain.gain.setValueAtTime(0, now);
+  ringGain.gain.linearRampToValueAtTime(vol * 0.4, now + 0.02);
+  ringGain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+  ring.connect(ringGain);
+  connectToOutput(ringGain, panner);
+  ring.start(now);
+  ring.stop(now + 0.4);
+}
+
 // ========== MAIN PLAY SOUND DISPATCHER ==========
 export function playSound(type, sourcePos = null, options = null) {
   if (!audioCtx || audioCtx.state === 'suspended') return;
@@ -946,6 +1148,9 @@ export function playSound(type, sourcePos = null, options = null) {
       case 'sniper': playSniperSound(now, vol, panner); break;
       case 'shotgun': playShotgunSound(now, vol, panner); break;
       case 'hit': playHitSound(now, vol, panner); break;
+      case 'giantHit': playGiantHitSound(now, vol, panner); break;
+      case 'reload': playReloadSound(now, vol, panner); break;
+      case 'melee': playMeleeSwingSound(now, vol, panner); break;
       default: playARSound(now, vol, panner, false); break;
     }
     applyAmmoTone(type, now, vol, panner, options);

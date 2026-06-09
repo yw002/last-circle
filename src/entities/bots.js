@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { state } from '../state.js';
 import { MAP_SIZE, BOT_COUNT, difficulties, CURRENT_DIFFICULTY, weapons, equipments } from '../config.js';
-import { getTerrainHeight } from '../world/terrain.js';
+import { getTerrainHeight, getGroundHeight } from '../world/terrain.js';
 import { getHousePlayerIsInside } from './house.js';
 import { calcDamage } from './damage.js';
 import { playSound } from '../systems/audio.js';
@@ -11,7 +11,7 @@ import { spawnBlood, spawnWorldMuzzleFlash } from '../systems/particles.js';
 import { playerHit } from './player.js';
 import { addKillFeed } from '../ui/notices.js';
 import { createTracerFromPosition } from '../systems/bullets.js';
-import { checkEntityCollision } from '../systems/collision.js';
+import { checkEntityCollision, resolveEntityCollisions } from '../systems/collision.js';
 import { getNearbyBots, getNearbyColliders, getNearbyDoors } from '../systems/spatial.js';
 import { updateUI } from '../ui/hud.js';
 import { showNotice } from '../ui/notices.js';
@@ -232,7 +232,20 @@ const sharedGeos = {
 
   // Parachute - smooth
   parachute: new THREE.SphereGeometry(10, SEG / 2, SEG / 4, 0, Math.PI * 2, 0, Math.PI / 2),
-  parachuteLine: new THREE.CylinderGeometry(0.02, 0.02, 12, 6)
+  parachuteLine: new THREE.CylinderGeometry(0.02, 0.02, 12, 6),
+
+  // Tactical gear
+  vestFront: new THREE.BoxGeometry(2.6, 2.8, 0.4),
+  vestBack: new THREE.BoxGeometry(2.4, 2.6, 0.3),
+  vestShoulder: new THREE.BoxGeometry(0.6, 0.3, 1.2),
+  ammoPouch: new THREE.BoxGeometry(0.5, 0.6, 0.35),
+  magPouch: new THREE.BoxGeometry(0.3, 0.7, 0.25),
+  kneePad: new THREE.SphereGeometry(0.35, SEG / 4, SEG / 4),
+  elbowPad: new THREE.SphereGeometry(0.3, SEG / 4, SEG / 4),
+  holster: new THREE.CylinderGeometry(0.2, 0.15, 0.8, 8),
+  strapGeo: new THREE.BoxGeometry(0.2, 0.05, 2.5),
+  radioBox: new THREE.BoxGeometry(0.3, 0.6, 0.15),
+  antennaGeo: new THREE.CylinderGeometry(0.015, 0.015, 1.5, 6)
 };
 
 // Shared materials - created once
@@ -245,7 +258,16 @@ const sharedMats = {
   mouth: new THREE.MeshLambertMaterial({ color: 0xcc8888 }),
   hair: new THREE.MeshLambertMaterial({ color: 0x222222 }),
   parachute: new THREE.MeshLambertMaterial({ color: 0xe74c3c, side: THREE.DoubleSide }),
-  laser: new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.6 })
+  laser: new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.6 }),
+  // Tactical gear materials
+  vest: new THREE.MeshPhongMaterial({ color: 0x2a3a2a, shininess: 15 }),
+  vestDark: new THREE.MeshPhongMaterial({ color: 0x1a2a1a, shininess: 10 }),
+  pouch: new THREE.MeshLambertMaterial({ color: 0x3a4a3a }),
+  kneePad: new THREE.MeshPhongMaterial({ color: 0x1a1a1a, shininess: 30 }),
+  gunMetal: new THREE.MeshPhongMaterial({ color: 0x2a2a2a, shininess: 60, specular: 0x444444 }),
+  strap: new THREE.MeshLambertMaterial({ color: 0x4a4a3a }),
+  radio: new THREE.MeshLambertMaterial({ color: 0x333333 }),
+  antenna: new THREE.MeshLambertMaterial({ color: 0x555555 })
 };
 
 // Reusable Vector3 for calculations
@@ -406,19 +428,92 @@ export function initBots() {
       botGroup.add(pack);
     }
 
-    // Detailed gun
-    const gunBody = new THREE.Mesh(sharedGeos.gunBody, sharedMats.dark);
+    // ========== TACTICAL GEAR ==========
+    // Plate carrier / tactical vest
+    let hasVest = Math.random() > 0.25;
+    if (hasVest) {
+      const vestFront = new THREE.Mesh(sharedGeos.vestFront, sharedMats.vest);
+      vestFront.position.set(0, 5.2, 0.9);
+      const vestBack = new THREE.Mesh(sharedGeos.vestBack, sharedMats.vestDark);
+      vestBack.position.set(0, 5.0, -1.0);
+      const vestShoulderL = new THREE.Mesh(sharedGeos.vestShoulder, sharedMats.vest);
+      vestShoulderL.position.set(-1.2, 6.2, 0);
+      const vestShoulderR = new THREE.Mesh(sharedGeos.vestShoulder, sharedMats.vest);
+      vestShoulderR.position.set(1.2, 6.2, 0);
+      botGroup.add(vestFront, vestBack, vestShoulderL, vestShoulderR);
+
+      // Ammo pouches on vest front
+      for (let p = 0; p < 3; p++) {
+        const pouch = new THREE.Mesh(sharedGeos.magPouch, sharedMats.pouch);
+        pouch.position.set(-0.6 + p * 0.6, 4.5, 1.15);
+        botGroup.add(pouch);
+      }
+    }
+
+    // Belt pouches
+    const pouchCount = 1 + Math.floor(Math.random() * 3);
+    for (let p = 0; p < pouchCount; p++) {
+      const pouch = new THREE.Mesh(sharedGeos.ammoPouch, sharedMats.pouch);
+      const angle = (p / pouchCount) * Math.PI * 1.2 - 0.3;
+      pouch.position.set(Math.sin(angle) * 1.5, 3.5, Math.cos(angle) * 1.5);
+      botGroup.add(pouch);
+    }
+
+    // Knee pads
+    if (Math.random() > 0.3) {
+      const kneePadL = new THREE.Mesh(sharedGeos.kneePad, sharedMats.kneePad);
+      kneePadL.position.set(-0.8, 1.6, 0.45);
+      kneePadL.scale.set(1, 0.6, 0.8);
+      const kneePadR = new THREE.Mesh(sharedGeos.kneePad, sharedMats.kneePad);
+      kneePadR.position.set(0.8, 1.6, 0.45);
+      kneePadR.scale.set(1, 0.6, 0.8);
+      botGroup.add(kneePadL, kneePadR);
+    }
+
+    // Elbow pads
+    if (Math.random() > 0.5) {
+      const elbowPadL = new THREE.Mesh(sharedGeos.elbowPad, sharedMats.kneePad);
+      elbowPadL.position.set(-2.5, 4.5, 0.4);
+      const elbowPadR = new THREE.Mesh(sharedGeos.elbowPad, sharedMats.kneePad);
+      elbowPadR.position.set(2.6, 4.5, 0.65);
+      botGroup.add(elbowPadL, elbowPadR);
+    }
+
+    // Gun sling strap
+    const strap = new THREE.Mesh(sharedGeos.strapGeo, sharedMats.strap);
+    strap.position.set(2.0, 4.5, 1.0);
+    strap.rotation.z = 0.8;
+    botGroup.add(strap);
+
+    // Radio on backpack/back
+    if (Math.random() > 0.5) {
+      const radio = new THREE.Mesh(sharedGeos.radioBox, sharedMats.radio);
+      radio.position.set(-1.0, 5.5, -1.2);
+      const antenna = new THREE.Mesh(sharedGeos.antennaGeo, sharedMats.antenna);
+      antenna.position.set(-1.0, 6.5, -1.2);
+      botGroup.add(radio, antenna);
+    }
+
+    // Pistol holster on thigh
+    if (Math.random() > 0.4) {
+      const holster = new THREE.Mesh(sharedGeos.holster, sharedMats.dark);
+      holster.position.set(1.2, 2.2, 0.3);
+      botGroup.add(holster);
+    }
+
+    // Detailed gun (upgraded metallic material)
+    const gunBody = new THREE.Mesh(sharedGeos.gunBody, sharedMats.gunMetal);
     gunBody.position.set(3.0, 3.5, 1.5);
-    const gunBarrel = new THREE.Mesh(sharedGeos.gunBarrel, sharedMats.dark);
+    const gunBarrel = new THREE.Mesh(sharedGeos.gunBarrel, sharedMats.gunMetal);
     gunBarrel.rotation.x = Math.PI / 2;
     gunBarrel.position.set(3.0, 3.6, 0.8);
     const gunStock = new THREE.Mesh(sharedGeos.gunStock, sharedMats.dark);
     gunStock.position.set(3.0, 3.4, 2.2);
-    const gunMag = new THREE.Mesh(sharedGeos.gunMag, sharedMats.dark);
+    const gunMag = new THREE.Mesh(sharedGeos.gunMag, sharedMats.gunMetal);
     gunMag.position.set(3.0, 3.0, 1.3);
     const gunGrip = new THREE.Mesh(sharedGeos.gunGrip, sharedMats.dark);
     gunGrip.position.set(3.0, 3.2, 1.8);
-    const gunSight = new THREE.Mesh(sharedGeos.gunSight, sharedMats.dark);
+    const gunSight = new THREE.Mesh(sharedGeos.gunSight, sharedMats.gunMetal);
     gunSight.position.set(3.0, 3.8, 0.5);
 
     // Laser sight
@@ -458,9 +553,10 @@ export function initBots() {
     }
     botGroup.add(bParaGroup);
 
-    // Random scale
-    let scale = 0.9 + Math.random() * 0.2;
-    botGroup.scale.set(scale, scale, scale);
+    // Random scale with body type variation
+    let scale = 0.85 + Math.random() * 0.3; // 0.85 to 1.15
+    let widthMul = 0.9 + Math.random() * 0.25; // body width variation
+    botGroup.scale.set(scale * widthMul, scale, scale * widthMul);
 
     botGroup.position.set(x, y, z);
     state.scene.add(botGroup);
@@ -526,7 +622,7 @@ export function updateBots(delta) {
       bot.mesh.position.x += Math.cos(bot.id) * 15 * delta;
       bot.mesh.position.z += Math.sin(bot.id) * 15 * delta;
 
-      let groundY = getTerrainHeight(bPos.x, bPos.z);
+      let groundY = getGroundHeight(bPos.x, bPos.z, 2);
       if (bPos.y <= groundY) {
         bPos.y = groundY;
         bot.isParachuting = false;
@@ -622,8 +718,10 @@ export function updateBots(delta) {
         bot.vx = -bot.vx * 0.5;
         bot.vz = -bot.vz * 0.5;
       }
-      bPos.y = getTerrainHeight(bPos.x, bPos.z);
+      bPos.y = getGroundHeight(bPos.x, bPos.z, 2);
       if (bot.laserMesh) bot.laserMesh.visible = false;
+      resolveEntityCollisions(bPos, 'bot_' + bot.id, 2);
+      bPos.y = getGroundHeight(bPos.x, bPos.z, 2);
     } else if (bot.state === 'attack' && bot.target) {
       let targetPos = bot.target === 'player' ? playerPos : bot.target.mesh.position;
       bot.mesh.lookAt(targetPos.x, bPos.y, targetPos.z);
@@ -659,7 +757,9 @@ export function updateBots(delta) {
         bPos.x = newX;
         bPos.z = newZ;
       }
-      bPos.y = getTerrainHeight(bPos.x, bPos.z);
+      bPos.y = getGroundHeight(bPos.x, bPos.z, 2);
+      resolveEntityCollisions(bPos, 'bot_' + bot.id, 2);
+      bPos.y = getGroundHeight(bPos.x, bPos.z, 2);
 
       // Shooting (only nearby bots shoot)
       if (isNearby && now - bot.lastFire > bot.weapon.fireRate * diff.botFireRateMultiplier) {
@@ -804,16 +904,19 @@ export function botDied(bot, killerName) {
   addKillFeed(`[${killerName}] 击杀了 [Bot ${bot.id}]`);
   updateUI();
 
-  if (state.aliveCount === 1 && state.player.alive) {
+  if (state.aliveCount === 1 && !state.giantAlive && state.player.alive) {
     setTimeout(() => {
       state.controls.unlock();
       document.getElementById('title').innerText = "大吉大利，今晚吃鸡！";
       document.getElementById('title').style.color = "#f1c40f";
-      document.getElementById('subtitle').innerText = `WINNER WINNER CHICKEN DINNER! 击杀数: ${state.player.kills}`;
+      document.getElementById('subtitle').innerText = `WINNER WINNER CHICKEN DINNER! 击杀数: ${state.player.kills} (含远古恶魔巨人)`;
       document.getElementById('start-btn').innerText = "再玩一局";
       document.getElementById('start-btn').style.display = "block";
       document.getElementById('start-btn').onclick = () => location.reload();
       document.getElementById('overlay').style.display = "flex";
     }, 800);
+  } else if (state.aliveCount === 1 && state.giantAlive && state.player.alive) {
+    // Player killed all bots but giant still alive — remind them
+    showNotice("⚠️ 所有Bot已击杀！但远古恶魔巨人仍在…击败它才能吃鸡！", "#ff6600");
   }
 }

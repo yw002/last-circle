@@ -7,11 +7,11 @@ export function initScene() {
   state.scene = new THREE.Scene();
   state.scene.background = new THREE.Color(0x87CEEB); // Sky blue background
 
-  // Light fog for atmosphere but good visibility (~800 units)
-  state.scene.fog = new THREE.FogExp2(0x87CEEB, 0.0015);
+  // Light fog for atmosphere — low density for maximum visibility across the map
+  state.scene.fog = new THREE.FogExp2(0x87CEEB, 0.0004);
 
-  // Camera - generous far plane for long visibility
-  state.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.5, 2000);
+  // Camera - very generous far plane to see the 900-unit giant from anywhere
+  state.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.5, 10000);
   state.camera.position.set(0, 400, 0);
 
   // Single ambient light (remove directional for performance)

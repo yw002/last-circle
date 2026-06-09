@@ -47,7 +47,9 @@ const grids = {
   animals: new Map(),
   doors: new Map(),
   loot: new Map(),
-  colliders: new Map()
+  colliders: new Map(),
+  aliens: new Map(),
+  allEntities: new Map()
 };
 
 let staticBuilt = false;
@@ -80,11 +82,13 @@ export function rebuildSpatialIndex() {
   if (!staticBuilt) buildStaticGrids();
 
   clearGrid(grids.bots);
+  clearGrid(grids.allEntities);
   for (let i = 0; i < state.bots.length; i++) {
     const bot = state.bots[i];
-    if (!bot.alive) continue;
+    if (!bot.alive || bot.isParachuting) continue;
     const p = bot.mesh.position;
     addToGrid(grids.bots, bot, p.x, p.z);
+    addToGrid(grids.allEntities, { pos: p, radius: 2, id: 'bot_' + bot.id }, p.x, p.z);
   }
 
   clearGrid(grids.animals);
@@ -94,7 +98,41 @@ export function rebuildSpatialIndex() {
       if (!animal.alive) continue;
       const p = animal.mesh.position;
       addToGrid(grids.animals, animal, p.x, p.z);
+      const isFlying = animal.type === 'eagle' || animal.type === 'hawk' || animal.type === 'owl';
+      const isSwimming = animal.type === 'fish';
+      if (!isFlying && !isSwimming) {
+        const r = 2 * (animal.config.scale || 1);
+        addToGrid(grids.allEntities, { pos: p, radius: r, id: 'animal_' + animal.id }, p.x, p.z);
+      }
     }
+  }
+
+  // Add zombies to entity grid
+  if (state.zombies) {
+    for (let i = 0; i < state.zombies.length; i++) {
+      const zombie = state.zombies[i];
+      if (!zombie.alive) continue;
+      const p = zombie.mesh.position;
+      addToGrid(grids.allEntities, { pos: p, radius: 2, id: 'zombie_' + zombie.id }, p.x, p.z);
+    }
+  }
+
+  // Add aliens to entity grid
+  clearGrid(grids.aliens);
+  if (state.aliens) {
+    for (let i = 0; i < state.aliens.length; i++) {
+      const alien = state.aliens[i];
+      if (!alien.alive) continue;
+      const p = alien.mesh.position;
+      addToGrid(grids.aliens, alien, p.x, p.z);
+      addToGrid(grids.allEntities, { pos: p, radius: 1.5, id: 'alien_' + alien.id }, p.x, p.z);
+    }
+  }
+
+  // Add player to entity grid (so entities can't walk through player)
+  if (state.player && state.player.alive && state.controls) {
+    const pp = state.controls.getObject().position;
+    addToGrid(grids.allEntities, { pos: pp, radius: 1.5, id: 'player' }, pp.x, pp.z);
   }
 
   clearGrid(grids.loot);
@@ -128,4 +166,12 @@ export function getNearbyLoot(x, z, range = NEAR_RANGE) {
 
 export function getNearbyColliders(x, z, range = NEAR_RANGE) {
   return queryGrid(grids.colliders, x, z, range);
+}
+
+export function getNearbyEntities(x, z, range = NEAR_RANGE) {
+  return queryGrid(grids.allEntities, x, z, range);
+}
+
+export function getNearbyAliens(x, z, range = NEAR_RANGE) {
+  return queryGrid(grids.aliens, x, z, range);
 }

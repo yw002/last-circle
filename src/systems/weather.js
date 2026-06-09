@@ -173,17 +173,17 @@ export function updateWeather(delta) {
     case WEATHER.SUNNY:
       targetSky = new THREE.Color(0x87CEEB);
       targetFog = new THREE.Color(0x87CEEB);
-      targetDensity = 0.001;
+      targetDensity = 0.0004;
       break;
     case WEATHER.STORM:
       targetSky = new THREE.Color(0x1a212a);
       targetFog = new THREE.Color(0x1a212a);
-      targetDensity = 0.002;
+      targetDensity = 0.0008;
       break;
     case WEATHER.BLIZZARD:
       targetSky = new THREE.Color(0xc8d6e5);
       targetFog = new THREE.Color(0xc8d6e5);
-      targetDensity = 0.003;
+      targetDensity = 0.0015;
       break;
   }
 

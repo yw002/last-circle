@@ -244,11 +244,27 @@ function getLootBubbleColor(type) {
 
 export function spawnLoot(bx, by, bz) {
   for (let i = 0; i < 8; i++) { // Reduced from 12
-    let lx = bx + (Math.random() - 0.5) * 40;
-    let lz = bz + (Math.random() - 0.5) * 40;
+    // Spawn in a ring OUTSIDE the house (house walls are at ~16 units from center)
+    let angle = Math.random() * Math.PI * 2;
+    let dist = 18 + Math.random() * 18; // 18-36 units from center (outside walls)
+    let lx = bx + Math.cos(angle) * dist;
+    let lz = bz + Math.sin(angle) * dist;
     let ly = getTerrainHeight(lx, lz) + 3.0;
 
     if (ly < 1) continue;
+
+    // Check overlap with existing loot (minimum 5 units apart)
+    let tooClose = false;
+    for (let j = 0; j < state.lootItems.length; j++) {
+      const other = state.lootItems[j].mesh.position;
+      const dx = lx - other.x;
+      const dz = lz - other.z;
+      if (dx * dx + dz * dz < 25) { // 5 * 5 = 25
+        tooClose = true;
+        break;
+      }
+    }
+    if (tooClose) continue;
 
     let r = Math.random();
     let type, itemData;
@@ -310,19 +326,42 @@ export function spawnLoot(bx, by, bz) {
   }
 }
 
-export function spawnSingleLoot(lx, ly, lz, forceType = null) {
+export function spawnSingleLoot(lx, ly, lz, forceType = null, scale = 1.0, ammoAmount = null) {
   let type = forceType || "ammo";
   let itemData = null;
   let mesh;
+
+  // Offset slightly to avoid overlap with existing loot
+  for (let attempt = 0; attempt < 5; attempt++) {
+    let tooClose = false;
+    const testX = lx + (attempt > 0 ? (Math.random() - 0.5) * 10 : 0);
+    const testZ = lz + (attempt > 0 ? (Math.random() - 0.5) * 10 : 0);
+    for (let j = 0; j < state.lootItems.length; j++) {
+      const other = state.lootItems[j].mesh.position;
+      const dx = testX - other.x;
+      const dz = testZ - other.z;
+      if (dx * dx + dz * dz < 25) {
+        tooClose = true;
+        break;
+      }
+    }
+    if (!tooClose) {
+      lx = testX;
+      lz = testZ;
+      break;
+    }
+  }
 
   if (type === "health") {
     mesh = new THREE.Mesh(sharedGeos.healthBox, sharedMats.health);
   } else {
     mesh = new THREE.Mesh(sharedGeos.ammoBox, sharedMats.ammo);
-    itemData = { name: "弹药箱 (60发)", amount: 60 };
+    const actualAmount = ammoAmount || 60;
+    itemData = { name: `弹药箱 (${actualAmount}发)`, amount: actualAmount };
   }
 
-  mesh.position.set(lx, ly + 3.0, lz);
+  mesh.position.set(lx, ly + 3.0 * scale, lz);
+  if (scale !== 1.0) mesh.scale.setScalar(scale);
 
   // Add bubble - use shared materials
   const bubble = new THREE.Mesh(sharedGeos.bubble, sharedMats.bubble);
@@ -334,7 +373,7 @@ export function spawnSingleLoot(lx, ly, lz, forceType = null) {
   ring.rotation.x = Math.PI / 2;
   mesh.add(ring);
 
-  let labelName = type === 'health' ? '急救包' : '弹药箱 (60发)';
+  let labelName = type === 'health' ? '急救包' : (ammoAmount ? `弹药箱 (${ammoAmount}发)` : '弹药箱 (60发)');
   const labelSprite = createTextSprite(labelName, type === 'health' ? '#e74c3c' : '#2ecc71');
   labelSprite.position.set(0, 2.5, 0);
   mesh.add(labelSprite);
