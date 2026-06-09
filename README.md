@@ -1,36 +1,79 @@
-# Last Csircle
-This is a 3D web-based battle royale game. Players parachute onto an open map, collect weapons and supplies, fight against other players, avoid the shrinking danger zone, and strive to be the last survivor to win the game.
+# Last Circle
 
-# Web 3D Battle Royale Game
-Lightweight PUBG-style 3D mini game, pure web page version.
+A 3D web-based battle royale game built with Three.js. Players parachute onto an open map, collect weapons and supplies, fight against AI bots, zombies, aliens, and a colossal ancient giant boss, avoid the shrinking danger zone, and strive to be the last survivor to win the chicken dinner.
 
-## Game Intro
-This is a simple 3D survival shooting game with classic battle royale rules.
-Players land on the map to collect weapons and supplies, fight enemies, avoid the shrinking safe zone, and try to be the last survivor to win.
+## Game Features
+
+### Core Gameplay
+- Classic battle royale rules with shrinking safe zone
+- Parachute landing onto the map
+- Multiple weapons (pistol, AR, sniper, shotgun, melee)
+- Loot system (ammo, health packs, scopes, armor, helmets)
+- Chicken dinner victory condition (eliminate all bots + defeat the giant boss)
+
+### Enemies
+- **AI Bots** — intelligent opponents that shoot, take cover, and loot
+- **Zombies** — clustered around houses, melee attackers
+- **Aliens** — ranged attackers with raycasting
+- **Animals** — deer and boars roaming the map
+- **Ghosts** — spectral entities
+- **Ancient Demon Giant** — 900-unit tall boss visible from anywhere on the map, 5000 HP, spit attacks, must be killed to win
+
+### Environment
+- Dynamic weather system (sunny, storm, blizzard)
+- Lightning strikes and meteor showers
+- Tornadoes and volcanic eruptions
+- Houses with concrete foundations on varied terrain
+- Procedurally generated terrain with grass and trees
+
+### Technical Features
+- Web Audio API synthesized sound effects (no audio files needed)
+- Adaptive performance system (auto-adjusts fog density based on FPS)
+- Spatial optimization for entity visibility
+- Bullet physics with tracers and impact effects
+- Blood particle system
+- Floating health bars on boss
 
 ## How To Play
-1. Download all project files
-2. Directly open **index.html** with browser
-3. Start the game immediately, no need to install any software, no environment deployment
 
-## Operating Instructions
-- WASD: Control character movement
-- Mouse: Adjust viewing angle and aim
-- Left Click: Shoot
-- Other keys: In-game prompt display
+### Quick Start (Pre-built)
+1. Open `dist/index.html` directly in a modern browser
+2. No server or installation required
 
-## Features
-- One-click launch, open and play
-- Offline local operation, no network required
-- Simple 3D scene rendering
-- Classic chicken dinner gameplay
-- Small file size, fast loading
+### Development Mode
+```bash
+npm install
+npm run dev
+```
 
-## Technology
-- HTML
-- CSS
-- JavaScript
-- Three.js
+### Build for Production
+```bash
+npm run build
+```
+Output will be in the `dist/` directory.
 
-## Suggestion
-Please use Chrome, Edge or other mainstream modern browsers to run for better experience.
+## Controls
+| Key | Action |
+|-----|--------|
+| WASD | Move |
+| Mouse | Look / Aim |
+| Left Click | Shoot |
+| Right Click | ADS (Aim Down Sight) |
+| R | Reload |
+| Space | Jump |
+| Shift | Sprint |
+| E | Interact (open doors, pick up loot) |
+| 1 / 2 | Switch weapons |
+| Q | Melee attack |
+
+## Tech Stack
+- **Three.js** — 3D rendering
+- **Vite** — build tool
+- **Web Audio API** — procedural sound synthesis
+- **Vanilla JavaScript** — no framework dependencies
+
+## Browser Requirement
+Please use Chrome, Edge, Firefox, or other modern browsers with WebGL support for the best experience.
+
+## License
+See [LICENSE](./LICENSE) for details.
