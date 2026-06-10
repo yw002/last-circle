@@ -1132,6 +1132,181 @@ function playGiantHitSound(now, vol, panner) {
   ring.stop(now + 0.4);
 }
 
+// ========== KILL STREAK SOUND ==========
+export function playKillStreakSound(level) {
+  if (!audioCtx || audioCtx.state === 'suspended') return;
+  try {
+    const now = audioCtx.currentTime;
+    const notes = [523, 659, 784, 880, 1047, 1175]; // C5-E5-G5-A5-C6-D6
+    const vol = 0.1 + level * 0.05;
+    for (let i = 0; i < level; i++) {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(notes[i], now + i * 0.08);
+      gain.gain.setValueAtTime(vol, now + i * 0.08);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.15);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(now + i * 0.08);
+      osc.stop(now + i * 0.08 + 0.2);
+    }
+    // Add drum kick for level >= 4
+    if (level >= 4) {
+      const kick = audioCtx.createOscillator();
+      const kGain = audioCtx.createGain();
+      kick.type = 'sine';
+      kick.frequency.setValueAtTime(150, now);
+      kick.frequency.exponentialRampToValueAtTime(30, now + 0.1);
+      kGain.gain.setValueAtTime(0.3, now);
+      kGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+      kick.connect(kGain);
+      kGain.connect(audioCtx.destination);
+      kick.start(now);
+      kick.stop(now + 0.2);
+    }
+  } catch (e) {}
+}
+
+// ========== FISH SLAP SOUND ==========
+function playFishSlapSound(now, vol, panner) {
+  // Low thump (fish body impact)
+  const thump = audioCtx.createOscillator();
+  const tGain = audioCtx.createGain();
+  thump.type = 'sine';
+  thump.frequency.setValueAtTime(120, now);
+  thump.frequency.exponentialRampToValueAtTime(40, now + 0.1);
+  tGain.gain.setValueAtTime(vol * 0.9, now);
+  tGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+  thump.connect(tGain);
+  connectToOutput(tGain, panner);
+  thump.start(now);
+  thump.stop(now + 0.2);
+  // Wet noise burst
+  if (noiseBuffer) {
+    const noise = audioCtx.createBufferSource();
+    noise.buffer = noiseBuffer;
+    const nf = audioCtx.createBiquadFilter();
+    nf.type = 'bandpass'; nf.frequency.value = 800; nf.Q.value = 2;
+    const nGain = audioCtx.createGain();
+    nGain.gain.setValueAtTime(vol * 0.7, now);
+    nGain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+    noise.connect(nf); nf.connect(nGain);
+    connectToOutput(nGain, panner);
+    noise.start(now); noise.stop(now + 0.1);
+  }
+  // High squelch
+  const sq = audioCtx.createOscillator();
+  const sqGain = audioCtx.createGain();
+  sq.type = 'sawtooth';
+  sq.frequency.setValueAtTime(600, now);
+  sq.frequency.exponentialRampToValueAtTime(200, now + 0.05);
+  sqGain.gain.setValueAtTime(vol * 0.4, now);
+  sqGain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+  sq.connect(sqGain);
+  connectToOutput(sqGain, panner);
+  sq.start(now); sq.stop(now + 0.08);
+}
+
+// ========== FART SOUND ==========
+export function playFartSound(sourcePos) {
+  if (!audioCtx || audioCtx.state === 'suspended') return;
+  try {
+    const now = audioCtx.currentTime;
+    const panner = createPanner(sourcePos);
+    // Low rumble
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(80, now);
+    osc.frequency.linearRampToValueAtTime(30, now + 1.5);
+    gain.gain.setValueAtTime(0.4, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
+    osc.connect(gain);
+    connectToOutput(gain, panner);
+    osc.start(now); osc.stop(now + 1.6);
+    // Noise layer
+    if (noiseBuffer) {
+      const n = audioCtx.createBufferSource();
+      n.buffer = noiseBuffer;
+      const f = audioCtx.createBiquadFilter();
+      f.type = 'bandpass'; f.frequency.value = 200; f.Q.value = 0.5;
+      const ng = audioCtx.createGain();
+      ng.gain.setValueAtTime(0.3, now);
+      ng.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+      n.connect(f); f.connect(ng);
+      connectToOutput(ng, panner);
+      n.start(now); n.stop(now + 1.5);
+    }
+  } catch (e) {}
+}
+
+// ========== DISCO SOUND ==========
+export function playDiscoBeat() {
+  if (!audioCtx || audioCtx.state === 'suspended') return;
+  try {
+    const now = audioCtx.currentTime;
+    // 4-on-the-floor kick
+    for (let i = 0; i < 4; i++) {
+      const kick = audioCtx.createOscillator();
+      const kg = audioCtx.createGain();
+      kick.type = 'sine';
+      kick.frequency.setValueAtTime(150, now + i * 0.25);
+      kick.frequency.exponentialRampToValueAtTime(30, now + i * 0.25 + 0.05);
+      kg.gain.setValueAtTime(0.2, now + i * 0.25);
+      kg.gain.exponentialRampToValueAtTime(0.001, now + i * 0.25 + 0.1);
+      kick.connect(kg); kg.connect(audioCtx.destination);
+      kick.start(now + i * 0.25); kick.stop(now + i * 0.25 + 0.15);
+    }
+    // Hi-hat on off-beats
+    if (noiseBuffer) {
+      for (let i = 0; i < 4; i++) {
+        const hh = audioCtx.createBufferSource();
+        hh.buffer = noiseBuffer;
+        const hf = audioCtx.createBiquadFilter();
+        hf.type = 'highpass'; hf.frequency.value = 8000;
+        const hg = audioCtx.createGain();
+        hg.gain.setValueAtTime(0.1, now + i * 0.25 + 0.125);
+        hg.gain.exponentialRampToValueAtTime(0.001, now + i * 0.25 + 0.18);
+        hh.connect(hf); hf.connect(hg); hg.connect(audioCtx.destination);
+        hh.start(now + i * 0.25 + 0.125); hh.stop(now + i * 0.25 + 0.2);
+      }
+    }
+  } catch (e) {}
+}
+
+// ========== VICTORY MUSIC ==========
+export function playVictoryMusic() {
+  if (!audioCtx || audioCtx.state === 'suspended') return;
+  try {
+    const now = audioCtx.currentTime;
+    const melody = [523, 659, 784, 1047]; // C5-E5-G5-C6
+    melody.forEach((freq, i) => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, now + i * 0.4);
+      gain.gain.setValueAtTime(0.2, now + i * 0.4);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.4 + 0.5);
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.start(now + i * 0.4); osc.stop(now + i * 0.4 + 0.6);
+    });
+    // Applause noise
+    if (noiseBuffer) {
+      const n = audioCtx.createBufferSource();
+      n.buffer = noiseBuffer;
+      const f = audioCtx.createBiquadFilter();
+      f.type = 'bandpass'; f.frequency.value = 3000; f.Q.value = 0.3;
+      const ng = audioCtx.createGain();
+      ng.gain.setValueAtTime(0, now);
+      ng.gain.linearRampToValueAtTime(0.15, now + 0.5);
+      ng.gain.exponentialRampToValueAtTime(0.001, now + 3);
+      n.connect(f); f.connect(ng); ng.connect(audioCtx.destination);
+      n.start(now + 0.3); n.stop(now + 3.5);
+    }
+  } catch (e) {}
+}
+
 // ========== MAIN PLAY SOUND DISPATCHER ==========
 export function playSound(type, sourcePos = null, options = null) {
   if (!audioCtx || audioCtx.state === 'suspended') return;
@@ -1151,6 +1326,7 @@ export function playSound(type, sourcePos = null, options = null) {
       case 'giantHit': playGiantHitSound(now, vol, panner); break;
       case 'reload': playReloadSound(now, vol, panner); break;
       case 'melee': playMeleeSwingSound(now, vol, panner); break;
+      case 'fish_slap': playFishSlapSound(now, vol, panner); break;
       default: playARSound(now, vol, panner, false); break;
     }
     applyAmmoTone(type, now, vol, panner, options);

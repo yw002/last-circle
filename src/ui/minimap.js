@@ -113,6 +113,7 @@ export function updateMinimap() {
 
   // Draw bots (only nearby)
   ctx.fillStyle = '#ff3333';
+  ctx.font = '8px sans-serif';
   for (let i = 0; i < state.bots.length; i++) {
     let bot = state.bots[i];
     if (!bot.alive) continue;
@@ -121,6 +122,14 @@ export function updateMinimap() {
       ctx.beginPath();
       ctx.arc(pos.x, pos.y, 2, 0, Math.PI * 2);
       ctx.fill();
+      // Show bot name if close enough
+      const dx = bot.mesh.position.x - px;
+      const dz = bot.mesh.position.z - pz;
+      if (dx * dx + dz * dz < 200 * 200 && bot.name) {
+        ctx.fillStyle = '#ff6666';
+        ctx.fillText(bot.name, pos.x + 4, pos.y - 4);
+        ctx.fillStyle = '#ff3333';
+      }
     }
   }
 

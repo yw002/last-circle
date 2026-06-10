@@ -208,6 +208,19 @@ export function createWeaponMesh(weaponData, scaleMultiplier = 1.0) {
       const handle = new THREE.Mesh(sharedGeos.macheteHandle, sharedMats.wood);
       handle.position.set(0, -1.8, 0);
       group.add(blade, handle);
+    } else if (weaponData.name === '咸鱼') {
+      const fishMat = new THREE.MeshLambertMaterial({ color: 0x7fb3d8 });
+      const body = new THREE.Mesh(new THREE.SphereGeometry(0.5, 12, 8), fishMat);
+      body.scale.set(0.6, 0.5, 1.8);
+      const tail = new THREE.Mesh(new THREE.ConeGeometry(0.35, 0.8, 4), fishMat);
+      tail.rotation.x = Math.PI / 2;
+      tail.position.set(0, 0, 1.2);
+      const eyeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), eyeMat);
+      eye.position.set(0.2, 0.15, -0.7);
+      const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 6), new THREE.MeshBasicMaterial({ color: 0x000000 }));
+      pupil.position.set(0.25, 0.18, -0.82);
+      group.add(body, tail, eye, pupil);
     }
   }
 
@@ -272,7 +285,11 @@ export function spawnLoot(bx, by, bz) {
 
     if (r < 0.45) {
       type = "weapon";
-      itemData = weapons[Math.floor(Math.random() * weapons.length)];
+      if (Math.random() < 0.03) {
+        itemData = weapons.find(w => w.name === '咸鱼') || weapons[weapons.length - 1];
+      } else {
+        itemData = weapons[Math.floor(Math.random() * weapons.length)];
+      }
       mesh = createWeaponMesh(itemData, 1.5);
     } else if (r < 0.65) {
       type = "ammo";

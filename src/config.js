@@ -84,6 +84,7 @@ export const weapons = [
   // Melee
   { type: "melee", name: "Pan", ammo: 1, maxAmmo: 1, damage: 80, fireRate: 600, range: 5, color: 0x111111, sound: 'hit', scope: null },
   { type: "melee", name: "Machete", ammo: 1, maxAmmo: 1, damage: 60, fireRate: 500, range: 5, color: 0x888888, sound: 'hit', scope: null },
+  { type: "melee", name: "咸鱼", ammo: 1, maxAmmo: 1, damage: 120, fireRate: 800, range: 6, color: 0x7fb3d8, sound: 'fish_slap', scope: null, special: 'fish' },
   // Throwables
   { type: "throwable", name: "Grenade", ammo: 1, maxAmmo: 1, damage: 150, fireRate: 1000, range: 80, color: 0x27ae60, sound: '', scope: null },
   { type: "throwable", name: "Flashbang", ammo: 1, maxAmmo: 1, damage: 0, fireRate: 1000, range: 80, color: 0xbdc3c7, sound: '', scope: null }

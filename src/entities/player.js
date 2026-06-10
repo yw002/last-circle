@@ -625,6 +625,46 @@ export function updateWeaponModel() {
       const knob = new THREE.Mesh(new THREE.SphereGeometry(0.035, SEG, SEG), woodMat);
       knob.position.set(0, -0.02, 0.1);
       state.viewWeaponMesh.add(panBody, panRim, panBottom, handle, knob);
+    } else if (wName === '咸鱼') {
+      // Dead fish weapon
+      const fishMat = new THREE.MeshLambertMaterial({ color: 0x7fb3d8 });
+      const fishDark = new THREE.MeshLambertMaterial({ color: 0x4a7a9b });
+      const eyeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+      const pupilMat = new THREE.MeshBasicMaterial({ color: 0x111111 });
+      // Fish body (elongated ellipsoid)
+      const body = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 12), fishMat);
+      body.scale.set(0.7, 0.6, 2.2);
+      body.position.set(0, 0.02, -0.35);
+      // Fish tail
+      const tail = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.2, 4), fishDark);
+      tail.rotation.x = Math.PI / 2;
+      tail.position.set(0, 0.02, 0.0);
+      tail.scale.set(1, 0.3, 1);
+      // Fish head
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.08, 12, 10), fishMat);
+      head.scale.set(0.9, 0.8, 1);
+      head.position.set(0, 0.02, -0.65);
+      // Eyes (dead, X-shaped pupils)
+      const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.025, 8, 8), eyeMat);
+      eyeL.position.set(-0.06, 0.06, -0.68);
+      const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.025, 8, 8), eyeMat);
+      eyeR.position.set(0.06, 0.06, -0.68);
+      const pupilL = new THREE.Mesh(new THREE.SphereGeometry(0.012, 6, 6), pupilMat);
+      pupilL.position.set(-0.06, 0.06, -0.71);
+      const pupilR = new THREE.Mesh(new THREE.SphereGeometry(0.012, 6, 6), pupilMat);
+      pupilR.position.set(0.06, 0.06, -0.71);
+      // Fins
+      const finL = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.08, 0.15), fishDark);
+      finL.position.set(-0.09, 0.02, -0.3);
+      finL.rotation.z = 0.4;
+      const finR = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.08, 0.15), fishDark);
+      finR.position.set(0.09, 0.02, -0.3);
+      finR.rotation.z = -0.4;
+      // Mouth (open, gasping)
+      const mouth = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 8), new THREE.MeshLambertMaterial({ color: 0xcc5555 }));
+      mouth.scale.set(1, 0.5, 1);
+      mouth.position.set(0, -0.01, -0.72);
+      state.viewWeaponMesh.add(body, tail, head, eyeL, eyeR, pupilL, pupilR, finL, finR, mouth);
     } else {
       // Machete / generic melee blade
       const bladeMat = new THREE.MeshLambertMaterial({ color: 0x888888 });
@@ -786,7 +826,7 @@ export function updateWeaponModel() {
     state.viewWeaponMesh.add(core, coil, cell);
   }
 }
-export function playerHit(dmg, attackerPos = null) {
+export function playerHit(dmg, attackerPos = null, attackerName = null) {
   if (state.player.isParachuting) return;
   state.player.health -= dmg;
   playSound('hit');
@@ -803,7 +843,8 @@ export function playerHit(dmg, attackerPos = null) {
   if (state.player.health <= 0) {
     state.player.alive = false;
     state.controls.unlock();
-    document.getElementById('title').innerText = "游戏结束 (YOU DIED)";
+    const deathMsg = attackerName ? `你被${attackerName}击败了，太菜了` : "游戏结束 (YOU DIED)";
+    document.getElementById('title').innerText = deathMsg;
     document.getElementById('title').style.color = "#e74c3c";
     document.getElementById('subtitle').innerText = "排名: #" + state.aliveCount;
     document.getElementById('start-btn').innerText = "重新开始";
@@ -985,9 +1026,13 @@ export function fireWeapon() {
 
     // Show hit feedback
     if (hitAny) {
-      showNotice(`🔪 近战命中！(-${meleeDamage} DMG)`, "#f39c12");
-      // Screen shake for impact feel
-      state.player.recoilY += 0.15;
+      if (state.player.weapon.special === 'fish') {
+        showNotice(`🐟 被咸鱼甩了一巴掌！(-${meleeDamage} DMG)`, "#7fb3d8");
+        state.player.recoilY += 0.3;
+      } else {
+        showNotice(`🔪 近战命中！(-${meleeDamage} DMG)`, "#f39c12");
+        state.player.recoilY += 0.15;
+      }
     }
 
     updateUI();

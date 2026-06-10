@@ -15,8 +15,30 @@ import { checkEntityCollision, resolveEntityCollisions } from '../systems/collis
 import { getNearbyBots, getNearbyColliders, getNearbyDoors } from '../systems/spatial.js';
 import { updateUI } from '../ui/hud.js';
 import { showNotice } from '../ui/notices.js';
+import { registerKill } from '../systems/killstreak.js';
+import { triggerVictoryChicken } from '../systems/victory.js';
 
 // ========== SHARED RESOURCES (created once) ==========
+const BOT_NAMES = ['铁头娃','菜鸡','送快递的','伏地魔','描边大师','落地成盒','舔包怪','快递员','人头狗','苟王','钢枪王','草丛伦','空投猎手','毒圈跑者','伏地魔王','吃鸡达人','神仙哥','挂壁','六神装','一拳超人'];
+
+const PLAYER_KILL_MESSAGES = [
+  (n) => `${n}已阵亡，快递请签收`,
+  (n) => `${n}变成了盒子，感谢惠顾`,
+  (n) => `恭喜！${n}为您送上了人头快递`,
+  (n) => `${n}：我还没准备好…就没了`,
+  (n) => `${n}含泪退场，下辈子再做英雄`,
+  (n) => `轻松拿下${n}，基本操作`,
+  (n) => `${n}：这把我来送快递的`,
+  (n) => `${n}的遗言：下次一定…`,
+];
+
+const BOT_KILL_BOT_MESSAGES = [
+  (killer, victim) => `${killer} 击杀了 ${victim}，双菜互啄`,
+  (killer, victim) => `${killer} 送 ${victim} 回了老家`,
+  (killer, victim) => `${victim} 被 ${killer} 教育了`,
+  (killer, victim) => `${killer} 对 ${victim} 说：就这？`,
+];
+
 const skinColors = [0xffdfc4, 0xd0a37e, 0x8d5524, 0xc68642, 0xe0ac69, 0x4a2a18, 0xf1c27d, 0x3d2314];
 const shirtColors = [0x95a5a6, 0x34495e, 0x27ae60, 0x8e44ad, 0xc0392b, 0xd35400, 0xf39c12, 0x2c3e50, 0x111111, 0xecf0f1, 0x1abc9c, 0xf1c40f];
 const pantsColors = [0x2c3e50, 0xbdc3c7, 0x34495e, 0x7f8c8d, 0x222222, 0x8b4513, 0x2e4053, 0x17202a];
@@ -588,17 +610,22 @@ export function initBots() {
     let w = botWeaponPool[Math.floor(Math.random() * botWeaponPool.length)];
     let diff = difficulties[CURRENT_DIFFICULTY];
 
+    const botName = BOT_NAMES[i % BOT_NAMES.length] + (i >= BOT_NAMES.length ? ` ${Math.floor(i / BOT_NAMES.length) + 1}` : '');
     state.bots.push({
-      id: i, mesh: botGroup, bodyMesh: torsoLower, headMesh: head, packMesh: pack, parachuteMesh: bParaGroup, laserMesh: botLaser,
+      id: i, name: botName, mesh: botGroup, bodyMesh: torsoLower, headMesh: head, packMesh: pack, parachuteMesh: bParaGroup, laserMesh: botLaser,
       health: diff.botHealth, alive: true, weapon: { ...w, damage: w.damage * diff.botDamageMultiplier },
       helmet: bHelmet, armor: bArmor,
       accuracy: diff.botAccuracy,
       isParachuting: true,
-      state: 'wander', target: null, lastFire: 0, vx: 0, vz: 0, changeDirTime: 0
+      state: 'wander', target: null, lastFire: 0, vx: 0, vz: 0, changeDirTime: 0, danceTimer: 0
     });
   }
 
   state.aliveCount = BOT_COUNT + 1;
+}
+
+export function setBotsDancing(duration) {
+  state.bots.forEach(b => { if (b.alive) b.danceTimer = duration; });
 }
 
 export function updateBots(delta) {
@@ -609,6 +636,13 @@ export function updateBots(delta) {
 
   state.bots.forEach((bot, idx) => {
     if (!bot.alive) return;
+
+    // Dance party override
+    if (bot.danceTimer > 0) {
+      bot.danceTimer -= delta;
+      bot.mesh.rotation.y += delta * (8 + bot.id % 5);
+      return;
+    }
 
     // Distance check - skip detailed updates for far bots
     let bPos = bot.mesh.position;
@@ -816,7 +850,7 @@ export function updateBots(delta) {
 
             if (!isBlocked) {
               let dmg = calcDamage(bot.weapon.damage * diff.botToPlayerDamageFactor, isHeadshot, state.player);
-              playerHit(dmg, bPos); // Pass bot position for hit direction
+              playerHit(dmg, bPos, bot.name); // Pass bot position + name for hit direction & death message
             }
           } else if (bot.target.mesh) {
             // Bot-vs-bot damage reduced by 20x
@@ -828,7 +862,7 @@ export function updateBots(delta) {
 
             spawnBlood(_missPoint.copy(bot.target.mesh.position).add(_bloodOffset), _upNormal);
             if (bot.target.health <= 0) {
-              botDied(bot.target, "Bot " + bot.id);
+              botDied(bot.target, bot.name);
               bot.target = null;
               bot.changeDirTime = 0;
             }
@@ -898,13 +932,21 @@ export function botDied(bot, killerName) {
 
   if (killerName === "You") {
     state.player.kills++;
-    showNotice("击杀 Bot " + bot.id, "#f1c40f");
+    registerKill();
+    const msgFn = PLAYER_KILL_MESSAGES[Math.floor(Math.random() * PLAYER_KILL_MESSAGES.length)];
+    showNotice(msgFn(bot.name), "#f1c40f");
   }
 
-  addKillFeed(`[${killerName}] 击杀了 [Bot ${bot.id}]`);
+  if (killerName !== "You" && killerName !== "Zone" && killerName !== "Giant") {
+    const msgFn = BOT_KILL_BOT_MESSAGES[Math.floor(Math.random() * BOT_KILL_BOT_MESSAGES.length)];
+    addKillFeed(msgFn(killerName, bot.name));
+  } else {
+    addKillFeed(`[${killerName}] 击杀了 [${bot.name}]`);
+  }
   updateUI();
 
   if (state.aliveCount === 1 && !state.giantAlive && state.player.alive) {
+    triggerVictoryChicken();
     setTimeout(() => {
       state.controls.unlock();
       document.getElementById('title').innerText = "大吉大利，今晚吃鸡！";

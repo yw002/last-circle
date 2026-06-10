@@ -8,6 +8,7 @@ import { playerHit } from './player.js';
 import { showNotice, addKillFeed } from '../ui/notices.js';
 import { playSound } from '../systems/audio.js';
 import { spawnSingleLoot } from '../world/loot.js';
+import { triggerVictoryChicken } from '../systems/victory.js';
 
 const GIANT_HEIGHT = 900;
 const GIANT_SCALE = GIANT_HEIGHT / 20;
@@ -145,6 +146,10 @@ export function getGiantMaxHealth() {
   return GIANT_MAX_HP;
 }
 
+export function getGiantPosition() {
+  return giantPos;
+}
+
 export function damageGiant(dmg, hitPoint) {
   if (!giantAlive || giantDeathPhase > 0) return;
   giantHealth -= dmg;
@@ -232,6 +237,7 @@ export function damageGiant(dmg, hitPoint) {
 
     // Check if this completes the chicken dinner condition
     if (state.aliveCount === 1 && state.player.alive) {
+      triggerVictoryChicken();
       setTimeout(() => {
         state.controls.unlock();
         document.getElementById('title').innerText = "大吉大利，今晚吃鸡！";

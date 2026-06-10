@@ -36,6 +36,8 @@ import { updateStaticVisibility } from './systems/staticVisibility.js';
 import { updateCollisionDebug } from './systems/collisionDebug.js';
 import { updateCombatFeedback } from './systems/combatFeedback.js';
 import { updateSpecialWeapons } from './systems/specialWeapons.js';
+import { updateFunnyEvents } from './systems/funnyEvents.js';
+import { updateVictory } from './systems/victory.js';
 
 // Disable right-click menu
 document.addEventListener('contextmenu', e => e.preventDefault());
@@ -285,6 +287,8 @@ function animate() {
       runFrameStep('collision debug update', () => updateCollisionDebug());
       runFrameStep('combat feedback update', () => updateCombatFeedback(delta));
       runFrameStep('special weapon update', () => updateSpecialWeapons(delta));
+      runFrameStep('funny events update', () => updateFunnyEvents(delta));
+      runFrameStep('victory update', () => updateVictory(delta));
 
       // Throttle minimap to ~15 FPS
       runFrameStep('minimap update', () => {
