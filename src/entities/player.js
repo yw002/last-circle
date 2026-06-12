@@ -5,7 +5,7 @@ import { state } from '../state.js';
 import { MAP_SIZE, RELOAD_DURATION } from '../config.js';
 import { getTerrainHeight } from '../world/terrain.js';
 import { getHousePlayerIsInside } from './house.js';
-import { playImpactSound, playSound } from '../systems/audio.js';
+import { playImpactSound, playSound, playFootstepSound } from '../systems/audio.js';
 import { spawnBlood, spawnMuzzleFlash } from '../systems/particles.js';
 import { updateUI } from '../ui/hud.js';
 import { createWeaponTracer } from '../systems/bullets.js';
@@ -37,6 +37,7 @@ const _playerBoxSizePara = new THREE.Vector3(1, PLAYER_COLLIDER_HEIGHT, 1);
 const _playerBoxSize = new THREE.Vector3(3, PLAYER_COLLIDER_HEIGHT, 3);
 const _playerCollisionCenter = new THREE.Vector3();
 const PLAYER_COLLIDER_RADIUS = 1.5;
+let footstepTimer = 0;
 
 export function updateCrosshairSpread(delta) {
   // Recover spread over time
@@ -1384,6 +1385,23 @@ export function updatePlayer(delta) {
     }
 
     applyGroundSafety(pPos, nearbyDoors, nearbyColliders);
+
+    // Footstep sounds
+    if (state.canJump) {
+      const hSpeed = Math.sqrt(state.velocity.x * state.velocity.x + state.velocity.z * state.velocity.z);
+      if (hSpeed > 5) {
+        footstepTimer -= delta;
+        if (footstepTimer <= 0) {
+          const interval = state.isSprinting ? 0.28 : 0.42;
+          footstepTimer = interval;
+          const insideHouse = getHousePlayerIsInside(pPos);
+          const surface = insideHouse ? 'wood' : 'grass';
+          playFootstepSound(surface);
+        }
+      } else {
+        footstepTimer = 0;
+      }
+    }
 
     // Loot pickup
     let nearbyLoot = null;

@@ -88,7 +88,12 @@ const sharedGeos = {
   monkeyBody: new THREE.SphereGeometry(0.8, 8, 8),
   monkeyHead: new THREE.SphereGeometry(0.6, 8, 8),
   monkeyArm: new THREE.CylinderGeometry(0.12, 0.1, 1.5, 6),
-  monkeyTail: new THREE.CylinderGeometry(0.08, 0.05, 2, 6)
+  monkeyTail: new THREE.CylinderGeometry(0.08, 0.05, 2, 6),
+
+  // Seam-fix connectors
+  neck: new THREE.CylinderGeometry(0.4, 0.7, 1.2, 8),
+  shoulder: new THREE.SphereGeometry(0.45, 8, 8),
+  hip: new THREE.SphereGeometry(0.45, 8, 8)
 };
 
 // Animal type definitions
@@ -119,6 +124,91 @@ const ANIMAL_TYPES = {
   hawk: { health: 30, speed: 40, color: 0x8b4513, scale: 0.6, drops: ['ammo'] },
   owl: { health: 30, speed: 25, color: 0x6b5b3a, scale: 0.7, drops: ['ammo'] }
 };
+
+// ========== ORGANIC PROFILES (LatheGeometry) ==========
+const SEG_A = 24; // Animal segment count
+
+// Quadruped body profile - barrel shape with chest and haunches
+const quadBodyProfile = [];
+for (let i = 0; i <= 32; i++) {
+  const t = i / 32;
+  let r;
+  if (t < 0.15) r = 0.6 + t * 3.0; // Chest taper
+  else if (t < 0.4) r = 1.05 + Math.sin((t - 0.15) * Math.PI / 0.25) * 0.15; // Front barrel
+  else if (t < 0.6) r = 1.0 - (t - 0.4) * 1.5; // Waist dip
+  else if (t < 0.85) r = 0.7 + Math.sin((t - 0.6) * Math.PI / 0.25) * 0.35; // Haunches
+  else r = 1.05 - (t - 0.85) * 5.0; // Rear taper
+  quadBodyProfile.push(new THREE.Vector2(Math.max(0.1, r), t * 4 - 2));
+}
+
+// Quadruped head profile - skull with snout
+const quadHeadProfile = [];
+for (let i = 0; i <= 24; i++) {
+  const t = i / 24;
+  let r;
+  if (t < 0.3) r = 0.25 + t * 1.5; // Snout widening
+  else if (t < 0.6) r = 0.7 + Math.sin((t - 0.3) * Math.PI / 0.3) * 0.15; // Cheeks
+  else if (t < 0.85) r = 0.7 - (t - 0.6) * 1.5; // Forehead taper
+  else r = 0.35 * (1 - (t - 0.85) * 6.67);
+  quadHeadProfile.push(new THREE.Vector2(Math.max(0, r), t * 1.8 - 0.6));
+}
+
+// Quadruped leg profile - muscular with joints
+const quadLegProfile = [];
+for (let i = 0; i <= 20; i++) {
+  const t = i / 20;
+  let r;
+  if (t < 0.2) r = 0.2 + t * 1.0; // Hoof/paw
+  else if (t < 0.4) r = 0.4 - (t - 0.2) * 0.5; // Ankle narrow
+  else if (t < 0.7) r = 0.3 + Math.sin((t - 0.4) * Math.PI / 0.3) * 0.12; // Calf muscle
+  else r = 0.35 + (t - 0.7) * 0.5; // Thickens at hip
+  quadLegProfile.push(new THREE.Vector2(Math.max(0.15, r), t * 2.5 - 1.25));
+}
+
+// Fox body profile - sleek and elongated
+const foxBodyProfile = [];
+for (let i = 0; i <= 24; i++) {
+  const t = i / 24;
+  let r;
+  if (t < 0.15) r = 0.35 + t * 2.5;
+  else if (t < 0.5) r = 0.72 + Math.sin((t - 0.15) * Math.PI / 0.35) * 0.08;
+  else if (t < 0.7) r = 0.7 - (t - 0.5) * 1.0;
+  else r = 0.5 + Math.sin((t - 0.7) * Math.PI / 0.3) * 0.2;
+  foxBodyProfile.push(new THREE.Vector2(Math.max(0.1, r), t * 3 - 1.5));
+}
+
+// Fox head profile - pointed snout
+const foxHeadProfile = [];
+for (let i = 0; i <= 20; i++) {
+  const t = i / 20;
+  let r;
+  if (t < 0.35) r = 0.1 + t * 1.2; // Long pointed snout
+  else if (t < 0.6) r = 0.52 + Math.sin((t - 0.35) * Math.PI / 0.25) * 0.1;
+  else r = 0.55 * (1 - (t - 0.6) * 2.5);
+  foxHeadProfile.push(new THREE.Vector2(Math.max(0, r), t * 1.2 - 0.4));
+}
+
+// Bird body profile - streamlined
+const birdBodyProfile = [];
+for (let i = 0; i <= 20; i++) {
+  const t = i / 20;
+  let r;
+  if (t < 0.2) r = t * 2.0;
+  else if (t < 0.6) r = 0.4 + Math.sin((t - 0.2) * Math.PI / 0.4) * 0.12;
+  else r = 0.45 * (1 - (t - 0.6) * 2.5);
+  birdBodyProfile.push(new THREE.Vector2(Math.max(0, r), t * 2 - 1));
+}
+
+// Fish body profile - torpedo
+const fishBodyProfile = [];
+for (let i = 0; i <= 20; i++) {
+  const t = i / 20;
+  let r;
+  if (t < 0.3) r = t * 1.3;
+  else if (t < 0.5) r = 0.39 + Math.sin((t - 0.3) * Math.PI / 0.2) * 0.06;
+  else r = 0.4 * (1 - (t - 0.5) * 2.0);
+  fishBodyProfile.push(new THREE.Vector2(Math.max(0, r), t * 1.5 - 0.75));
+}
 
 // Material cache
 const materialCache = {};
@@ -206,21 +296,30 @@ function createAnimalBody(type, config) {
       body.scale.set(1, 0.8, 1.2);
       head = new THREE.Mesh(sharedGeos.bearHead, bodyMat);
       head.position.set(0, 4.5, 2.5);
-      legFL = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.5, 2.5, 6), bodyMat);
-      legFR = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.5, 2.5, 6), bodyMat);
-      legBL = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.5, 2.5, 6), bodyMat);
-      legBR = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.5, 2.5, 6), bodyMat);
+      legFL = new THREE.Mesh(sharedGeos.bearLeg, bodyMat);
+      legFR = new THREE.Mesh(sharedGeos.bearLeg, bodyMat);
+      legBL = new THREE.Mesh(sharedGeos.bearLeg, bodyMat);
+      legBR = new THREE.Mesh(sharedGeos.bearLeg, bodyMat);
       legFL.position.set(-1.2, 1.2, 1.5);
       legFR.position.set(1.2, 1.2, 1.5);
       legBL.position.set(-1.2, 1.2, -1.5);
       legBR.position.set(1.2, 1.2, -1.5);
+
+      // Bear neck connector
+      const bearNeck = new THREE.Mesh(sharedGeos.neck, bodyMat);
+      bearNeck.position.set(0, 4.0, 2.0);
+      bearNeck.scale.set(1.5, 1.2, 1.5);
+      bearNeck.rotation.x = -0.5;
+      group.add(bearNeck);
       break;
 
     case 'fox':
       body = new THREE.Mesh(sharedGeos.foxBody, bodyMat);
       body.position.y = 1.5;
+      body.rotation.x = Math.PI / 2;
       head = new THREE.Mesh(sharedGeos.foxHead, bodyMat);
-      head.position.set(0, 2.2, 1.8);
+      head.position.set(0, 2.0, 1.6);
+      head.rotation.x = Math.PI / 2 + 0.15;
       const foxTail = new THREE.Mesh(sharedGeos.foxTail, bodyMat);
       foxTail.position.set(0, 1.8, -2.5);
       foxTail.rotation.x = -Math.PI / 3;
@@ -233,6 +332,13 @@ function createAnimalBody(type, config) {
       legFR.position.set(0.5, 0.8, 0.8);
       legBL.position.set(-0.5, 0.8, -0.8);
       legBR.position.set(0.5, 0.8, -0.8);
+
+      // Fox neck connector
+      const foxNeck = new THREE.Mesh(sharedGeos.neck, bodyMat);
+      foxNeck.position.set(0, 1.9, 1.4);
+      foxNeck.scale.set(0.7, 0.8, 0.7);
+      foxNeck.rotation.x = -0.3;
+      group.add(foxNeck);
       break;
 
     case 'turtle':
@@ -241,7 +347,7 @@ function createAnimalBody(type, config) {
       const shell = new THREE.Mesh(sharedGeos.turtleShell, getMaterial(0x3a6b35));
       shell.position.y = 0.8;
       group.add(shell);
-      head = new THREE.Mesh(new THREE.SphereGeometry(0.4, 6, 6), bodyMat);
+      head = new THREE.Mesh(sharedGeos.turtleHead, bodyMat);
       head.position.set(0, 0.6, 1.2);
       legFL = new THREE.Mesh(sharedGeos.turtleLeg, bodyMat);
       legFR = new THREE.Mesh(sharedGeos.turtleLeg, bodyMat);
@@ -268,18 +374,26 @@ function createAnimalBody(type, config) {
       monkeyTail.position.set(0, 1.5, -1.2);
       monkeyTail.rotation.x = -Math.PI / 4;
       group.add(armL, armR, monkeyTail);
-      legFL = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.1, 1.2, 6), bodyMat);
-      legFR = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.1, 1.2, 6), bodyMat);
+      legFL = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.1, 1.2, 10), bodyMat);
+      legFR = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.1, 1.2, 10), bodyMat);
       legFL.position.set(-0.3, 0.5, 0);
       legFR.position.set(0.3, 0.5, 0);
+
+      // Monkey neck connector
+      const monkeyNeck = new THREE.Mesh(sharedGeos.neck, bodyMat);
+      monkeyNeck.position.set(0, 2.1, 0.2);
+      monkeyNeck.scale.set(0.5, 0.6, 0.5);
+      group.add(monkeyNeck);
       break;
 
     default:
-      // Generic quadruped
+      // Generic quadruped (organic LatheGeometry)
       body = new THREE.Mesh(sharedGeos.body, bodyMat);
       body.position.y = 2.5;
+      body.rotation.x = Math.PI / 2; // LatheGeometry is vertical, rotate to horizontal
       head = new THREE.Mesh(sharedGeos.head, bodyMat);
-      head.position.set(0, 3.5, 2.2);
+      head.position.set(0, 3.3, 2.0);
+      head.rotation.x = Math.PI / 2 + 0.2; // Slight upward tilt
       legFL = new THREE.Mesh(sharedGeos.leg, bodyMat);
       legFR = new THREE.Mesh(sharedGeos.leg, bodyMat);
       legBL = new THREE.Mesh(sharedGeos.leg, bodyMat);
@@ -288,6 +402,26 @@ function createAnimalBody(type, config) {
       legFR.position.set(0.8, 1.2, 1.2);
       legBL.position.set(-0.8, 1.2, -1.2);
       legBR.position.set(0.8, 1.2, -1.2);
+
+      // Neck connector (smooth body-to-head transition)
+      const neck = new THREE.Mesh(sharedGeos.neck, bodyMat);
+      neck.position.set(0, 3.2, 1.8);
+      neck.rotation.x = -0.4;
+      group.add(neck);
+
+      // Shoulder joints (smooth leg-to-body front)
+      const shoulderFL = new THREE.Mesh(sharedGeos.shoulder, bodyMat);
+      shoulderFL.position.set(-0.8, 1.9, 1.2);
+      const shoulderFR = new THREE.Mesh(sharedGeos.shoulder, bodyMat);
+      shoulderFR.position.set(0.8, 1.9, 1.2);
+      group.add(shoulderFL, shoulderFR);
+
+      // Hip joints (smooth leg-to-body back)
+      const hipBL = new THREE.Mesh(sharedGeos.hip, bodyMat);
+      hipBL.position.set(-0.8, 1.9, -1.2);
+      const hipBR = new THREE.Mesh(sharedGeos.hip, bodyMat);
+      hipBR.position.set(0.8, 1.9, -1.2);
+      group.add(hipBL, hipBR);
   }
 
   // Eyes
@@ -323,8 +457,8 @@ function createAnimalBody(type, config) {
     pupilR.position.set(0.25, 2.7, 0.75);
   } else if (type === 'owl') {
     // Owl eyes are bigger
-    const owlEyeL = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 8), sharedMats.eyeWhite);
-    const owlEyeR = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 8), sharedMats.eyeWhite);
+    const owlEyeL = new THREE.Mesh(new THREE.SphereGeometry(0.2, 14, 12), sharedMats.eyeWhite);
+    const owlEyeR = new THREE.Mesh(new THREE.SphereGeometry(0.2, 14, 12), sharedMats.eyeWhite);
     owlEyeL.position.set(-0.3, 1.0, 0.7);
     owlEyeR.position.set(0.3, 1.0, 0.7);
     group.add(owlEyeL, owlEyeR);

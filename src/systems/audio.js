@@ -1,5 +1,5 @@
 // Ultra-realistic audio system with advanced multi-layer synthesis
-// Each sound has 5-8 layers for maximum realism
+// Master chain: dynamics compressor + convolution reverb for professional output
 
 import * as THREE from 'three';
 
@@ -7,6 +7,39 @@ let audioCtx = null;
 let initialized = false;
 let noiseBuffer = null;
 let longNoiseBuffer = null;
+let masterCompressor = null;
+let reverbNode = null;
+let reverbGain = null;
+let dryGain = null;
+let masterGainNode = null;
+let saturationNode = null;
+let subBassGain = null;
+
+// ========== DISTORTION CURVE (soft clipping saturation) ==========
+function makeDistortionCurve(amount) {
+  const samples = 44100;
+  const curve = new Float32Array(samples);
+  const deg = Math.PI / 180;
+  for (let i = 0; i < samples; i++) {
+    const x = (i * 2) / samples - 1;
+    curve[i] = ((3 + amount) * x * 20 * deg) / (Math.PI + amount * Math.abs(x));
+  }
+  return curve;
+}
+
+// ========== IMPULSE RESPONSE (simulated room reverb) ==========
+function createReverbIR(ctx, duration, decay) {
+  const rate = ctx.sampleRate;
+  const length = rate * duration;
+  const ir = ctx.createBuffer(2, length, rate);
+  for (let ch = 0; ch < 2; ch++) {
+    const data = ir.getChannelData(ch);
+    for (let i = 0; i < length; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, decay);
+    }
+  }
+  return ir;
+}
 
 export function initAudio() {
   if (initialized) return true;
@@ -14,6 +47,49 @@ export function initAudio() {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     noiseBuffer = createNoiseBuffer(1);
     longNoiseBuffer = createNoiseBuffer(3);
+
+    // Master chain: compressor → [dry + reverb] → master gain → destination
+    masterCompressor = audioCtx.createDynamicsCompressor();
+    masterCompressor.threshold.setValueAtTime(-18, audioCtx.currentTime);
+    masterCompressor.knee.setValueAtTime(12, audioCtx.currentTime);
+    masterCompressor.ratio.setValueAtTime(6, audioCtx.currentTime);
+    masterCompressor.attack.setValueAtTime(0.003, audioCtx.currentTime);
+    masterCompressor.release.setValueAtTime(0.15, audioCtx.currentTime);
+
+    // Convolution reverb
+    reverbNode = audioCtx.createConvolver();
+    reverbNode.buffer = createReverbIR(audioCtx, 1.8, 2.5);
+    reverbGain = audioCtx.createGain();
+    reverbGain.gain.setValueAtTime(0.18, audioCtx.currentTime);
+    dryGain = audioCtx.createGain();
+    dryGain.gain.setValueAtTime(1.0, audioCtx.currentTime);
+
+    // Soft saturation on master bus (analog warmth)
+    saturationNode = audioCtx.createWaveShaper();
+    saturationNode.curve = makeDistortionCurve(12);
+    saturationNode.oversample = '4x';
+
+    masterGainNode = audioCtx.createGain();
+    masterGainNode.gain.setValueAtTime(1.4, audioCtx.currentTime);
+
+    // Sub-bass enhancer (boosts 20-80Hz)
+    subBassGain = audioCtx.createGain();
+    subBassGain.gain.setValueAtTime(1.6, audioCtx.currentTime);
+    const subFilter = audioCtx.createBiquadFilter();
+    subFilter.type = 'lowshelf';
+    subFilter.frequency.value = 80;
+    subFilter.gain.value = 4;
+
+    // Routing: compressor → saturation → [dry + reverb] → masterGain → subFilter → destination
+    masterCompressor.connect(saturationNode);
+    saturationNode.connect(dryGain);
+    saturationNode.connect(reverbNode);
+    reverbNode.connect(reverbGain);
+    dryGain.connect(masterGainNode);
+    reverbGain.connect(masterGainNode);
+    masterGainNode.connect(subFilter);
+    subFilter.connect(audioCtx.destination);
+
     initialized = true;
     setInterval(() => {
       if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
@@ -55,11 +131,12 @@ function createPanner(sourcePos) {
 }
 
 function connectToOutput(node, panner) {
+  const dest = masterCompressor || audioCtx.destination;
   if (panner) {
     node.connect(panner);
-    panner.connect(audioCtx.destination);
+    panner.connect(dest);
   } else {
-    node.connect(audioCtx.destination);
+    node.connect(dest);
   }
 }
 
@@ -132,7 +209,7 @@ export function playBulletWhiz(sourcePos = null, intensity = 1) {
   if (!audioCtx || audioCtx.state === 'suspended') return;
   try {
     const now = audioCtx.currentTime;
-    const vol = Math.max(0.08, Math.min(0.35, 0.18 * intensity));
+    const vol = Math.max(0.15, Math.min(0.55, 0.3 * intensity));
     const panner = createPanner(sourcePos);
 
     if (noiseBuffer) {
@@ -163,6 +240,43 @@ export function playBulletWhiz(sourcePos = null, intensity = 1) {
     connectToOutput(snapGain, panner);
     snap.start(now);
     snap.stop(now + 0.09);
+
+    // Layer 3: Doppler-shifted tone (pitch sweep simulates passing bullet)
+    const doppler = audioCtx.createOscillator();
+    const dopplerG = audioCtx.createGain();
+    doppler.type = 'sine';
+    doppler.frequency.setValueAtTime(2400 * intensity, now);
+    doppler.frequency.exponentialRampToValueAtTime(300, now + 0.12);
+    dopplerG.gain.setValueAtTime(vol * 0.3, now);
+    dopplerG.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+    doppler.connect(dopplerG); connectToOutput(dopplerG, panner);
+    doppler.start(now); doppler.stop(now + 0.16);
+
+    // Layer 4: Turbulence noise (air disturbance)
+    if (noiseBuffer) {
+      const turb = audioCtx.createBufferSource();
+      turb.buffer = noiseBuffer;
+      const tg = audioCtx.createGain();
+      const tf = audioCtx.createBiquadFilter();
+      tf.type = 'bandpass'; tf.frequency.setValueAtTime(4000, now);
+      tf.frequency.exponentialRampToValueAtTime(1000, now + 0.15);
+      tf.Q.value = 3;
+      tg.gain.setValueAtTime(vol * 0.2, now + 0.02);
+      tg.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+      turb.connect(tf); tf.connect(tg); connectToOutput(tg, panner);
+      turb.start(now); turb.stop(now + 0.2);
+    }
+
+    // Layer 5: Secondary crack (sonic boom micro-bang)
+    const crack2 = audioCtx.createOscillator();
+    const crack2G = audioCtx.createGain();
+    crack2.type = 'sawtooth';
+    crack2.frequency.setValueAtTime(3200, now + 0.01);
+    crack2.frequency.exponentialRampToValueAtTime(400, now + 0.04);
+    crack2G.gain.setValueAtTime(vol * 0.25 * intensity, now + 0.01);
+    crack2G.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+    crack2.connect(crack2G); connectToOutput(crack2G, panner);
+    crack2.start(now); crack2.stop(now + 0.06);
   } catch (e) {}
 }
 
@@ -170,7 +284,7 @@ export function playImpactSound(material = 'dirt', sourcePos = null) {
   if (!audioCtx || audioCtx.state === 'suspended') return;
   try {
     const now = audioCtx.currentTime;
-    const vol = sourcePos ? 0.45 : 0.22;
+    const vol = sourcePos ? 0.65 : 0.35;
     const panner = createPanner(sourcePos);
 
     const profiles = {
@@ -211,6 +325,44 @@ export function playImpactSound(material = 'dirt', sourcePos = null) {
       noise.start(now);
       noise.stop(now + profile.dur + 0.03);
     }
+
+    // Layer 3: Sharp transient click (initial contact)
+    const click = audioCtx.createOscillator();
+    const clickG = audioCtx.createGain();
+    click.type = 'square';
+    click.frequency.setValueAtTime(2800 + Math.random() * 600, now);
+    click.frequency.exponentialRampToValueAtTime(200, now + 0.008);
+    clickG.gain.setValueAtTime(vol * 0.35, now);
+    clickG.gain.exponentialRampToValueAtTime(0.001, now + 0.015);
+    click.connect(clickG); connectToOutput(clickG, panner);
+    click.start(now); click.stop(now + 0.02);
+
+    // Layer 4: Distortion crunch (adds grit)
+    const crunch = audioCtx.createOscillator();
+    const crunchG = audioCtx.createGain();
+    const ws = audioCtx.createWaveShaper();
+    ws.curve = makeDistortionCurve(50);
+    crunch.type = 'sawtooth';
+    crunch.frequency.setValueAtTime(profile.freq * 0.5, now);
+    crunch.frequency.exponentialRampToValueAtTime(profile.end * 0.3, now + profile.dur * 0.4);
+    crunchG.gain.setValueAtTime(vol * 0.2, now);
+    crunchG.gain.exponentialRampToValueAtTime(0.001, now + profile.dur * 0.5);
+    crunch.connect(ws); ws.connect(crunchG); connectToOutput(crunchG, panner);
+    crunch.start(now); crunch.stop(now + profile.dur * 0.6);
+
+    // Layer 5: Secondary resonance (echo bounce)
+    if (noiseBuffer) {
+      const debris = audioCtx.createBufferSource();
+      debris.buffer = noiseBuffer;
+      const dg = audioCtx.createGain();
+      const df = audioCtx.createBiquadFilter();
+      df.type = 'highpass'; df.frequency.value = profile.noiseFreq * 1.5; df.Q.value = 2;
+      dg.gain.setValueAtTime(0, now);
+      dg.gain.linearRampToValueAtTime(vol * 0.15, now + profile.dur * 0.3);
+      dg.gain.exponentialRampToValueAtTime(0.001, now + profile.dur * 1.2);
+      debris.connect(df); df.connect(dg); connectToOutput(dg, panner);
+      debris.start(now + profile.dur * 0.2); debris.stop(now + profile.dur * 1.4);
+    }
   } catch (e) {}
 }
 
@@ -228,442 +380,583 @@ function applyAmmoTone(type, now, vol, panner, options) {
   }
 }
 
-// ========== PISTOL SOUND (6 layers) ==========
+// ========== PISTOL SOUND (9 layers — punchy + saturated) ==========
 function playPistolSound(now, vol, panner) {
-  // Layer 1: Mechanical hammer click
+  // Layer 1: Ultra-fast mechanical click
   const hammer = audioCtx.createOscillator();
   const hammerGain = audioCtx.createGain();
   hammer.type = 'square';
-  hammer.frequency.setValueAtTime(2000, now);
-  hammer.frequency.exponentialRampToValueAtTime(300, now + 0.008);
-  hammerGain.gain.setValueAtTime(vol * 0.4, now);
-  hammerGain.gain.exponentialRampToValueAtTime(0.001, now + 0.012);
+  hammer.frequency.setValueAtTime(3200, now);
+  hammer.frequency.exponentialRampToValueAtTime(200, now + 0.005);
+  hammerGain.gain.setValueAtTime(vol * 0.5, now);
+  hammerGain.gain.exponentialRampToValueAtTime(0.001, now + 0.008);
   hammer.connect(hammerGain);
   connectToOutput(hammerGain, panner);
-  hammer.start(now);
-  hammer.stop(now + 0.015);
+  hammer.start(now); hammer.stop(now + 0.01);
 
-  // Layer 2: Sharp gunshot crack
-  const crack = audioCtx.createOscillator();
-  const crackGain = audioCtx.createGain();
-  crack.type = 'sawtooth';
-  crack.frequency.setValueAtTime(1200, now);
-  crack.frequency.exponentialRampToValueAtTime(200, now + 0.015);
-  crackGain.gain.setValueAtTime(vol * 0.9, now);
-  crackGain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
-  crack.connect(crackGain);
-  connectToOutput(crackGain, panner);
-  crack.start(now);
-  crack.stop(now + 0.04);
+  // Layer 2: Sharp noise transient (THE CRACK)
+  if (noiseBuffer) {
+    const crack = audioCtx.createBufferSource();
+    crack.buffer = noiseBuffer;
+    const crackGain = audioCtx.createGain();
+    const crackFilter = audioCtx.createBiquadFilter();
+    crackFilter.type = 'highpass'; crackFilter.frequency.value = 3000;
+    const ws = audioCtx.createWaveShaper(); ws.curve = makeDistortionCurve(30);
+    crackGain.gain.setValueAtTime(vol * 1.2, now);
+    crackGain.gain.exponentialRampToValueAtTime(0.001, now + 0.018);
+    crack.connect(crackFilter); crackFilter.connect(ws); ws.connect(crackGain);
+    connectToOutput(crackGain, panner);
+    crack.start(now); crack.stop(now + 0.025);
+  }
 
-  // Layer 3: Mid-range body punch
+  // Layer 3: Gunshot crack oscillator
+  const crack2 = audioCtx.createOscillator();
+  const crackGain2 = audioCtx.createGain();
+  crack2.type = 'sawtooth';
+  crack2.frequency.setValueAtTime(1800, now);
+  crack2.frequency.exponentialRampToValueAtTime(120, now + 0.018);
+  crackGain2.gain.setValueAtTime(vol * 1.1, now);
+  crackGain2.gain.exponentialRampToValueAtTime(0.001, now + 0.035);
+  crack2.connect(crackGain2);
+  connectToOutput(crackGain2, panner);
+  crack2.start(now); crack2.stop(now + 0.04);
+
+  // Layer 4: Mid-range body punch
   const body = audioCtx.createOscillator();
   const bodyGain = audioCtx.createGain();
   body.type = 'sine';
-  body.frequency.setValueAtTime(250, now);
-  body.frequency.exponentialRampToValueAtTime(60, now + 0.08);
-  bodyGain.gain.setValueAtTime(vol * 0.6, now);
-  bodyGain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+  body.frequency.setValueAtTime(350, now);
+  body.frequency.exponentialRampToValueAtTime(45, now + 0.1);
+  bodyGain.gain.setValueAtTime(vol * 0.8, now);
+  bodyGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
   body.connect(bodyGain);
   connectToOutput(bodyGain, panner);
-  body.start(now);
-  body.stop(now + 0.12);
+  body.start(now); body.stop(now + 0.15);
 
-  // Layer 4: Low frequency thump
+  // Layer 5: Deep thump (chest feel)
   const thump = audioCtx.createOscillator();
   const thumpGain = audioCtx.createGain();
   thump.type = 'sine';
-  thump.frequency.setValueAtTime(80, now);
-  thump.frequency.exponentialRampToValueAtTime(30, now + 0.15);
-  thumpGain.gain.setValueAtTime(vol * 0.4, now);
-  thumpGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+  thump.frequency.setValueAtTime(90, now);
+  thump.frequency.exponentialRampToValueAtTime(25, now + 0.2);
+  thumpGain.gain.setValueAtTime(vol * 0.6, now);
+  thumpGain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
   thump.connect(thumpGain);
   connectToOutput(thumpGain, panner);
-  thump.start(now);
-  thump.stop(now + 0.25);
+  thump.start(now); thump.stop(now + 0.3);
 
-  // Layer 5: High frequency noise burst
+  // Layer 6: Sub bass
+  const sub = audioCtx.createOscillator();
+  const subGain = audioCtx.createGain();
+  sub.type = 'sine';
+  sub.frequency.setValueAtTime(40, now);
+  sub.frequency.exponentialRampToValueAtTime(15, now + 0.3);
+  subGain.gain.setValueAtTime(vol * 0.35, now);
+  subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+  sub.connect(subGain);
+  connectToOutput(subGain, panner);
+  sub.start(now); sub.stop(now + 0.4);
+
+  // Layer 7: Mid-frequency noise burst (body texture)
   if (noiseBuffer) {
     const noise = audioCtx.createBufferSource();
     noise.buffer = noiseBuffer;
     const noiseGain = audioCtx.createGain();
-    const noiseFilter = audioCtx.createBiquadFilter();
-    noiseFilter.type = 'highpass';
-    noiseFilter.frequency.value = 5000;
-    noiseGain.gain.setValueAtTime(vol * 0.5, now);
-    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.02);
-    noise.connect(noiseFilter);
-    noiseFilter.connect(noiseGain);
+    const nf = audioCtx.createBiquadFilter();
+    nf.type = 'bandpass'; nf.frequency.value = 1200; nf.Q.value = 1.5;
+    noiseGain.gain.setValueAtTime(vol * 0.45, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+    noise.connect(nf); nf.connect(noiseGain);
     connectToOutput(noiseGain, panner);
-    noise.start(now);
-    noise.stop(now + 0.025);
+    noise.start(now); noise.stop(now + 0.05);
   }
 
-  // Layer 6: Tail echo
-  const echo = audioCtx.createOscillator();
-  const echoGain = audioCtx.createGain();
-  echo.type = 'sine';
-  echo.frequency.setValueAtTime(100, now + 0.05);
-  echo.frequency.exponentialRampToValueAtTime(40, now + 0.3);
-  echoGain.gain.setValueAtTime(0, now);
-  echoGain.gain.linearRampToValueAtTime(vol * 0.15, now + 0.05);
-  echoGain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
-  echo.connect(echoGain);
-  connectToOutput(echoGain, panner);
-  echo.start(now + 0.05);
-  echo.stop(now + 0.4);
+  // Layer 8: Tail echo
+  if (longNoiseBuffer) {
+    const tail = audioCtx.createBufferSource();
+    tail.buffer = longNoiseBuffer;
+    const tailGain = audioCtx.createGain();
+    const tf = audioCtx.createBiquadFilter();
+    tf.type = 'lowpass'; tf.frequency.value = 800; tf.Q.value = 0.5;
+    tailGain.gain.setValueAtTime(0, now);
+    tailGain.gain.linearRampToValueAtTime(vol * 0.12, now + 0.06);
+    tailGain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+    tail.connect(tf); tf.connect(tailGain);
+    connectToOutput(tailGain, panner);
+    tail.start(now + 0.04); tail.stop(now + 0.55);
+  }
+
+  // Layer 9: Saturation layer (harmonic richness)
+  const sat = audioCtx.createOscillator();
+  const satGain = audioCtx.createGain();
+  const ws = audioCtx.createWaveShaper(); ws.curve = makeDistortionCurve(50);
+  sat.type = 'sawtooth';
+  sat.frequency.setValueAtTime(600, now);
+  sat.frequency.exponentialRampToValueAtTime(80, now + 0.04);
+  satGain.gain.setValueAtTime(vol * 0.25, now);
+  satGain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+  sat.connect(ws); ws.connect(satGain);
+  connectToOutput(satGain, panner);
+  sat.start(now); sat.stop(now + 0.08);
 }
 
-// ========== AR SOUND (7 layers) ==========
+// ========== AR SOUND (10 layers — aggressive + saturated) ==========
 function playARSound(now, vol, panner, fast) {
   const dur = fast ? 0.04 : 0.06;
 
-  // Layer 1: Mechanical bolt action
+  // Layer 1: Bolt action click
   const bolt = audioCtx.createOscillator();
   const boltGain = audioCtx.createGain();
   bolt.type = 'square';
-  bolt.frequency.setValueAtTime(1500, now);
-  bolt.frequency.exponentialRampToValueAtTime(200, now + 0.008);
-  boltGain.gain.setValueAtTime(vol * 0.3, now);
-  boltGain.gain.exponentialRampToValueAtTime(0.001, now + 0.012);
-  bolt.connect(boltGain);
-  connectToOutput(boltGain, panner);
-  bolt.start(now);
-  bolt.stop(now + 0.015);
+  bolt.frequency.setValueAtTime(2200, now);
+  bolt.frequency.exponentialRampToValueAtTime(150, now + 0.005);
+  boltGain.gain.setValueAtTime(vol * 0.4, now);
+  boltGain.gain.exponentialRampToValueAtTime(0.001, now + 0.008);
+  bolt.connect(boltGain); connectToOutput(boltGain, panner);
+  bolt.start(now); bolt.stop(now + 0.01);
 
-  // Layer 2: Sharp crack
-  const crack = audioCtx.createOscillator();
-  const crackGain = audioCtx.createGain();
-  crack.type = 'sawtooth';
-  crack.frequency.setValueAtTime(1500, now);
-  crack.frequency.exponentialRampToValueAtTime(300, now + 0.012);
-  crackGain.gain.setValueAtTime(vol * 0.8, now);
-  crackGain.gain.exponentialRampToValueAtTime(0.001, now + 0.025);
-  crack.connect(crackGain);
-  connectToOutput(crackGain, panner);
-  crack.start(now);
-  crack.stop(now + 0.03);
-
-  // Layer 3: Mid body
-  const mid = audioCtx.createOscillator();
-  const midGain = audioCtx.createGain();
-  mid.type = 'triangle';
-  mid.frequency.setValueAtTime(400, now);
-  mid.frequency.exponentialRampToValueAtTime(80, now + dur);
-  midGain.gain.setValueAtTime(vol * 0.5, now);
-  midGain.gain.exponentialRampToValueAtTime(0.001, now + dur * 1.2);
-  mid.connect(midGain);
-  connectToOutput(midGain, panner);
-  mid.start(now);
-  mid.stop(now + dur * 1.5);
-
-  // Layer 4: Low thump
-  const thump = audioCtx.createOscillator();
-  const thumpGain = audioCtx.createGain();
-  thump.type = 'sine';
-  thump.frequency.setValueAtTime(160, now);
-  thump.frequency.exponentialRampToValueAtTime(35, now + dur);
-  thumpGain.gain.setValueAtTime(vol * 0.6, now);
-  thumpGain.gain.exponentialRampToValueAtTime(0.001, now + dur * 1.3);
-  thump.connect(thumpGain);
-  connectToOutput(thumpGain, panner);
-  thump.start(now);
-  thump.stop(now + dur * 1.5);
-
-  // Layer 5: Sub bass
-  const sub = audioCtx.createOscillator();
-  const subGain = audioCtx.createGain();
-  sub.type = 'sine';
-  sub.frequency.setValueAtTime(50, now);
-  sub.frequency.exponentialRampToValueAtTime(20, now + dur * 2);
-  subGain.gain.setValueAtTime(vol * 0.3, now);
-  subGain.gain.exponentialRampToValueAtTime(0.001, now + dur * 2.5);
-  sub.connect(subGain);
-  connectToOutput(subGain, panner);
-  sub.start(now);
-  sub.stop(now + dur * 3);
-
-  // Layer 6: Supersonic crack
-  const superC = audioCtx.createOscillator();
-  const superCGain = audioCtx.createGain();
-  superC.type = 'sawtooth';
-  superC.frequency.setValueAtTime(3000, now);
-  superC.frequency.exponentialRampToValueAtTime(800, now + 0.006);
-  superCGain.gain.setValueAtTime(vol * 0.25, now);
-  superCGain.gain.exponentialRampToValueAtTime(0.001, now + 0.01);
-  superC.connect(superCGain);
-  connectToOutput(superCGain, panner);
-  superC.start(now);
-  superC.stop(now + 0.012);
-
-  // Layer 7: Noise
+  // Layer 2: Noise transient crack (THE key layer)
   if (noiseBuffer) {
-    const noise = audioCtx.createBufferSource();
-    noise.buffer = noiseBuffer;
-    const noiseGain = audioCtx.createGain();
-    const noiseFilter = audioCtx.createBiquadFilter();
-    noiseFilter.type = 'bandpass';
-    noiseFilter.frequency.value = 3500;
-    noiseFilter.Q.value = 1;
-    noiseGain.gain.setValueAtTime(vol * 0.35, now);
-    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + dur);
-    noise.connect(noiseFilter);
-    noiseFilter.connect(noiseGain);
-    connectToOutput(noiseGain, panner);
-    noise.start(now);
-    noise.stop(now + dur * 1.2);
+    const crack = audioCtx.createBufferSource();
+    crack.buffer = noiseBuffer;
+    const cg = audioCtx.createGain();
+    const cf = audioCtx.createBiquadFilter();
+    cf.type = 'highpass'; cf.frequency.value = 2500;
+    const ws = audioCtx.createWaveShaper(); ws.curve = makeDistortionCurve(40);
+    cg.gain.setValueAtTime(vol * 1.3, now);
+    cg.gain.exponentialRampToValueAtTime(0.001, now + 0.02);
+    crack.connect(cf); cf.connect(ws); ws.connect(cg);
+    connectToOutput(cg, panner);
+    crack.start(now); crack.stop(now + 0.03);
+  }
+
+  // Layer 3: Sharp attack oscillator
+  const atk = audioCtx.createOscillator();
+  const atkG = audioCtx.createGain();
+  atk.type = 'sawtooth';
+  atk.frequency.setValueAtTime(2000, now);
+  atk.frequency.exponentialRampToValueAtTime(200, now + 0.015);
+  atkG.gain.setValueAtTime(vol * 1.0, now);
+  atkG.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+  atk.connect(atkG); connectToOutput(atkG, panner);
+  atk.start(now); atk.stop(now + 0.035);
+
+  // Layer 4: Mid body
+  const mid = audioCtx.createOscillator();
+  const midG = audioCtx.createGain();
+  mid.type = 'triangle';
+  mid.frequency.setValueAtTime(500, now);
+  mid.frequency.exponentialRampToValueAtTime(60, now + dur);
+  midG.gain.setValueAtTime(vol * 0.7, now);
+  midG.gain.exponentialRampToValueAtTime(0.001, now + dur * 1.2);
+  mid.connect(midG); connectToOutput(midG, panner);
+  mid.start(now); mid.stop(now + dur * 1.5);
+
+  // Layer 5: Low thump
+  const thump = audioCtx.createOscillator();
+  const thumpG = audioCtx.createGain();
+  thump.type = 'sine';
+  thump.frequency.setValueAtTime(180, now);
+  thump.frequency.exponentialRampToValueAtTime(25, now + dur);
+  thumpG.gain.setValueAtTime(vol * 0.8, now);
+  thumpG.gain.exponentialRampToValueAtTime(0.001, now + dur * 1.3);
+  thump.connect(thumpG); connectToOutput(thumpG, panner);
+  thump.start(now); thump.stop(now + dur * 1.5);
+
+  // Layer 6: Sub bass
+  const sub = audioCtx.createOscillator();
+  const subG = audioCtx.createGain();
+  sub.type = 'sine';
+  sub.frequency.setValueAtTime(55, now);
+  sub.frequency.exponentialRampToValueAtTime(18, now + dur * 2);
+  subG.gain.setValueAtTime(vol * 0.4, now);
+  subG.gain.exponentialRampToValueAtTime(0.001, now + dur * 2.5);
+  sub.connect(subG); connectToOutput(subG, panner);
+  sub.start(now); sub.stop(now + dur * 3);
+
+  // Layer 7: Supersonic crack
+  const sc = audioCtx.createOscillator();
+  const scG = audioCtx.createGain();
+  sc.type = 'sawtooth';
+  sc.frequency.setValueAtTime(4000, now);
+  sc.frequency.exponentialRampToValueAtTime(600, now + 0.005);
+  scG.gain.setValueAtTime(vol * 0.35, now);
+  scG.gain.exponentialRampToValueAtTime(0.001, now + 0.01);
+  sc.connect(scG); connectToOutput(scG, panner);
+  sc.start(now); sc.stop(now + 0.012);
+
+  // Layer 8: Mid noise texture
+  if (noiseBuffer) {
+    const n = audioCtx.createBufferSource();
+    n.buffer = noiseBuffer;
+    const ng = audioCtx.createGain();
+    const nf = audioCtx.createBiquadFilter();
+    nf.type = 'bandpass'; nf.frequency.value = 2000; nf.Q.value = 1.2;
+    ng.gain.setValueAtTime(vol * 0.5, now);
+    ng.gain.exponentialRampToValueAtTime(0.001, now + dur);
+    n.connect(nf); nf.connect(ng); connectToOutput(ng, panner);
+    n.start(now); n.stop(now + dur * 1.2);
+  }
+
+  // Layer 9: Saturation (distorted sawtooth)
+  const sat = audioCtx.createOscillator();
+  const satG = audioCtx.createGain();
+  const ws2 = audioCtx.createWaveShaper(); ws2.curve = makeDistortionCurve(60);
+  sat.type = 'sawtooth';
+  sat.frequency.setValueAtTime(800, now);
+  sat.frequency.exponentialRampToValueAtTime(100, now + 0.03);
+  satG.gain.setValueAtTime(vol * 0.2, now);
+  satG.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+  sat.connect(ws2); ws2.connect(satG); connectToOutput(satG, panner);
+  sat.start(now); sat.stop(now + 0.06);
+
+  // Layer 10: Tail (noise decay)
+  if (longNoiseBuffer) {
+    const tail = audioCtx.createBufferSource();
+    tail.buffer = longNoiseBuffer;
+    const tg = audioCtx.createGain();
+    const tf = audioCtx.createBiquadFilter();
+    tf.type = 'lowpass'; tf.frequency.value = 600; tf.Q.value = 0.5;
+    tg.gain.setValueAtTime(0, now);
+    tg.gain.linearRampToValueAtTime(vol * 0.1, now + 0.03);
+    tg.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+    tail.connect(tf); tf.connect(tg); connectToOutput(tg, panner);
+    tail.start(now + 0.02); tail.stop(now + 0.45);
   }
 }
 
-// ========== SNIPER SOUND (7 layers) ==========
+// ========== SNIPER SOUND (10 layers — devastating boom) ==========
 function playSniperSound(now, vol, panner) {
-  // Layer 1: Massive initial crack
-  const crack = audioCtx.createOscillator();
-  const crackGain = audioCtx.createGain();
-  crack.type = 'sawtooth';
-  crack.frequency.setValueAtTime(2500, now);
-  crack.frequency.exponentialRampToValueAtTime(150, now + 0.04);
-  crackGain.gain.setValueAtTime(vol * 1.0, now);
-  crackGain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
-  crack.connect(crackGain);
-  connectToOutput(crackGain, panner);
-  crack.start(now);
-  crack.stop(now + 0.08);
+  // Layer 1: Massive noise transient crack
+  if (noiseBuffer) {
+    const crack = audioCtx.createBufferSource();
+    crack.buffer = noiseBuffer;
+    const cg = audioCtx.createGain();
+    const cf = audioCtx.createBiquadFilter();
+    cf.type = 'highpass'; cf.frequency.value = 2000;
+    const ws = audioCtx.createWaveShaper(); ws.curve = makeDistortionCurve(50);
+    cg.gain.setValueAtTime(vol * 1.6, now);
+    cg.gain.exponentialRampToValueAtTime(0.001, now + 0.025);
+    crack.connect(cf); cf.connect(ws); ws.connect(cg);
+    connectToOutput(cg, panner);
+    crack.start(now); crack.stop(now + 0.03);
+  }
 
-  // Layer 2: Bolt action mechanical
+  // Layer 2: Massive initial crack
+  const crack2 = audioCtx.createOscillator();
+  const crackG = audioCtx.createGain();
+  crack2.type = 'sawtooth';
+  crack2.frequency.setValueAtTime(3500, now);
+  crack2.frequency.exponentialRampToValueAtTime(80, now + 0.05);
+  crackG.gain.setValueAtTime(vol * 1.3, now);
+  crackG.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+  crack2.connect(crackG); connectToOutput(crackG, panner);
+  crack2.start(now); crack2.stop(now + 0.09);
+
+  // Layer 3: Bolt action
   const bolt = audioCtx.createOscillator();
-  const boltGain = audioCtx.createGain();
+  const boltG = audioCtx.createGain();
   bolt.type = 'square';
-  bolt.frequency.setValueAtTime(800, now);
-  bolt.frequency.exponentialRampToValueAtTime(100, now + 0.015);
-  boltGain.gain.setValueAtTime(vol * 0.4, now);
-  boltGain.gain.exponentialRampToValueAtTime(0.001, now + 0.025);
-  bolt.connect(boltGain);
-  connectToOutput(boltGain, panner);
-  bolt.start(now);
-  bolt.stop(now + 0.03);
+  bolt.frequency.setValueAtTime(1200, now);
+  bolt.frequency.exponentialRampToValueAtTime(80, now + 0.012);
+  boltG.gain.setValueAtTime(vol * 0.5, now);
+  boltG.gain.exponentialRampToValueAtTime(0.001, now + 0.02);
+  bolt.connect(boltG); connectToOutput(boltG, panner);
+  bolt.start(now); bolt.stop(now + 0.025);
 
-  // Layer 3: Deep body resonance
+  // Layer 4: Deep body resonance (sawtooth for richness)
   const body = audioCtx.createOscillator();
-  const bodyGain = audioCtx.createGain();
+  const bodyG = audioCtx.createGain();
   body.type = 'sawtooth';
-  body.frequency.setValueAtTime(120, now);
-  body.frequency.exponentialRampToValueAtTime(25, now + 0.3);
-  bodyGain.gain.setValueAtTime(vol * 0.8, now);
-  bodyGain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
-  body.connect(bodyGain);
-  connectToOutput(bodyGain, panner);
-  body.start(now);
-  body.stop(now + 0.5);
+  body.frequency.setValueAtTime(150, now);
+  body.frequency.exponentialRampToValueAtTime(18, now + 0.4);
+  bodyG.gain.setValueAtTime(vol * 1.0, now);
+  bodyG.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+  body.connect(bodyG); connectToOutput(bodyG, panner);
+  body.start(now); body.stop(now + 0.6);
 
-  // Layer 4: Sub-bass rumble
+  // Layer 5: Sub-bass rumble (felt in chest)
   const sub = audioCtx.createOscillator();
-  const subGain = audioCtx.createGain();
+  const subG = audioCtx.createGain();
   sub.type = 'sine';
-  sub.frequency.setValueAtTime(45, now);
-  sub.frequency.exponentialRampToValueAtTime(12, now + 0.5);
-  subGain.gain.setValueAtTime(vol * 0.6, now);
-  subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
-  sub.connect(subGain);
-  connectToOutput(subGain, panner);
-  sub.start(now);
-  sub.stop(now + 0.7);
+  sub.frequency.setValueAtTime(50, now);
+  sub.frequency.exponentialRampToValueAtTime(10, now + 0.6);
+  subG.gain.setValueAtTime(vol * 0.8, now);
+  subG.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
+  sub.connect(subG); connectToOutput(subG, panner);
+  sub.start(now); sub.stop(now + 0.8);
 
-  // Layer 5: High frequency snap
+  // Layer 6: High frequency snap
   if (noiseBuffer) {
     const snap = audioCtx.createBufferSource();
     snap.buffer = noiseBuffer;
-    const snapGain = audioCtx.createGain();
-    const snapFilter = audioCtx.createBiquadFilter();
-    snapFilter.type = 'highpass';
-    snapFilter.frequency.value = 6000;
-    snapGain.gain.setValueAtTime(vol * 0.6, now);
-    snapGain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
-    snap.connect(snapFilter);
-    snapFilter.connect(snapGain);
-    connectToOutput(snapGain, panner);
-    snap.start(now);
-    snap.stop(now + 0.04);
+    const sg = audioCtx.createGain();
+    const sf = audioCtx.createBiquadFilter();
+    sf.type = 'highpass'; sf.frequency.value = 5000;
+    sg.gain.setValueAtTime(vol * 0.7, now);
+    sg.gain.exponentialRampToValueAtTime(0.001, now + 0.035);
+    snap.connect(sf); sf.connect(sg); connectToOutput(sg, panner);
+    snap.start(now); snap.stop(now + 0.04);
   }
 
-  // Layer 6: Long echo tail
-  const echo = audioCtx.createOscillator();
-  const echoGain = audioCtx.createGain();
-  echo.type = 'sine';
-  echo.frequency.setValueAtTime(60, now + 0.1);
-  echo.frequency.exponentialRampToValueAtTime(20, now + 0.8);
-  echoGain.gain.setValueAtTime(0, now);
-  echoGain.gain.linearRampToValueAtTime(vol * 0.25, now + 0.1);
-  echoGain.gain.exponentialRampToValueAtTime(0.001, now + 1.0);
-  echo.connect(echoGain);
-  connectToOutput(echoGain, panner);
-  echo.start(now + 0.1);
-  echo.stop(now + 1.2);
+  // Layer 7: Saturation layer
+  const sat = audioCtx.createOscillator();
+  const satG = audioCtx.createGain();
+  const ws2 = audioCtx.createWaveShaper(); ws2.curve = makeDistortionCurve(80);
+  sat.type = 'sawtooth';
+  sat.frequency.setValueAtTime(400, now);
+  sat.frequency.exponentialRampToValueAtTime(40, now + 0.06);
+  satG.gain.setValueAtTime(vol * 0.35, now);
+  satG.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+  sat.connect(ws2); ws2.connect(satG); connectToOutput(satG, panner);
+  sat.start(now); sat.stop(now + 0.12);
 
-  // Layer 7: Noise crack
+  // Layer 8: Long echo tail (noise)
   if (longNoiseBuffer) {
-    const noise = audioCtx.createBufferSource();
-    noise.buffer = longNoiseBuffer;
-    const noiseGain = audioCtx.createGain();
-    const noiseFilter = audioCtx.createBiquadFilter();
-    noiseFilter.type = 'bandpass';
-    noiseFilter.frequency.value = 4000;
-    noiseFilter.Q.value = 0.8;
-    noiseGain.gain.setValueAtTime(vol * 0.4, now);
-    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
-    noise.connect(noiseFilter);
-    noiseFilter.connect(noiseGain);
-    connectToOutput(noiseGain, panner);
-    noise.start(now);
-    noise.stop(now + 0.08);
+    const tail = audioCtx.createBufferSource();
+    tail.buffer = longNoiseBuffer;
+    const tg = audioCtx.createGain();
+    const tf = audioCtx.createBiquadFilter();
+    tf.type = 'lowpass'; tf.frequency.value = 500; tf.Q.value = 0.4;
+    tg.gain.setValueAtTime(0, now);
+    tg.gain.linearRampToValueAtTime(vol * 0.2, now + 0.1);
+    tg.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+    tail.connect(tf); tf.connect(tg); connectToOutput(tg, panner);
+    tail.start(now + 0.05); tail.stop(now + 1.4);
   }
+
+  // Layer 9: Mid body noise texture
+  if (noiseBuffer) {
+    const n = audioCtx.createBufferSource();
+    n.buffer = noiseBuffer;
+    const ng = audioCtx.createGain();
+    const nf = audioCtx.createBiquadFilter();
+    nf.type = 'bandpass'; nf.frequency.value = 800; nf.Q.value = 1.0;
+    ng.gain.setValueAtTime(vol * 0.5, now);
+    ng.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+    n.connect(nf); nf.connect(ng); connectToOutput(ng, panner);
+    n.start(now); n.stop(now + 0.1);
+  }
+
+  // Layer 10: Echo ring (delayed oscillator)
+  const echo = audioCtx.createOscillator();
+  const echoG = audioCtx.createGain();
+  echo.type = 'sine';
+  echo.frequency.setValueAtTime(65, now + 0.15);
+  echo.frequency.exponentialRampToValueAtTime(15, now + 1.0);
+  echoG.gain.setValueAtTime(0, now);
+  echoG.gain.linearRampToValueAtTime(vol * 0.25, now + 0.15);
+  echoG.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+  echo.connect(echoG); connectToOutput(echoG, panner);
+  echo.start(now + 0.1); echo.stop(now + 1.4);
 }
 
-// ========== SHOTGUN SOUND (6 layers) ==========
+// ========== SHOTGUN SOUND (9 layers — devastating spread) ==========
 function playShotgunSound(now, vol, panner) {
-  // Layer 1: Massive boom
+  // Layer 1: Noise transient (THE BOOM)
+  if (noiseBuffer) {
+    const crack = audioCtx.createBufferSource();
+    crack.buffer = noiseBuffer;
+    const cg = audioCtx.createGain();
+    const cf = audioCtx.createBiquadFilter();
+    cf.type = 'bandpass'; cf.frequency.value = 1500; cf.Q.value = 0.8;
+    const ws = audioCtx.createWaveShaper(); ws.curve = makeDistortionCurve(60);
+    cg.gain.setValueAtTime(vol * 1.8, now);
+    cg.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+    crack.connect(cf); cf.connect(ws); ws.connect(cg);
+    connectToOutput(cg, panner);
+    crack.start(now); crack.stop(now + 0.05);
+  }
+
+  // Layer 2: Massive boom oscillator
   const boom = audioCtx.createOscillator();
-  const boomGain = audioCtx.createGain();
+  const boomG = audioCtx.createGain();
   boom.type = 'sine';
-  boom.frequency.setValueAtTime(80, now);
-  boom.frequency.exponentialRampToValueAtTime(15, now + 0.15);
-  boomGain.gain.setValueAtTime(vol * 1.3, now);
-  boomGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
-  boom.connect(boomGain);
-  connectToOutput(boomGain, panner);
-  boom.start(now);
-  boom.stop(now + 0.25);
+  boom.frequency.setValueAtTime(100, now);
+  boom.frequency.exponentialRampToValueAtTime(12, now + 0.2);
+  boomG.gain.setValueAtTime(vol * 1.5, now);
+  boomG.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+  boom.connect(boomG); connectToOutput(boomG, panner);
+  boom.start(now); boom.stop(now + 0.3);
 
-  // Layer 2: Mechanical click
+  // Layer 3: Mechanical click
   const click = audioCtx.createOscillator();
-  const clickGain = audioCtx.createGain();
+  const clickG = audioCtx.createGain();
   click.type = 'square';
-  click.frequency.setValueAtTime(900, now);
-  click.frequency.exponentialRampToValueAtTime(100, now + 0.012);
-  clickGain.gain.setValueAtTime(vol * 0.5, now);
-  clickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.02);
-  click.connect(clickGain);
-  connectToOutput(clickGain, panner);
-  click.start(now);
-  click.stop(now + 0.025);
+  click.frequency.setValueAtTime(1400, now);
+  click.frequency.exponentialRampToValueAtTime(80, now + 0.008);
+  clickG.gain.setValueAtTime(vol * 0.6, now);
+  clickG.gain.exponentialRampToValueAtTime(0.001, now + 0.015);
+  click.connect(clickG); connectToOutput(clickG, panner);
+  click.start(now); click.stop(now + 0.02);
 
-  // Layer 3: Shotgun crack
-  const crack = audioCtx.createOscillator();
-  const crackGain = audioCtx.createGain();
-  crack.type = 'sawtooth';
-  crack.frequency.setValueAtTime(700, now);
-  crack.frequency.exponentialRampToValueAtTime(100, now + 0.025);
-  crackGain.gain.setValueAtTime(vol * 0.7, now);
-  crackGain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
-  crack.connect(crackGain);
-  connectToOutput(crackGain, panner);
-  crack.start(now);
-  crack.stop(now + 0.05);
+  // Layer 4: Shotgun crack
+  const crack2 = audioCtx.createOscillator();
+  const crackG = audioCtx.createGain();
+  crack2.type = 'sawtooth';
+  crack2.frequency.setValueAtTime(900, now);
+  crack2.frequency.exponentialRampToValueAtTime(60, now + 0.03);
+  crackG.gain.setValueAtTime(vol * 0.9, now);
+  crackG.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+  crack2.connect(crackG); connectToOutput(crackG, panner);
+  crack2.start(now); crack2.stop(now + 0.06);
 
-  // Layer 4: Noise burst (pellets)
+  // Layer 5: Noise burst (pellets spread)
   if (noiseBuffer) {
     const noise = audioCtx.createBufferSource();
     noise.buffer = noiseBuffer;
-    const noiseGain = audioCtx.createGain();
-    const noiseFilter = audioCtx.createBiquadFilter();
-    noiseFilter.type = 'lowpass';
-    noiseFilter.frequency.value = 900;
-    noiseGain.gain.setValueAtTime(vol * 0.9, now);
-    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
-    noise.connect(noiseFilter);
-    noiseFilter.connect(noiseGain);
-    connectToOutput(noiseGain, panner);
-    noise.start(now);
-    noise.stop(now + 0.15);
+    const ng = audioCtx.createGain();
+    const nf = audioCtx.createBiquadFilter();
+    nf.type = 'lowpass'; nf.frequency.value = 1200;
+    ng.gain.setValueAtTime(vol * 1.1, now);
+    ng.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+    noise.connect(nf); nf.connect(ng); connectToOutput(ng, panner);
+    noise.start(now); noise.stop(now + 0.18);
   }
 
-  // Layer 5: Low rumble
-  const rumble = audioCtx.createOscillator();
-  const rumbleGain = audioCtx.createGain();
-  rumble.type = 'sine';
-  rumble.frequency.setValueAtTime(40, now + 0.05);
-  rumble.frequency.exponentialRampToValueAtTime(15, now + 0.4);
-  rumbleGain.gain.setValueAtTime(0, now);
-  rumbleGain.gain.linearRampToValueAtTime(vol * 0.3, now + 0.05);
-  rumbleGain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
-  rumble.connect(rumbleGain);
-  connectToOutput(rumbleGain, panner);
-  rumble.start(now + 0.05);
-  rumble.stop(now + 0.6);
+  // Layer 6: Sub bass (chest punch)
+  const sub = audioCtx.createOscillator();
+  const subG = audioCtx.createGain();
+  sub.type = 'sine';
+  sub.frequency.setValueAtTime(45, now);
+  sub.frequency.exponentialRampToValueAtTime(10, now + 0.5);
+  subG.gain.setValueAtTime(vol * 0.5, now);
+  subG.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+  sub.connect(subG); connectToOutput(subG, panner);
+  sub.start(now); sub.stop(now + 0.7);
 
-  // Layer 6: Pump action (delayed)
-  const pump = audioCtx.createOscillator();
-  const pumpGain = audioCtx.createGain();
-  pump.type = 'square';
-  pump.frequency.setValueAtTime(400, now + 0.3);
-  pump.frequency.exponentialRampToValueAtTime(100, now + 0.38);
-  pumpGain.gain.setValueAtTime(0, now);
-  pumpGain.gain.linearRampToValueAtTime(vol * 0.3, now + 0.3);
-  pumpGain.gain.exponentialRampToValueAtTime(0.001, now + 0.42);
-  pump.connect(pumpGain);
-  connectToOutput(pumpGain, panner);
-  pump.start(now + 0.3);
-  pump.stop(now + 0.45);
+  // Layer 7: Low rumble tail
+  const rumble = audioCtx.createOscillator();
+  const rumbleG = audioCtx.createGain();
+  rumble.type = 'sine';
+  rumble.frequency.setValueAtTime(35, now + 0.05);
+  rumble.frequency.exponentialRampToValueAtTime(10, now + 0.5);
+  rumbleG.gain.setValueAtTime(0, now);
+  rumbleG.gain.linearRampToValueAtTime(vol * 0.35, now + 0.06);
+  rumbleG.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+  rumble.connect(rumbleG); connectToOutput(rumbleG, panner);
+  rumble.start(now + 0.04); rumble.stop(now + 0.7);
+
+  // Layer 8: Pump action (delayed mechanical)
+  if (noiseBuffer) {
+    const pump = audioCtx.createBufferSource();
+    pump.buffer = noiseBuffer;
+    const pg = audioCtx.createGain();
+    const pf = audioCtx.createBiquadFilter();
+    pf.type = 'bandpass'; pf.frequency.value = 2500; pf.Q.value = 2;
+    pg.gain.setValueAtTime(0, now);
+    pg.gain.linearRampToValueAtTime(vol * 0.4, now + 0.32);
+    pg.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+    pump.connect(pf); pf.connect(pg); connectToOutput(pg, panner);
+    pump.start(now + 0.3); pump.stop(now + 0.45);
+  }
+  const pumpO = audioCtx.createOscillator();
+  const pumpOG = audioCtx.createGain();
+  pumpO.type = 'square';
+  pumpO.frequency.setValueAtTime(500, now + 0.3);
+  pumpO.frequency.exponentialRampToValueAtTime(80, now + 0.4);
+  pumpOG.gain.setValueAtTime(0, now);
+  pumpOG.gain.linearRampToValueAtTime(vol * 0.35, now + 0.31);
+  pumpOG.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+  pumpO.connect(pumpOG); connectToOutput(pumpOG, panner);
+  pumpO.start(now + 0.3); pumpO.stop(now + 0.5);
+
+  // Layer 9: Saturation body
+  const sat = audioCtx.createOscillator();
+  const satG = audioCtx.createGain();
+  const ws2 = audioCtx.createWaveShaper(); ws2.curve = makeDistortionCurve(70);
+  sat.type = 'sawtooth';
+  sat.frequency.setValueAtTime(250, now);
+  sat.frequency.exponentialRampToValueAtTime(30, now + 0.08);
+  satG.gain.setValueAtTime(vol * 0.3, now);
+  satG.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+  sat.connect(ws2); ws2.connect(satG); connectToOutput(satG, panner);
+  sat.start(now); sat.stop(now + 0.15);
 }
 
-// ========== HIT SOUND (4 layers) ==========
+// ========== HIT SOUND (7 layers — meaty visceral impact) ==========
 function playHitSound(now, vol, panner) {
-  // Layer 1: Impact thud
-  const thud = audioCtx.createOscillator();
-  const thudGain = audioCtx.createGain();
-  thud.type = 'sine';
-  thud.frequency.setValueAtTime(300, now);
-  thud.frequency.exponentialRampToValueAtTime(60, now + 0.06);
-  thudGain.gain.setValueAtTime(vol * 0.8, now);
-  thudGain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
-  thud.connect(thudGain);
-  connectToOutput(thudGain, panner);
-  thud.start(now);
-  thud.stop(now + 0.1);
+  // Layer 1: Sharp impact crack
+  const crack = audioCtx.createOscillator();
+  const crackG = audioCtx.createGain();
+  crack.type = 'sawtooth';
+  crack.frequency.setValueAtTime(1200, now);
+  crack.frequency.exponentialRampToValueAtTime(100, now + 0.015);
+  crackG.gain.setValueAtTime(vol * 1.0, now);
+  crackG.gain.exponentialRampToValueAtTime(0.001, now + 0.025);
+  crack.connect(crackG); connectToOutput(crackG, panner);
+  crack.start(now); crack.stop(now + 0.03);
 
-  // Layer 2: Flesh impact
+  // Layer 2: Impact thud
+  const thud = audioCtx.createOscillator();
+  const thudG = audioCtx.createGain();
+  thud.type = 'sine';
+  thud.frequency.setValueAtTime(400, now);
+  thud.frequency.exponentialRampToValueAtTime(40, now + 0.08);
+  thudG.gain.setValueAtTime(vol * 1.0, now);
+  thudG.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+  thud.connect(thudG); connectToOutput(thudG, panner);
+  thud.start(now); thud.stop(now + 0.12);
+
+  // Layer 3: Flesh impact (noise squelch)
   if (noiseBuffer) {
     const noise = audioCtx.createBufferSource();
     noise.buffer = noiseBuffer;
-    const noiseGain = audioCtx.createGain();
-    const noiseFilter = audioCtx.createBiquadFilter();
-    noiseFilter.type = 'bandpass';
-    noiseFilter.frequency.value = 600;
-    noiseFilter.Q.value = 2;
-    noiseGain.gain.setValueAtTime(vol * 0.5, now);
-    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
-    noise.connect(noiseFilter);
-    noiseFilter.connect(noiseGain);
-    connectToOutput(noiseGain, panner);
-    noise.start(now);
-    noise.stop(now + 0.06);
+    const ng = audioCtx.createGain();
+    const nf = audioCtx.createBiquadFilter();
+    nf.type = 'bandpass'; nf.frequency.value = 800; nf.Q.value = 2;
+    ng.gain.setValueAtTime(vol * 0.8, now);
+    ng.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+    noise.connect(nf); nf.connect(ng); connectToOutput(ng, panner);
+    noise.start(now); noise.stop(now + 0.07);
   }
 
-  // Layer 3: High crack
-  const crack = audioCtx.createOscillator();
-  const crackGain = audioCtx.createGain();
-  crack.type = 'sawtooth';
-  crack.frequency.setValueAtTime(800, now);
-  crack.frequency.exponentialRampToValueAtTime(200, now + 0.02);
-  crackGain.gain.setValueAtTime(vol * 0.35, now);
-  crackGain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
-  crack.connect(crackGain);
-  connectToOutput(crackGain, panner);
-  crack.start(now);
-  crack.stop(now + 0.04);
+  // Layer 4: Wet squelch (higher noise)
+  if (noiseBuffer) {
+    const wet = audioCtx.createBufferSource();
+    wet.buffer = noiseBuffer;
+    const wg = audioCtx.createGain();
+    const wf = audioCtx.createBiquadFilter();
+    wf.type = 'bandpass'; wf.frequency.value = 2500; wf.Q.value = 3;
+    wg.gain.setValueAtTime(vol * 0.5, now);
+    wg.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+    wet.connect(wf); wf.connect(wg); connectToOutput(wg, panner);
+    wet.start(now); wet.stop(now + 0.05);
+  }
 
-  // Layer 4: Low resonance
+  // Layer 5: High crack
+  const crack2 = audioCtx.createOscillator();
+  const crackG2 = audioCtx.createGain();
+  crack2.type = 'sawtooth';
+  crack2.frequency.setValueAtTime(1000, now);
+  crack2.frequency.exponentialRampToValueAtTime(150, now + 0.02);
+  crackG2.gain.setValueAtTime(vol * 0.5, now);
+  crackG2.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+  crack2.connect(crackG2); connectToOutput(crackG2, panner);
+  crack2.start(now); crack2.stop(now + 0.04);
+
+  // Layer 6: Low resonance (body cavity)
   const low = audioCtx.createOscillator();
-  const lowGain = audioCtx.createGain();
+  const lowG = audioCtx.createGain();
   low.type = 'sine';
-  low.frequency.setValueAtTime(100, now);
-  low.frequency.exponentialRampToValueAtTime(40, now + 0.1);
-  lowGain.gain.setValueAtTime(vol * 0.2, now);
-  lowGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
-  low.connect(lowGain);
-  connectToOutput(lowGain, panner);
-  low.start(now);
-  low.stop(now + 0.15);
+  low.frequency.setValueAtTime(120, now);
+  low.frequency.exponentialRampToValueAtTime(30, now + 0.15);
+  lowG.gain.setValueAtTime(vol * 0.4, now);
+  lowG.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+  low.connect(lowG); connectToOutput(lowG, panner);
+  low.start(now); low.stop(now + 0.2);
+
+  // Layer 7: Saturation (distorted impact)
+  const sat = audioCtx.createOscillator();
+  const satG = audioCtx.createGain();
+  const ws = audioCtx.createWaveShaper(); ws.curve = makeDistortionCurve(40);
+  sat.type = 'sawtooth';
+  sat.frequency.setValueAtTime(250, now);
+  sat.frequency.exponentialRampToValueAtTime(60, now + 0.04);
+  satG.gain.setValueAtTime(vol * 0.3, now);
+  satG.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+  sat.connect(ws); ws.connect(satG); connectToOutput(satG, panner);
+  sat.start(now); sat.stop(now + 0.08);
 }
 
 export function playCombatFeedbackSound(type = 'hit') {
@@ -671,13 +964,14 @@ export function playCombatFeedbackSound(type = 'hit') {
   try {
     const now = audioCtx.currentTime;
     const profiles = {
-      hit: { f1: 620, f2: 330, gain: 0.11, dur: 0.055 },
-      headshot: { f1: 980, f2: 430, gain: 0.16, dur: 0.075 },
-      kill: { f1: 420, f2: 760, gain: 0.14, dur: 0.11 }
+      hit: { f1: 720, f2: 380, gain: 0.18, dur: 0.06 },
+      headshot: { f1: 1100, f2: 500, gain: 0.24, dur: 0.08 },
+      kill: { f1: 480, f2: 880, gain: 0.22, dur: 0.12 }
     };
     const p = profiles[type] || profiles.hit;
 
     // UI cue is short and dry so it reads as feedback, not an in-world sound.
+    // Layer 1: Primary tone
     const cue = audioCtx.createOscillator();
     const cueGain = audioCtx.createGain();
     cue.type = type === 'kill' ? 'triangle' : 'sine';
@@ -690,6 +984,43 @@ export function playCombatFeedbackSound(type = 'hit') {
     cueGain.connect(audioCtx.destination);
     cue.start(now);
     cue.stop(now + p.dur + 0.02);
+
+    // Layer 2: Harmonic overtone (richer tone)
+    const harm = audioCtx.createOscillator();
+    const harmG = audioCtx.createGain();
+    harm.type = 'sine';
+    harm.frequency.setValueAtTime(p.f1 * 2, now);
+    harm.frequency.exponentialRampToValueAtTime(p.f2 * 1.5, now + p.dur * 0.5);
+    harmG.gain.setValueAtTime(0, now);
+    harmG.gain.linearRampToValueAtTime(p.gain * 0.3, now + 0.008);
+    harmG.gain.exponentialRampToValueAtTime(0.001, now + p.dur * 0.7);
+    harm.connect(harmG); harmG.connect(audioCtx.destination);
+    harm.start(now); harm.stop(now + p.dur + 0.02);
+
+    // Layer 3: Transient click (sharp attack)
+    const click = audioCtx.createOscillator();
+    const clickG = audioCtx.createGain();
+    click.type = 'square';
+    click.frequency.setValueAtTime(4000, now);
+    click.frequency.exponentialRampToValueAtTime(800, now + 0.01);
+    clickG.gain.setValueAtTime(p.gain * 0.5, now);
+    clickG.gain.exponentialRampToValueAtTime(0.001, now + 0.015);
+    click.connect(clickG); connectToOutput(clickG, null);
+    click.start(now); click.stop(now + 0.02);
+
+    // Layer 4: Kill confirmation (extra satisfying ding for kills)
+    if (type === 'kill') {
+      const ding = audioCtx.createOscillator();
+      const dingG = audioCtx.createGain();
+      ding.type = 'sine';
+      ding.frequency.setValueAtTime(1200, now + 0.05);
+      ding.frequency.exponentialRampToValueAtTime(880, now + 0.2);
+      dingG.gain.setValueAtTime(0, now);
+      dingG.gain.linearRampToValueAtTime(0.12, now + 0.06);
+      dingG.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+      ding.connect(dingG); dingG.connect(audioCtx.destination);
+      ding.start(now + 0.04); ding.stop(now + 0.3);
+    }
   } catch (e) {}
 }
 
@@ -698,7 +1029,7 @@ export function playZombieSound(type, sourcePos = null) {
   if (!audioCtx || audioCtx.state === 'suspended') return;
   try {
     const now = audioCtx.currentTime;
-    const vol = sourcePos ? 0.5 : 0.2;
+    const vol = sourcePos ? 0.7 : 0.35;
     const panner = createPanner(sourcePos);
 
     if (type === 'growl') {
@@ -782,6 +1113,31 @@ export function playZombieSound(type, sourcePos = null) {
         noise.start(now);
         noise.stop(now + 0.05);
       }
+
+      // Layer 3: Bone crunch (distorted impact)
+      const crunch = audioCtx.createOscillator();
+      const crunchG = audioCtx.createGain();
+      const ws = audioCtx.createWaveShaper(); ws.curve = makeDistortionCurve(60);
+      crunch.type = 'sawtooth';
+      crunch.frequency.setValueAtTime(300, now);
+      crunch.frequency.exponentialRampToValueAtTime(80, now + 0.06);
+      crunchG.gain.setValueAtTime(vol * 0.4, now);
+      crunchG.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+      crunch.connect(ws); ws.connect(crunchG);
+      connectToOutput(crunchG, panner);
+      crunch.start(now); crunch.stop(now + 0.1);
+
+      // Layer 4: Low guttural moan
+      const moan = audioCtx.createOscillator();
+      const moanG = audioCtx.createGain();
+      moan.type = 'sawtooth';
+      moan.frequency.setValueAtTime(60, now + 0.02);
+      moan.frequency.linearRampToValueAtTime(40, now + 0.3);
+      moanG.gain.setValueAtTime(0, now);
+      moanG.gain.linearRampToValueAtTime(vol * 0.3, now + 0.05);
+      moanG.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+      moan.connect(moanG); connectToOutput(moanG, panner);
+      moan.start(now); moan.stop(now + 0.4);
     }
   } catch (e) {}
 }
@@ -811,13 +1167,44 @@ export function playGhostWhisper(pos) {
     filter.Q.value = 3;
 
     gain.gain.setValueAtTime(0, now);
-    gain.gain.linearRampToValueAtTime(0.3, now + 0.8);
+    gain.gain.linearRampToValueAtTime(0.5, now + 0.8);
     gain.gain.exponentialRampToValueAtTime(0.001, now + 2.5);
 
     osc1.connect(filter);
     osc2.connect(filter);
     filter.connect(gain);
     connectToOutput(gain, panner);
+
+    // Layer: Eerie detuned whisper (beating frequency)
+    const osc3 = audioCtx.createOscillator();
+    const osc3G = audioCtx.createGain();
+    osc3.type = 'sine';
+    osc3.frequency.setValueAtTime(276, now);
+    osc3.frequency.exponentialRampToValueAtTime(126, now + 2.0);
+    osc3G.gain.setValueAtTime(0, now);
+    osc3G.gain.linearRampToValueAtTime(0.25, now + 1.0);
+    osc3G.gain.exponentialRampToValueAtTime(0.001, now + 2.5);
+    const filter2 = audioCtx.createBiquadFilter();
+    filter2.type = 'bandpass'; filter2.frequency.value = 300; filter2.Q.value = 5;
+    osc3.connect(filter2); filter2.connect(osc3G);
+    connectToOutput(osc3G, panner);
+    osc3.start(now); osc3.stop(now + 3.0);
+
+    // Layer: Breathy noise (ghostly air)
+    if (noiseBuffer) {
+      const breath = audioCtx.createBufferSource();
+      breath.buffer = longNoiseBuffer || noiseBuffer;
+      const bg = audioCtx.createGain();
+      const bf = audioCtx.createBiquadFilter();
+      bf.type = 'bandpass'; bf.frequency.value = 600; bf.Q.value = 4;
+      bg.gain.setValueAtTime(0, now);
+      bg.gain.linearRampToValueAtTime(0.15, now + 0.5);
+      bg.gain.setValueAtTime(0.15, now + 1.5);
+      bg.gain.exponentialRampToValueAtTime(0.001, now + 2.8);
+      breath.connect(bf); bf.connect(bg);
+      connectToOutput(bg, panner);
+      breath.start(now); breath.stop(now + 3.0);
+    }
 
     osc1.start(now);
     osc2.start(now);
@@ -908,7 +1295,38 @@ export function playThunderSound() {
     boom.start(now + 0.2);
     boom.stop(now + 3.0);
 
-    // Layer 6: Echo/reflection (delayed quieter version)
+    // Layer 6: Lightning crack (sharp electric snap)
+    if (noiseBuffer) {
+      const lightning = audioCtx.createBufferSource();
+      lightning.buffer = noiseBuffer;
+      const lg = audioCtx.createGain();
+      const lf = audioCtx.createBiquadFilter();
+      lf.type = 'highpass'; lf.frequency.value = 3000; lf.Q.value = 1;
+      const ws = audioCtx.createWaveShaper(); ws.curve = makeDistortionCurve(80);
+      lg.gain.setValueAtTime(0.35, now);
+      lg.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+      lightning.connect(lf); lf.connect(ws); ws.connect(lg);
+      lg.connect(audioCtx.destination);
+      lightning.start(now); lightning.stop(now + 0.1);
+    }
+
+    // Layer 7: Long reverb tail (distant rolling echo)
+    if (longNoiseBuffer) {
+      const tail = audioCtx.createBufferSource();
+      tail.buffer = longNoiseBuffer;
+      const tg = audioCtx.createGain();
+      const tf = audioCtx.createBiquadFilter();
+      tf.type = 'lowpass'; tf.frequency.setValueAtTime(800, now + 0.5);
+      tf.frequency.exponentialRampToValueAtTime(100, now + 4);
+      tg.gain.setValueAtTime(0, now);
+      tg.gain.linearRampToValueAtTime(0.12, now + 0.6);
+      tg.gain.exponentialRampToValueAtTime(0.001, now + 4.5);
+      tail.connect(tf); tf.connect(tg);
+      tg.connect(audioCtx.destination);
+      tail.start(now + 0.3); tail.stop(now + 5);
+    }
+
+    // Layer 8: Echo/reflection (delayed quieter version)
     setTimeout(() => {
       if (!audioCtx || audioCtx.state === 'suspended') return;
       try {
@@ -1007,68 +1425,83 @@ function playReloadSound(now, vol, panner) {
   spring.stop(now + 0.95);
 }
 
-// ========== MELEE SWING SOUND (4 layers) ==========
+// ========== MELEE SWING SOUND (6 layers — powerful whoosh) ==========
 function playMeleeSwingSound(now, vol, panner) {
-  // Layer 1: Whoosh (filtered noise)
+  // Layer 1: Whoosh (filtered noise sweep)
   if (noiseBuffer) {
     const whoosh = audioCtx.createBufferSource();
     whoosh.buffer = noiseBuffer;
-    const whooshGain = audioCtx.createGain();
-    const whooshFilter = audioCtx.createBiquadFilter();
-    whooshFilter.type = 'bandpass';
-    whooshFilter.frequency.setValueAtTime(800, now);
-    whooshFilter.frequency.exponentialRampToValueAtTime(2500, now + 0.08);
-    whooshFilter.frequency.exponentialRampToValueAtTime(600, now + 0.18);
-    whooshFilter.Q.value = 2;
-    whooshGain.gain.setValueAtTime(0, now);
-    whooshGain.gain.linearRampToValueAtTime(vol * 0.7, now + 0.04);
-    whooshGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
-    whoosh.connect(whooshFilter);
-    whooshFilter.connect(whooshGain);
-    connectToOutput(whooshGain, panner);
-    whoosh.start(now);
-    whoosh.stop(now + 0.22);
+    const wg = audioCtx.createGain();
+    const wf = audioCtx.createBiquadFilter();
+    wf.type = 'bandpass';
+    wf.frequency.setValueAtTime(600, now);
+    wf.frequency.exponentialRampToValueAtTime(3500, now + 0.06);
+    wf.frequency.exponentialRampToValueAtTime(400, now + 0.2);
+    wf.Q.value = 2.5;
+    wg.gain.setValueAtTime(0, now);
+    wg.gain.linearRampToValueAtTime(vol * 1.0, now + 0.03);
+    wg.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+    whoosh.connect(wf); wf.connect(wg); connectToOutput(wg, panner);
+    whoosh.start(now); whoosh.stop(now + 0.25);
   }
 
   // Layer 2: Air displacement swoosh
   const swoosh = audioCtx.createOscillator();
-  const swooshGain = audioCtx.createGain();
+  const swooshG = audioCtx.createGain();
   swoosh.type = 'sine';
-  swoosh.frequency.setValueAtTime(200, now);
-  swoosh.frequency.exponentialRampToValueAtTime(800, now + 0.06);
-  swoosh.frequency.exponentialRampToValueAtTime(150, now + 0.15);
-  swooshGain.gain.setValueAtTime(vol * 0.3, now);
-  swooshGain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
-  swoosh.connect(swooshGain);
-  connectToOutput(swooshGain, panner);
-  swoosh.start(now);
-  swoosh.stop(now + 0.2);
+  swoosh.frequency.setValueAtTime(150, now);
+  swoosh.frequency.exponentialRampToValueAtTime(1200, now + 0.05);
+  swoosh.frequency.exponentialRampToValueAtTime(100, now + 0.18);
+  swooshG.gain.setValueAtTime(vol * 0.5, now);
+  swooshG.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+  swoosh.connect(swooshG); connectToOutput(swooshG, panner);
+  swoosh.start(now); swoosh.stop(now + 0.22);
 
   // Layer 3: Metal ring (for pan/machete)
   const ring = audioCtx.createOscillator();
-  const ringGain = audioCtx.createGain();
+  const ringG = audioCtx.createGain();
   ring.type = 'triangle';
-  ring.frequency.setValueAtTime(1200, now + 0.02);
-  ring.frequency.exponentialRampToValueAtTime(400, now + 0.12);
-  ringGain.gain.setValueAtTime(vol * 0.2, now + 0.02);
-  ringGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-  ring.connect(ringGain);
-  connectToOutput(ringGain, panner);
-  ring.start(now + 0.01);
-  ring.stop(now + 0.17);
+  ring.frequency.setValueAtTime(1800, now + 0.01);
+  ring.frequency.exponentialRampToValueAtTime(300, now + 0.15);
+  ringG.gain.setValueAtTime(vol * 0.35, now + 0.01);
+  ringG.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+  ring.connect(ringG); connectToOutput(ringG, panner);
+  ring.start(now + 0.01); ring.stop(now + 0.2);
 
   // Layer 4: Low thump
   const thump = audioCtx.createOscillator();
-  const thumpGain = audioCtx.createGain();
+  const thumpG = audioCtx.createGain();
   thump.type = 'sine';
-  thump.frequency.setValueAtTime(80, now);
-  thump.frequency.exponentialRampToValueAtTime(30, now + 0.08);
-  thumpGain.gain.setValueAtTime(vol * 0.25, now);
-  thumpGain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
-  thump.connect(thumpGain);
-  connectToOutput(thumpGain, panner);
-  thump.start(now);
-  thump.stop(now + 0.12);
+  thump.frequency.setValueAtTime(100, now);
+  thump.frequency.exponentialRampToValueAtTime(25, now + 0.1);
+  thumpG.gain.setValueAtTime(vol * 0.4, now);
+  thumpG.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+  thump.connect(thumpG); connectToOutput(thumpG, panner);
+  thump.start(now); thump.stop(now + 0.15);
+
+  // Layer 5: High-speed whoosh oscillator
+  const hw = audioCtx.createOscillator();
+  const hwG = audioCtx.createGain();
+  hw.type = 'triangle';
+  hw.frequency.setValueAtTime(300, now);
+  hw.frequency.exponentialRampToValueAtTime(2000, now + 0.04);
+  hw.frequency.exponentialRampToValueAtTime(200, now + 0.12);
+  hwG.gain.setValueAtTime(vol * 0.25, now);
+  hwG.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+  hw.connect(hwG); connectToOutput(hwG, panner);
+  hw.start(now); hw.stop(now + 0.16);
+
+  // Layer 6: Impact crack at end of swing
+  const imp = audioCtx.createOscillator();
+  const impG = audioCtx.createGain();
+  imp.type = 'sawtooth';
+  imp.frequency.setValueAtTime(600, now + 0.06);
+  imp.frequency.exponentialRampToValueAtTime(100, now + 0.1);
+  impG.gain.setValueAtTime(0, now);
+  impG.gain.linearRampToValueAtTime(vol * 0.3, now + 0.06);
+  impG.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+  imp.connect(impG); connectToOutput(impG, panner);
+  imp.start(now + 0.05); imp.stop(now + 0.15);
 }
 
 // ========== GIANT HIT SOUND (crisp, heavy bullet impact) ==========
@@ -1307,12 +1740,172 @@ export function playVictoryMusic() {
   } catch (e) {}
 }
 
+// ========== EXPLOSION SOUND (8 layers — massive boom) ==========
+function playExplosionSound(now, vol, panner) {
+  // Layer 1: Massive low-frequency boom
+  const boom = audioCtx.createOscillator();
+  const boomG = audioCtx.createGain();
+  boom.type = 'sine';
+  boom.frequency.setValueAtTime(80, now);
+  boom.frequency.exponentialRampToValueAtTime(10, now + 0.8);
+  boomG.gain.setValueAtTime(vol * 1.5, now);
+  boomG.gain.exponentialRampToValueAtTime(0.001, now + 1.0);
+  boom.connect(boomG); connectToOutput(boomG, panner);
+  boom.start(now); boom.stop(now + 1.2);
+
+  // Layer 2: Initial crack (noise burst with distortion)
+  if (noiseBuffer) {
+    const crack = audioCtx.createBufferSource();
+    crack.buffer = noiseBuffer;
+    const cg = audioCtx.createGain();
+    const cf = audioCtx.createBiquadFilter();
+    cf.type = 'lowpass'; cf.frequency.value = 3000; cf.Q.value = 0.5;
+    const ws = audioCtx.createWaveShaper(); ws.curve = makeDistortionCurve(80);
+    cg.gain.setValueAtTime(vol * 1.4, now);
+    cg.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+    crack.connect(cf); cf.connect(ws); ws.connect(cg);
+    connectToOutput(cg, panner);
+    crack.start(now); crack.stop(now + 0.2);
+  }
+
+  // Layer 3: Mid-range blast
+  const blast = audioCtx.createOscillator();
+  const blastG = audioCtx.createGain();
+  blast.type = 'sawtooth';
+  blast.frequency.setValueAtTime(400, now);
+  blast.frequency.exponentialRampToValueAtTime(30, now + 0.3);
+  blastG.gain.setValueAtTime(vol * 1.0, now);
+  blastG.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+  blast.connect(blastG); connectToOutput(blastG, panner);
+  blast.start(now); blast.stop(now + 0.5);
+
+  // Layer 4: Sub-bass rumble (felt more than heard)
+  const sub = audioCtx.createOscillator();
+  const subG = audioCtx.createGain();
+  sub.type = 'sine';
+  sub.frequency.setValueAtTime(30, now);
+  sub.frequency.exponentialRampToValueAtTime(8, now + 1.5);
+  subG.gain.setValueAtTime(vol * 0.8, now + 0.05);
+  subG.gain.exponentialRampToValueAtTime(0.001, now + 1.8);
+  sub.connect(subG); connectToOutput(subG, panner);
+  sub.start(now); sub.stop(now + 2.0);
+
+  // Layer 5: Distorted saturation layer
+  const sat = audioCtx.createOscillator();
+  const satG = audioCtx.createGain();
+  const ws2 = audioCtx.createWaveShaper(); ws2.curve = makeDistortionCurve(100);
+  sat.type = 'sawtooth';
+  sat.frequency.setValueAtTime(200, now);
+  sat.frequency.exponentialRampToValueAtTime(40, now + 0.2);
+  satG.gain.setValueAtTime(vol * 0.5, now);
+  satG.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+  sat.connect(ws2); ws2.connect(satG); connectToOutput(satG, panner);
+  sat.start(now); sat.stop(now + 0.35);
+
+  // Layer 6: Debris noise tail
+  if (longNoiseBuffer) {
+    const debris = audioCtx.createBufferSource();
+    debris.buffer = longNoiseBuffer;
+    const dg = audioCtx.createGain();
+    const df = audioCtx.createBiquadFilter();
+    df.type = 'lowpass'; df.frequency.setValueAtTime(2000, now);
+    df.frequency.exponentialRampToValueAtTime(200, now + 1.5);
+    dg.gain.setValueAtTime(0, now);
+    dg.gain.linearRampToValueAtTime(vol * 0.4, now + 0.05);
+    dg.gain.exponentialRampToValueAtTime(0.001, now + 1.8);
+    debris.connect(df); df.connect(dg); connectToOutput(dg, panner);
+    debris.start(now); debris.stop(now + 2.0);
+  }
+
+  // Layer 7: Secondary explosion (delayed)
+  const boom2 = audioCtx.createOscillator();
+  const boom2G = audioCtx.createGain();
+  boom2.type = 'sine';
+  boom2.frequency.setValueAtTime(50, now + 0.15);
+  boom2.frequency.exponentialRampToValueAtTime(12, now + 0.6);
+  boom2G.gain.setValueAtTime(0, now);
+  boom2G.gain.linearRampToValueAtTime(vol * 0.6, now + 0.15);
+  boom2G.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+  boom2.connect(boom2G); connectToOutput(boom2G, panner);
+  boom2.start(now + 0.1); boom2.stop(now + 1.0);
+
+  // Layer 8: High-frequency sizzle
+  if (noiseBuffer) {
+    const sizzle = audioCtx.createBufferSource();
+    sizzle.buffer = noiseBuffer;
+    const sg = audioCtx.createGain();
+    const sf = audioCtx.createBiquadFilter();
+    sf.type = 'highpass'; sf.frequency.value = 4000;
+    sg.gain.setValueAtTime(vol * 0.3, now + 0.02);
+    sg.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+    sizzle.connect(sf); sf.connect(sg); connectToOutput(sg, panner);
+    sizzle.start(now); sizzle.stop(now + 0.6);
+  }
+}
+
+// ========== FOOTSTEP SOUND (3 layers) ==========
+export function playFootstepSound(surface) {
+  if (!audioCtx || audioCtx.state === 'suspended') return;
+  try {
+    const now = audioCtx.currentTime;
+    const vol = 0.12;
+
+    // Profiles for different surfaces
+    const profiles = {
+      dirt:   { freq: 120, end: 40, noiseFreq: 500,  noiseQ: 1.0, noiseVol: 0.3 },
+      grass:  { freq: 180, end: 60, noiseFreq: 1200, noiseQ: 1.5, noiseVol: 0.25 },
+      stone:  { freq: 250, end: 80, noiseFreq: 2500, noiseQ: 2.0, noiseVol: 0.4 },
+      wood:   { freq: 200, end: 70, noiseFreq: 1800, noiseQ: 1.8, noiseVol: 0.35 },
+      metal:  { freq: 400, end: 150, noiseFreq: 3500, noiseQ: 3.0, noiseVol: 0.45 },
+      sand:   { freq: 80,  end: 30, noiseFreq: 400,  noiseQ: 0.8, noiseVol: 0.2 },
+      water:  { freq: 150, end: 50, noiseFreq: 800,  noiseQ: 0.5, noiseVol: 0.5 },
+    };
+    const p = profiles[surface] || profiles.dirt;
+
+    // Low thud
+    const thud = audioCtx.createOscillator();
+    const thudG = audioCtx.createGain();
+    thud.type = 'sine';
+    thud.frequency.setValueAtTime(p.freq, now);
+    thud.frequency.exponentialRampToValueAtTime(p.end, now + 0.06);
+    thudG.gain.setValueAtTime(vol * 0.8, now);
+    thudG.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+    thud.connect(thudG); connectToOutput(thudG, null);
+    thud.start(now); thud.stop(now + 0.1);
+
+    // Noise burst (surface texture)
+    if (noiseBuffer) {
+      const noise = audioCtx.createBufferSource();
+      noise.buffer = noiseBuffer;
+      const ng = audioCtx.createGain();
+      const nf = audioCtx.createBiquadFilter();
+      nf.type = 'bandpass'; nf.frequency.value = p.noiseFreq; nf.Q.value = p.noiseQ;
+      ng.gain.setValueAtTime(vol * p.noiseVol, now);
+      ng.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+      noise.connect(nf); nf.connect(ng); connectToOutput(ng, null);
+      noise.start(now); noise.stop(now + 0.08);
+    }
+
+    // Subtle click
+    const click = audioCtx.createOscillator();
+    const clickG = audioCtx.createGain();
+    click.type = 'triangle';
+    click.frequency.setValueAtTime(800 + Math.random() * 400, now);
+    click.frequency.exponentialRampToValueAtTime(200, now + 0.015);
+    clickG.gain.setValueAtTime(vol * 0.2, now);
+    clickG.gain.exponentialRampToValueAtTime(0.001, now + 0.02);
+    click.connect(clickG); connectToOutput(clickG, null);
+    click.start(now); click.stop(now + 0.03);
+  } catch (e) {}
+}
+
+
 // ========== MAIN PLAY SOUND DISPATCHER ==========
 export function playSound(type, sourcePos = null, options = null) {
   if (!audioCtx || audioCtx.state === 'suspended') return;
   try {
     const now = audioCtx.currentTime;
-    const vol = sourcePos ? 0.6 : 0.3;
+    const vol = sourcePos ? 0.85 : 0.55;
     const panner = createPanner(sourcePos);
 
     switch (type) {
@@ -1327,6 +1920,7 @@ export function playSound(type, sourcePos = null, options = null) {
       case 'reload': playReloadSound(now, vol, panner); break;
       case 'melee': playMeleeSwingSound(now, vol, panner); break;
       case 'fish_slap': playFishSlapSound(now, vol, panner); break;
+      case 'explosion': playExplosionSound(now, vol, panner); break;
       default: playARSound(now, vol, panner, false); break;
     }
     applyAmmoTone(type, now, vol, panner, options);
