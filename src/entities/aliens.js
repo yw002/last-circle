@@ -30,7 +30,7 @@ function createUFOMesh() {
   const group = new THREE.Group();
 
   // Main saucer body
-  const saucerGeo = new THREE.SphereGeometry(15, 16, 8, 0, Math.PI * 2, 0, Math.PI / 3);
+  const saucerGeo = new THREE.SphereGeometry(15, 32, 16, 0, Math.PI * 2, 0, Math.PI / 3);
   const saucerMat = new THREE.MeshLambertMaterial({
     color: 0x888888,
     emissive: 0x222222,
@@ -55,7 +55,7 @@ function createUFOMesh() {
   group.add(dome);
 
   // Lights around the edge
-  const lightGeo = new THREE.SphereGeometry(1, 8, 8);
+  const lightGeo = new THREE.SphereGeometry(1, 14, 10);
   const lightColors = [0xff0000, 0x00ff00, 0x0000ff, 0xffff00, 0xff00ff, 0x00ffff];
   for (let i = 0; i < 8; i++) {
     const angle = (i / 8) * Math.PI * 2;
@@ -92,8 +92,18 @@ function createUFOMesh() {
 function createAlienMesh() {
   const group = new THREE.Group();
 
-  // Body (slender)
-  const bodyGeo = new THREE.CylinderGeometry(0.8, 1.2, 4, 8);
+  // Body (slender - organic LatheGeometry)
+  const alienBodyProfile = [];
+  for (let i = 0; i <= 24; i++) {
+    const t = i / 24;
+    let r;
+    if (t < 0.15) r = 1.1 + t * 0.6;
+    else if (t < 0.4) r = 1.19 - (t - 0.15) * 2.0;
+    else if (t < 0.7) r = 0.69 + Math.sin((t - 0.4) * Math.PI / 0.3) * 0.15;
+    else r = 0.75 - (t - 0.7) * 2.0;
+    alienBodyProfile.push(new THREE.Vector2(Math.max(0.3, r), t * 4 - 2));
+  }
+  const bodyGeo = new THREE.LatheGeometry(alienBodyProfile, 20);
   const bodyMat = new THREE.MeshLambertMaterial({
     color: 0x44cc44,
     emissive: 0x226622,
@@ -103,8 +113,14 @@ function createAlienMesh() {
   body.position.y = 2;
   group.add(body);
 
+  // Neck connector (smooth body-to-head transition)
+  const neckGeo = new THREE.CylinderGeometry(0.6, 0.85, 1.2, 10);
+  const neck = new THREE.Mesh(neckGeo, bodyMat);
+  neck.position.y = 4.2;
+  group.add(neck);
+
   // Head (large, elongated)
-  const headGeo = new THREE.SphereGeometry(1.5, 12, 8);
+  const headGeo = new THREE.SphereGeometry(1.5, 24, 16);
   const headMat = new THREE.MeshLambertMaterial({
     color: 0x55dd55,
     emissive: 0x338833,
@@ -117,7 +133,7 @@ function createAlienMesh() {
 
   // Eyes (large, black)
   const eyeMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
-  const eyeGeo = new THREE.SphereGeometry(0.5, 8, 8);
+  const eyeGeo = new THREE.SphereGeometry(0.5, 16, 12);
   const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
   eyeL.position.set(-0.8, 5.2, 1.2);
   eyeL.scale.set(1.2, 0.8, 0.5);
@@ -129,7 +145,7 @@ function createAlienMesh() {
 
   // Glowing pupils
   const pupilMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
-  const pupilGeo = new THREE.SphereGeometry(0.2, 8, 8);
+  const pupilGeo = new THREE.SphereGeometry(0.2, 14, 10);
   const pupilL = new THREE.Mesh(pupilGeo, pupilMat);
   pupilL.position.set(-0.8, 5.2, 1.5);
   group.add(pupilL);
@@ -137,8 +153,17 @@ function createAlienMesh() {
   pupilR.position.set(0.8, 5.2, 1.5);
   group.add(pupilR);
 
+  // Shoulder joints (smooth arm-to-body transition)
+  const shoulderGeo = new THREE.SphereGeometry(0.35, 14, 10);
+  const shoulderL = new THREE.Mesh(shoulderGeo, bodyMat);
+  shoulderL.position.set(-1.1, 3.6, 0);
+  group.add(shoulderL);
+  const shoulderR = new THREE.Mesh(shoulderGeo, bodyMat);
+  shoulderR.position.set(1.1, 3.6, 0);
+  group.add(shoulderR);
+
   // Arms (thin, long)
-  const armGeo = new THREE.CylinderGeometry(0.2, 0.15, 3, 6);
+  const armGeo = new THREE.CylinderGeometry(0.2, 0.15, 3, 16);
   const armL = new THREE.Mesh(armGeo, bodyMat);
   armL.position.set(-1.5, 2.5, 0);
   armL.rotation.z = 0.3;
@@ -148,8 +173,26 @@ function createAlienMesh() {
   armR.rotation.z = -0.3;
   group.add(armR);
 
+  // Elbow joints
+  const elbowGeo = new THREE.SphereGeometry(0.2, 12, 10);
+  const elbowL = new THREE.Mesh(elbowGeo, bodyMat);
+  elbowL.position.set(-1.7, 1.8, 0);
+  group.add(elbowL);
+  const elbowR = new THREE.Mesh(elbowGeo, bodyMat);
+  elbowR.position.set(1.7, 1.8, 0);
+  group.add(elbowR);
+
+  // Hip joints (smooth leg-to-body transition)
+  const hipGeo = new THREE.SphereGeometry(0.35, 14, 10);
+  const hipL = new THREE.Mesh(hipGeo, bodyMat);
+  hipL.position.set(-0.5, 0.8, 0);
+  group.add(hipL);
+  const hipR = new THREE.Mesh(hipGeo, bodyMat);
+  hipR.position.set(0.5, 0.8, 0);
+  group.add(hipR);
+
   // Legs (thin)
-  const legGeo = new THREE.CylinderGeometry(0.25, 0.2, 2.5, 6);
+  const legGeo = new THREE.CylinderGeometry(0.25, 0.2, 2.5, 16);
   const legL = new THREE.Mesh(legGeo, bodyMat);
   legL.position.set(-0.5, 0.5, 0);
   group.add(legL);
@@ -157,8 +200,17 @@ function createAlienMesh() {
   legR.position.set(0.5, 0.5, 0);
   group.add(legR);
 
+  // Knee joints
+  const kneeGeo = new THREE.SphereGeometry(0.22, 12, 10);
+  const kneeL = new THREE.Mesh(kneeGeo, bodyMat);
+  kneeL.position.set(-0.5, -0.1, 0);
+  group.add(kneeL);
+  const kneeR = new THREE.Mesh(kneeGeo, bodyMat);
+  kneeR.position.set(0.5, -0.1, 0);
+  group.add(kneeR);
+
   // Weapon (alien blaster)
-  const weaponGeo = new THREE.CylinderGeometry(0.15, 0.3, 2, 6);
+  const weaponGeo = new THREE.CylinderGeometry(0.15, 0.3, 2, 16);
   const weaponMat = new THREE.MeshLambertMaterial({
     color: 0x666666,
     emissive: 0x333333,

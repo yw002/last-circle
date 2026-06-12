@@ -91,7 +91,7 @@ const zGeos = {
   // Gore details - high poly
   bloodWound: new THREE.SphereGeometry(0.35, SEG_Z / 2, SEG_Z / 2),
   jaw: new THREE.SphereGeometry(0.4, SEG_Z / 2, SEG_Z / 2),
-  teeth: new THREE.BoxGeometry(0.08, 0.12, 0.05),
+  teeth: new THREE.ConeGeometry(0.04, 0.12, 8),
   rib: new THREE.TorusGeometry(0.8, 0.06, 12, SEG_Z, Math.PI),
   exposedBone: new THREE.CylinderGeometry(0.1, 0.1, 1.5, SEG_Z / 2),
   tornFlesh: new THREE.SphereGeometry(0.3, SEG_Z / 2, SEG_Z / 2),
@@ -121,8 +121,13 @@ const zGeos = {
   // Visual effects
   eyeGlow: new THREE.SphereGeometry(0.35, 12, 12),
   tornCloth: new THREE.PlaneGeometry(0.6, 1.2),
-  bloodDrip: new THREE.CylinderGeometry(0.06, 0.03, 0.8, 6),
-  openWound: new THREE.SphereGeometry(0.25, 8, 8)
+  bloodDrip: new THREE.CylinderGeometry(0.06, 0.03, 0.8, 12),
+  openWound: new THREE.SphereGeometry(0.25, 16, 12),
+
+  // Seam-fix connectors
+  shoulder: new THREE.SphereGeometry(0.5, SEG_Z / 2, SEG_Z / 2),
+  hip: new THREE.SphereGeometry(0.55, SEG_Z / 2, SEG_Z / 2),
+  neckThick: new THREE.CylinderGeometry(0.4, 0.55, 0.9, SEG_Z / 2)
 };
 
 const ZOMBIE_COUNT = 15; // Finite zombie count — clear them all to win this threat
@@ -213,6 +218,26 @@ export function initZombies() {
     const jaw = new THREE.Mesh(zGeos.jaw, zombieSkinMat);
     jaw.position.set(0, 6.9, 0.8);
     jaw.scale.set(1, 0.5, 0.8);
+
+    // Shoulder connectors (seamless arm-to-torso transition)
+    const shoulderL = new THREE.Mesh(zGeos.shoulder, zombieSkinMat);
+    shoulderL.position.set(-1.7, 5.8, 0.5);
+    shoulderL.scale.set(1, 0.8, 0.8);
+    const shoulderR = new THREE.Mesh(zGeos.shoulder, zombieSkinMat);
+    shoulderR.position.set(1.7, 5.8, 0.5);
+    shoulderR.scale.set(1, 0.8, 0.8);
+
+    // Thicker neck for seamless head-to-body transition
+    const neckThick = new THREE.Mesh(zGeos.neckThick, zombieSkinMat);
+    neckThick.position.y = 6.7;
+
+    // Hip connectors (seamless leg-to-torso transition)
+    const hipL = new THREE.Mesh(zGeos.hip, zombieClothMat);
+    hipL.position.set(-0.7, 3.2, 0);
+    hipL.scale.set(1, 0.7, 0.9);
+    const hipR = new THREE.Mesh(zGeos.hip, zombieClothMat);
+    hipR.position.set(0.7, 3.2, 0);
+    hipR.scale.set(1, 0.7, 0.9);
 
     // Arms - outstretched zombie pose with detailed joints
     const armUpperL = new THREE.Mesh(zGeos.armUpper, zombieSkinMat);
@@ -344,7 +369,8 @@ export function initZombies() {
     // Add all parts
     const zombieModel = new THREE.Group();
     zombieModel.add(
-      torsoLower, torsoUpper, neck, head, skull, jaw,
+      torsoLower, torsoUpper, neck, neckThick, head, skull, jaw,
+      shoulderL, shoulderR, hipL, hipR,
       eyeL, eyeR, eyeGlowL, eyeGlowR, pupilL, pupilR, bloodWound,
       armUpperL, elbowL, armLowerL, boneL, handL, clawL1, clawL2, clawL3,
       armUpperR, elbowR, armLowerR, handR, clawR1, clawR2, clawR3,

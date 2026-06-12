@@ -229,6 +229,10 @@ const sharedGeos = {
   bootTongue: new THREE.BoxGeometry(0.3, 0.05, 0.6),
   bootHeel: new THREE.CylinderGeometry(0.2, 0.25, 0.3, SEG / 2),
 
+  // Seam-fix connectors
+  hipJoint: new THREE.SphereGeometry(0.55, SEG / 2, SEG / 2),
+  neckThick: new THREE.CylinderGeometry(0.45, 0.6, 0.8, SEG),
+
   // Gun - ultra detailed with all parts
   gunBody: new THREE.BoxGeometry(0.15, 0.15, 1.5),
   gunBarrel: new THREE.CylinderGeometry(0.04, 0.05, 0.8, SEG / 2),
@@ -419,6 +423,44 @@ export function initBots() {
     thumbR.position.set(2.8, 3.0, 1.2);
     thumbR.rotation.z = -0.5;
 
+    // Seam-fix: Hip connectors (smooth leg-to-torso transition)
+    const hipL = new THREE.Mesh(sharedGeos.hipJoint, limbMat);
+    hipL.position.set(-0.8, 3.0, 0);
+    hipL.scale.set(1, 0.7, 0.9);
+    const hipR = new THREE.Mesh(sharedGeos.hipJoint, limbMat);
+    hipR.position.set(0.8, 3.0, 0);
+    hipR.scale.set(1, 0.7, 0.9);
+
+    // Seam-fix: Thicker neck for better head-to-body connection
+    const neckThick = new THREE.Mesh(sharedGeos.neckThick, headMat);
+    neckThick.position.y = 6.7;
+
+    // Seam-fix: Deltoid caps (shoulder muscle definition)
+    const deltoidL = new THREE.Mesh(sharedGeos.deltoid, bodyMat);
+    deltoidL.position.set(-1.8, 6.1, 0);
+    const deltoidR = new THREE.Mesh(sharedGeos.deltoid, bodyMat);
+    deltoidR.position.set(1.8, 6.1, 0);
+
+    // Seam-fix: Bicep/forearm muscle spheres (arm fill)
+    const bicepL = new THREE.Mesh(sharedGeos.bicep, bodyMat);
+    bicepL.position.set(-2.3, 5.0, 0.1);
+    const bicepR = new THREE.Mesh(sharedGeos.bicep, bodyMat);
+    bicepR.position.set(2.4, 5.0, 0.3);
+    const forearmL = new THREE.Mesh(sharedGeos.forearm, bodyMat);
+    forearmL.position.set(-2.7, 4.3, 0.3);
+    const forearmR = new THREE.Mesh(sharedGeos.forearm, bodyMat);
+    forearmR.position.set(2.7, 4.3, 0.6);
+
+    // Seam-fix: Thigh/calf muscle spheres (leg fill)
+    const thighL = new THREE.Mesh(sharedGeos.thigh, limbMat);
+    thighL.position.set(-0.8, 2.3, 0);
+    const thighR = new THREE.Mesh(sharedGeos.thigh, limbMat);
+    thighR.position.set(0.8, 2.3, 0);
+    const calfL = new THREE.Mesh(sharedGeos.calf, limbMat);
+    calfL.position.set(-0.8, 1.0, 0.15);
+    const calfR = new THREE.Mesh(sharedGeos.calf, limbMat);
+    calfR.position.set(0.8, 1.0, 0.15);
+
     // Legs with knees and boot soles
     const legUpperL = new THREE.Mesh(sharedGeos.legUpper, limbMat);
     legUpperL.position.set(-0.8, 2.5, 0);
@@ -548,13 +590,13 @@ export function initBots() {
 
     // Add all parts
     botGroup.add(
-      torsoLower, torsoUpper, neck, head, hair,
+      torsoLower, torsoUpper, neck, neckThick, head, hair,
       eyeL, eyeR, pupilL, pupilR, nose, earL, earR, browL, browR,
-      shoulderL, shoulderR, belt, beltBuckle,
-      armUpperL, elbowL, armLowerL, handL, fingerL1, fingerL2, thumbL,
-      armUpperR, elbowR, armLowerR, handR, fingerR1, fingerR2, thumbR,
-      legUpperL, kneeL, legLowerL, bootL, bootSoleL,
-      legUpperR, kneeR, legLowerR, bootR, bootSoleR,
+      shoulderL, shoulderR, deltoidL, deltoidR, belt, beltBuckle,
+      armUpperL, elbowL, armLowerL, bicepL, forearmL, handL, fingerL1, fingerL2, thumbL,
+      armUpperR, elbowR, armLowerR, bicepR, forearmR, handR, fingerR1, fingerR2, thumbR,
+      hipL, hipR, thighL, calfL, legUpperL, kneeL, legLowerL, bootL, bootSoleL,
+      thighR, calfR, legUpperR, kneeR, legLowerR, bootR, bootSoleR,
       gunBody, gunBarrel, gunStock, gunMag, gunGrip, gunSight, botLaser
     );
 

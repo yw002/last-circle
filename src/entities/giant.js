@@ -86,42 +86,52 @@ function createGiantGeometries() {
   _giantMats.damageFlash = new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.6 });
 
   // === BASE GEOMETRIES ===
-  _giantGeos.torso = new THREE.CylinderGeometry(8 * u, 10 * u, 12 * S * 0.15, 16);
-  _giantGeos.belly = new THREE.SphereGeometry(10 * u, 16, 12);
-  _giantGeos.head = new THREE.SphereGeometry(5.5 * u, 20, 16);
-  _giantGeos.jaw = new THREE.SphereGeometry(3.8 * u, 14, 10);
-  _giantGeos.eyeMain = new THREE.SphereGeometry(1.4 * u, 14, 14);
+  _giantGeos.torso = new THREE.CylinderGeometry(8 * u, 10 * u, 12 * S * 0.15, 28);
+  _giantGeos.belly = new THREE.SphereGeometry(10 * u, 28, 20);
+  _giantGeos.head = new THREE.SphereGeometry(5.5 * u, 32, 24);
+  _giantGeos.jaw = new THREE.SphereGeometry(3.8 * u, 24, 16);
+  _giantGeos.eyeMain = new THREE.SphereGeometry(1.4 * u, 24, 18);
   _giantGeos.eyeSmall = new THREE.SphereGeometry(0.7 * u, 10, 10);
   _giantGeos.eyeGlow = new THREE.SphereGeometry(2.2 * u, 10, 10);
   _giantGeos.pupil = new THREE.SphereGeometry(0.5 * u, 8, 8);
-  _giantGeos.nose = new THREE.ConeGeometry(1.5 * u, 3.5 * u, 8);
-  _giantGeos.mouth = new THREE.SphereGeometry(2.8 * u, 14, 10);
-  _giantGeos.tooth = new THREE.ConeGeometry(0.5 * u, 2 * u, 6);
-  _giantGeos.toothBig = new THREE.ConeGeometry(0.7 * u, 3 * u, 6);
-  _giantGeos.ear = new THREE.SphereGeometry(2 * u, 10, 10);
-  _giantGeos.horn = new THREE.ConeGeometry(1.2 * u, 8 * u, 8);
-  _giantGeos.hornSmall = new THREE.ConeGeometry(0.6 * u, 4 * u, 6);
-  _giantGeos.tongue = new THREE.BoxGeometry(2 * u, 0.5 * u, 4 * u);
+  _giantGeos.nose = new THREE.ConeGeometry(1.5 * u, 3.5 * u, 14);
+  _giantGeos.mouth = new THREE.SphereGeometry(2.8 * u, 24, 16);
+  _giantGeos.tooth = new THREE.ConeGeometry(0.5 * u, 2 * u, 12);
+  _giantGeos.toothBig = new THREE.ConeGeometry(0.7 * u, 3 * u, 12);
+  _giantGeos.ear = new THREE.SphereGeometry(2 * u, 18, 14);
+  _giantGeos.horn = new THREE.ConeGeometry(1.2 * u, 8 * u, 16);
+  _giantGeos.hornSmall = new THREE.ConeGeometry(0.6 * u, 4 * u, 12);
+  _giantGeos.tongue = new THREE.CylinderGeometry(1.5 * u, 1 * u, 0.5 * u, 16);
 
   // Arms & Legs
-  _giantGeos.armUpper = new THREE.CylinderGeometry(3.2 * u, 2.8 * u, 10 * S * 0.15, 14);
-  _giantGeos.armLower = new THREE.CylinderGeometry(2.8 * u, 2.2 * u, 9 * S * 0.15, 14);
-  _giantGeos.fist = new THREE.SphereGeometry(2.8 * u, 12, 12);
-  _giantGeos.legUpper = new THREE.CylinderGeometry(4.2 * u, 3.2 * u, 12 * S * 0.15, 14);
-  _giantGeos.legLower = new THREE.CylinderGeometry(3.2 * u, 2.6 * u, 10 * S * 0.15, 14);
-  _giantGeos.foot = new THREE.BoxGeometry(4.5 * u, 2.5 * u, 7.5 * u);
+  _giantGeos.armUpper = new THREE.CylinderGeometry(3.2 * u, 2.8 * u, 10 * S * 0.15, 22);
+  _giantGeos.armLower = new THREE.CylinderGeometry(2.8 * u, 2.2 * u, 9 * S * 0.15, 22);
+  _giantGeos.fist = new THREE.SphereGeometry(2.8 * u, 22, 16);
+  _giantGeos.legUpper = new THREE.CylinderGeometry(4.2 * u, 3.2 * u, 12 * S * 0.15, 22);
+  _giantGeos.legLower = new THREE.CylinderGeometry(3.2 * u, 2.6 * u, 10 * S * 0.15, 22);
+  _giantGeos.foot = new THREE.CylinderGeometry(3.5 * u, 4 * u, 2.5 * u, 20);
+
+  // Joint/connector geometries (seamless transitions)
+  _giantGeos.neck = new THREE.CylinderGeometry(5.5 * u, 8 * u, 10 * u, 24);
+  _giantGeos.shoulderL = new THREE.SphereGeometry(4 * u, 22, 16);
+  _giantGeos.shoulderR = new THREE.SphereGeometry(4 * u, 22, 16);
+  _giantGeos.elbow = new THREE.SphereGeometry(3 * u, 20, 14);
+  _giantGeos.wrist = new THREE.SphereGeometry(2.5 * u, 18, 12);
+  _giantGeos.knee = new THREE.SphereGeometry(3.5 * u, 20, 14);
+  _giantGeos.ankle = new THREE.SphereGeometry(2.8 * u, 18, 12);
+  _giantGeos.hipJoint = new THREE.SphereGeometry(4.5 * u, 22, 16);
 
   // Horror details
-  _giantGeos.rib = new THREE.CylinderGeometry(0.3 * u, 0.3 * u, 6 * u, 6);
-  _giantGeos.spike = new THREE.ConeGeometry(0.8 * u, 5 * u, 6);
-  _giantGeos.spikeSmall = new THREE.ConeGeometry(0.5 * u, 3 * u, 5);
-  _giantGeos.chainLink = new THREE.TorusGeometry(1.2 * u, 0.3 * u, 6, 8);
-  _giantGeos.vein = new THREE.CylinderGeometry(0.25 * u, 0.25 * u, 4 * u, 6);
-  _giantGeos.woundPatch = new THREE.SphereGeometry(1.5 * u, 8, 8);
+  _giantGeos.rib = new THREE.CylinderGeometry(0.3 * u, 0.3 * u, 6 * u, 12);
+  _giantGeos.spike = new THREE.ConeGeometry(0.8 * u, 5 * u, 12);
+  _giantGeos.spikeSmall = new THREE.ConeGeometry(0.5 * u, 3 * u, 10);
+  _giantGeos.chainLink = new THREE.TorusGeometry(1.2 * u, 0.3 * u, 12, 16);
+  _giantGeos.vein = new THREE.CylinderGeometry(0.25 * u, 0.25 * u, 4 * u, 12);
+  _giantGeos.woundPatch = new THREE.SphereGeometry(1.5 * u, 16, 12);
   _giantGeos.drip = new THREE.SphereGeometry(0.8, 6, 6);
 
   // Spit projectile
-  _giantGeos.spit = new THREE.SphereGeometry(8, 10, 10);
+  _giantGeos.spit = new THREE.SphereGeometry(8, 18, 14);
   _giantGeos.spitTrail = new THREE.SphereGeometry(5, 8, 8);
 }
 
@@ -353,6 +363,20 @@ export function initGiant() {
   giantGroup.add(head);
   giantHeadMesh = head;
 
+  // -- NECK (thick seamless connector) --
+  const neck = new THREE.Mesh(_giantGeos.neck, _giantMats.skin);
+  neck.position.y = GIANT_HEIGHT * 0.58;
+  giantGroup.add(neck);
+
+  // -- SHOULDERS (smooth arm-to-torso transition) --
+  const shoulderL = new THREE.Mesh(_giantGeos.shoulderL, _giantMats.skin);
+  shoulderL.position.set(-9 * u, GIANT_HEIGHT * 0.53, 0);
+  shoulderL.scale.set(1, 0.8, 0.9);
+  const shoulderR = new THREE.Mesh(_giantGeos.shoulderR, _giantMats.skin);
+  shoulderR.position.set(9 * u, GIANT_HEIGHT * 0.53, 0);
+  shoulderR.scale.set(1, 0.8, 0.9);
+  giantGroup.add(shoulderL, shoulderR);
+
   // Head lump/tumor
   const tumor = new THREE.Mesh(
     new THREE.SphereGeometry(2.5 * u, 10, 10),
@@ -536,7 +560,19 @@ export function initGiant() {
   const fistR = new THREE.Mesh(_giantGeos.fist, _giantMats.rotten);
   fistR.position.set(13 * u, GIANT_HEIGHT * 0.24, 1.5 * u);
 
-  giantGroup.add(armUpperL, armLowerL, fistL, armUpperR, armLowerR, fistR);
+  // -- ELBOW JOINTS (smooth arm bend transition) --
+  const elbowL = new THREE.Mesh(_giantGeos.elbow, _giantMats.skin);
+  elbowL.position.set(-11 * u, GIANT_HEIGHT * 0.42, 0.5 * u);
+  const elbowR = new THREE.Mesh(_giantGeos.elbow, _giantMats.skin);
+  elbowR.position.set(11 * u, GIANT_HEIGHT * 0.42, 0.5 * u);
+
+  // -- WRIST JOINTS (smooth arm-to-fist transition) --
+  const wristL = new THREE.Mesh(_giantGeos.wrist, _giantMats.skinDark);
+  wristL.position.set(-12.5 * u, GIANT_HEIGHT * 0.28, 1.2 * u);
+  const wristR = new THREE.Mesh(_giantGeos.wrist, _giantMats.skinDark);
+  wristR.position.set(12.5 * u, GIANT_HEIGHT * 0.28, 1.2 * u);
+
+  giantGroup.add(armUpperL, armLowerL, elbowL, wristL, fistL, armUpperR, armLowerR, elbowR, wristR, fistR);
 
   // -- LEGS (tree-trunk thick, clothed in rags) --
   const legUpperL = new THREE.Mesh(_giantGeos.legUpper, _giantMats.cloth);
@@ -553,7 +589,27 @@ export function initGiant() {
   const footR = new THREE.Mesh(_giantGeos.foot, _giantMats.rotten);
   footR.position.set(4 * u, 1.2 * u, 1 * u);
 
-  giantGroup.add(legUpperL, legLowerL, footL, legUpperR, legLowerR, footR);
+  // -- HIP JOINTS (smooth leg-to-torso transition) --
+  const hipL = new THREE.Mesh(_giantGeos.hipJoint, _giantMats.cloth);
+  hipL.position.set(-4 * u, GIANT_HEIGHT * 0.33, 0);
+  hipL.scale.set(1, 0.7, 0.9);
+  const hipR = new THREE.Mesh(_giantGeos.hipJoint, _giantMats.cloth);
+  hipR.position.set(4 * u, GIANT_HEIGHT * 0.33, 0);
+  hipR.scale.set(1, 0.7, 0.9);
+
+  // -- KNEE JOINTS (smooth leg bend transition) --
+  const kneeL = new THREE.Mesh(_giantGeos.knee, _giantMats.skin);
+  kneeL.position.set(-4 * u, GIANT_HEIGHT * 0.17, 0);
+  const kneeR = new THREE.Mesh(_giantGeos.knee, _giantMats.skin);
+  kneeR.position.set(4 * u, GIANT_HEIGHT * 0.17, 0);
+
+  // -- ANKLE JOINTS (smooth leg-to-foot transition) --
+  const ankleL = new THREE.Mesh(_giantGeos.ankle, _giantMats.skin);
+  ankleL.position.set(-4 * u, GIANT_HEIGHT * 0.05, 0.5 * u);
+  const ankleR = new THREE.Mesh(_giantGeos.ankle, _giantMats.skin);
+  ankleR.position.set(4 * u, GIANT_HEIGHT * 0.05, 0.5 * u);
+
+  giantGroup.add(hipL, hipR, legUpperL, legLowerL, kneeL, ankleL, footL, legUpperR, legLowerR, kneeR, ankleR, footR);
 
   // -- HEALTH BAR (floating above head) --
   giantHealthBarGroup = new THREE.Group();
