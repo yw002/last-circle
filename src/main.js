@@ -38,6 +38,19 @@ import { updateCombatFeedback } from './systems/combatFeedback.js';
 import { updateSpecialWeapons } from './systems/specialWeapons.js';
 import { updateFunnyEvents } from './systems/funnyEvents.js';
 import { updateVictory } from './systems/victory.js';
+import { initBiomeMap } from './world/biomes.js';
+import { initBiomeDesertVegetation } from './world/biomeDesert.js';
+import { initBiomeSnowVegetation } from './world/biomeSnow.js';
+import { initBiomeJungleVegetation } from './world/biomeJungle.js';
+import { initBiomeSwampVegetation } from './world/biomeSwamp.js';
+import { initBiomeLavaVegetation, updateBiomeLava } from './world/biomeLava.js';
+import { initBuildings } from './world/buildings.js';
+import { initInteractables, updateInteractables } from './world/interactables.js';
+import { initVehicles, updateVehicles } from './world/vehicles.js';
+import { initDayNight, updateDayNight } from './systems/dayNight.js';
+import { initSkyEffects, updateSkyEffects } from './systems/skyEffects.js';
+import { initAirdrop, updateAirdrop } from './systems/airdrop.js';
+import { initDestructibles, updateDestructibles } from './systems/destructibles.js';
 
 // Disable right-click menu
 document.addEventListener('contextmenu', e => e.preventDefault());
@@ -130,9 +143,22 @@ function init() {
   state.controls.getObject().add(state.parachuteGroup);
 
   // Generate world
+  initBiomeMap(); // MUST be first - biome lookup required by terrain/environment
   preGenerateHouses();
   initTerrain();
   initEnvironment();
+  initBiomeDesertVegetation();
+  initBiomeSnowVegetation();
+  initBiomeJungleVegetation();
+  initBiomeSwampVegetation();
+  initBiomeLavaVegetation();
+  initBuildings();
+  initInteractables();
+  initDestructibles();
+  initVehicles();
+  initDayNight();
+  initSkyEffects();
+  initAirdrop();
   resetStaticSpatialIndex();
   initGrass(); // Zelda-style flowing grass
   initAnimals();
@@ -288,6 +314,13 @@ function animate() {
       runFrameStep('special weapon update', () => updateSpecialWeapons(delta));
       runFrameStep('funny events update', () => updateFunnyEvents(delta));
       runFrameStep('victory update', () => updateVictory(delta));
+      runFrameStep('day-night update', () => updateDayNight(delta));
+      runFrameStep('sky effects update', () => updateSkyEffects(delta, time));
+      runFrameStep('interactables update', () => updateInteractables(delta));
+      runFrameStep('destructibles update', () => updateDestructibles(delta));
+      runFrameStep('vehicles update', () => updateVehicles(delta));
+      runFrameStep('airdrop update', () => updateAirdrop(delta));
+      runFrameStep('biome lava update', () => updateBiomeLava(delta));
 
       // Throttle minimap to ~15 FPS
       runFrameStep('minimap update', () => {

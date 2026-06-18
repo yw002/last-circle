@@ -86,6 +86,7 @@ export const state = {
   isSprinting: false,
   isMouseDown: false,
   interactKey: false,
+  interactEKey: false,
   velocity: null, // THREE.Vector3, created in scene.js
   direction: null, // THREE.Vector3, created in scene.js
 
@@ -111,5 +112,22 @@ export const state = {
   gameStarted: false,
   prevTime: 0,
   frameId: 0,
-  _allAnimals: null
+  _allAnimals: null,
+
+  // Biome system
+  biomeMap: null,
+
+  // Vehicles
+  vehicles: [],
+  currentVehicle: null,
+
+  // Interactables
+  campfires: [],
+  destructibles: [],
+  barrels: [],
+  airdrops: [],
+  fishingSpots: [],
+
+  // Day/night cycle (0 to DAY_CYCLE_DURATION seconds)
+  dayNightTime: 0
 };

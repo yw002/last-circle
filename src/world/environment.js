@@ -6,6 +6,7 @@ import { MAP_SIZE } from '../config.js';
 import { getBaseTerrainHeight, getTerrainHeight } from './terrain.js';
 import { spawnLoot } from './loot.js';
 import { registerStaticObject } from '../systems/staticVisibility.js';
+import { getBiomeAt, BIOME } from './biomes.js';
 
 // ========== SHARED TREE RESOURCES ==========
 // Pine tree
@@ -210,6 +211,27 @@ function initTrees() {
 
       const tree = new THREE.Group();
       let treeType = Math.floor(Math.random() * 7);
+      const biome = getBiomeAt(x, z);
+
+      // Biome-aware tree type selection
+      if (biome === BIOME.DESERT) {
+        // Desert: mostly no trees (handled by biomeDesert.js dead trees)
+        if (Math.random() > 0.05) continue;
+        treeType = 6; // only dead oak
+      } else if (biome === BIOME.SNOW) {
+        treeType = 0; // only pine (snow pines handled by biomeSnow.js)
+        if (Math.random() > 0.3) continue;
+      } else if (biome === BIOME.JUNGLE) {
+        // Jungle: prefer oaks, bamboo, willows (giant trees in biomeJungle.js)
+        if (Math.random() > 0.5) continue;
+        treeType = [1, 5, 4][Math.floor(Math.random() * 3)];
+      } else if (biome === BIOME.SWAMP) {
+        treeType = 4; // willow (twisted trees in biomeSwamp.js)
+        if (Math.random() > 0.3) continue;
+      } else if (biome === BIOME.LAVA) {
+        if (Math.random() > 0.02) continue; // almost no trees
+        treeType = 6;
+      }
       let trunk;
       let trunkCollider = null;
       const bambooColliders = [];
@@ -324,9 +346,18 @@ function initRocks() {
 
     const rockType = Math.floor(Math.random() * 3);
     let mat;
-    if (rockType === 0) mat = rockMat;
-    else if (rockType === 1) mat = rockDarkMat;
-    else mat = rockMossyMat;
+    const rockBiome = getBiomeAt(x, z);
+    if (rockBiome === BIOME.LAVA) {
+      mat = rockDarkMat; // obsidian in lava biome
+    } else if (rockBiome === BIOME.SNOW) {
+      mat = new THREE.MeshLambertMaterial({ color: 0xCCCCCC }); // white-grey
+    } else if (rockBiome === BIOME.SWAMP) {
+      mat = rockMossyMat;
+    } else {
+      if (rockType === 0) mat = rockMat;
+      else if (rockType === 1) mat = rockDarkMat;
+      else mat = rockMossyMat;
+    }
 
     const rock = new THREE.Mesh(rockGeo, mat);
     rock.userData = { impactMaterial: 'stone' };

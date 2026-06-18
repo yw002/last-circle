@@ -7,6 +7,7 @@ import { showNotice } from '../ui/notices.js';
 import { toggleADS } from './ads.js';
 import { toggleCollisionDebug } from './collisionDebug.js';
 import { toggleHealthBars } from './combatFeedback.js';
+import { getNearbyVehicle, enterVehicle, exitVehicle } from '../world/vehicles.js';
 
 let lastWheelSwitchTime = 0;
 let cheatBuffer = '';
@@ -42,6 +43,7 @@ function clearInputState() {
   state.isSprinting = false;
   state.isMouseDown = false;
   state.interactKey = false;
+  state.interactEKey = false;
 }
 
 export function initControls() {
@@ -63,6 +65,19 @@ export function initControls() {
         break;
       case 'ShiftLeft': state.isSprinting = true; break;
       case 'KeyF': state.interactKey = true; break;
+      case 'KeyE':
+        // Vehicle enter/exit
+        if (state.currentVehicle) {
+          exitVehicle();
+        } else if (state.controls && state.controls.getObject()) {
+          const vehicle = getNearbyVehicle(state.controls.getObject().position);
+          if (vehicle) {
+            enterVehicle(vehicle);
+            showNotice(`进入${vehicle.type === 'jeep' ? '吉普车' : '摩托车'}`, '#44ff44');
+          }
+        }
+        state.interactEKey = true;
+        break;
       case 'KeyR': reloadWeapon(); break;
       case 'Digit1': case 'Numpad1': event.preventDefault(); switchWeapon(0); break;
       case 'Digit2': case 'Numpad2': event.preventDefault(); switchWeapon(1); break;
@@ -85,6 +100,7 @@ export function initControls() {
       case 'ArrowRight': case 'KeyD': state.moveRight = false; break;
       case 'ShiftLeft': state.isSprinting = false; break;
       case 'KeyF': state.interactKey = false; break;
+      case 'KeyE': state.interactEKey = false; break;
     }
   });
 

@@ -1,8 +1,10 @@
 // Terrain generation and height functions - Optimized with spatial grid
+// Biome-aware terrain with per-biome height modifications and vertex colors
 
 import * as THREE from 'three';
 import { state } from '../state.js';
 import { MAP_SIZE } from '../config.js';
+import { getBiomeAt, getBiomeBlendFactor, getBiomeColor, BIOME } from './biomes.js';
 
 // Spatial grid for house proximity checks
 const GRID_CELL_SIZE = 50;
@@ -59,6 +61,33 @@ export function getBaseTerrainHeight(x, z) {
   const valley1 = Math.exp(-((x - 200) ** 2) / 50000) * -20;
   const valley2 = Math.exp(-((x + 400) ** 2) / 40000) * -15;
   height += valley1 + valley2;
+
+  // Biome-specific terrain modifications
+  const biome = getBiomeAt(x, z);
+  switch (biome) {
+    case BIOME.DESERT:
+      // Sand dunes: smooth sine waves, flatter overall
+      height += Math.sin(x / 60) * 12 + Math.cos(z / 80) * 8;
+      height *= 0.7;
+      break;
+    case BIOME.SNOW:
+      // Icy plains with glacier valleys
+      height += Math.sin(x / 200) * 20;
+      break;
+    case BIOME.SWAMP:
+      // Very flat, watery lowlands
+      height = Math.min(height, 4 + Math.sin(x / 30) * 2 + Math.cos(z / 25) * 1.5);
+      break;
+    case BIOME.LAVA:
+      // Rugged volcanic terrain
+      height *= 0.5;
+      height += Math.abs(Math.sin(x / 40) * Math.cos(z / 40)) * 15;
+      break;
+    case BIOME.JUNGLE:
+      // Slightly more rolling
+      height += Math.sin(x / 50) * 5;
+      break;
+  }
 
   return Math.max(-10, height);
 }
@@ -128,17 +157,16 @@ export function initTerrain() {
     vertices[i + 1] = height;
 
     let color = new THREE.Color();
-    // Deep forest green - green mountains
-    if (height < 2) {
-      color.setHex(0x0D47A1); // Deep dark blue water
-    } else if (height < 5) {
-      color.setHex(0x1B5E20); // Very deep green lowlands
-    } else if (height < 15) {
-      color.setHex(0x2E7D32); // Deep forest green
-    } else if (height < 30) {
-      color.setHex(0x33691E); // Dark olive green hills
-    } else {
-      color.setHex(0x558B2F); // Green mountains (not brown!)
+    const biome = getBiomeAt(x, z);
+    const biomeHex = getBiomeColor(biome, height);
+    color.setHex(biomeHex);
+
+    // Biome boundary blending
+    const blend = getBiomeBlendFactor(x, z);
+    if (blend.t > 0.01 && blend.t < 0.99) {
+      const neighborHex = getBiomeColor(blend.biomeB, height);
+      const neighborColor = new THREE.Color(neighborHex);
+      color.lerp(neighborColor, blend.t);
     }
 
     // Roads - optimized with modulo instead of loop

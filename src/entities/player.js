@@ -13,6 +13,7 @@ import { showHitFromDirection } from '../ui/hitindicator.js';
 import { spawnBulletHole } from '../systems/bulletholes.js';
 import { inferImpactMaterial, spawnImpactEffect } from '../systems/impactEffects.js';
 import { showNotice } from '../ui/notices.js';
+import { getBiomeAt, BIOME } from '../world/biomes.js';
 import { calcDamage } from './damage.js';
 import { botDied } from './bots.js';
 import { zombieDied } from './zombies.js';
@@ -1511,6 +1512,30 @@ export function updatePlayer(delta) {
       }
     } else {
       promptEl.style.display = 'none';
+    }
+  }
+
+  // Biome environmental damage
+  if (!state.player.isParachuting && !state.currentVehicle) {
+    const playerBiome = getBiomeAt(pPos.x, pPos.z);
+    const playerY = pPos.y;
+
+    // Swamp poison: -5 HP/sec when in low swamp areas
+    if (playerBiome === BIOME.SWAMP && playerY < 5) {
+      state.player.health -= 5 * delta;
+      if (state.player.health <= 0) {
+        state.player.health = 0;
+        state.player.alive = false;
+      }
+    }
+
+    // Lava fire damage: -15 HP/sec near lava rivers
+    if (playerBiome === BIOME.LAVA && playerY < 15) {
+      state.player.health -= 15 * delta;
+      if (state.player.health <= 0) {
+        state.player.health = 0;
+        state.player.alive = false;
+      }
     }
   }
 }

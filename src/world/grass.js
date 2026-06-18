@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { state } from '../state.js';
 import { MAP_SIZE } from '../config.js';
 import { getTerrainHeight } from './terrain.js';
+import { getBiomeAt, BIOME } from './biomes.js';
 
 const GRASS_COUNT = 50000;
 const FLOWER_COUNT = 2000;
@@ -72,6 +73,7 @@ function createInstancedGrassGeometry(baseGeo, positions) {
   const instancePositions = new Float32Array(positions.length * 3);
   const instanceScales = new Float32Array(positions.length);
   const instancePhases = new Float32Array(positions.length);
+  const instanceBiomes = new Float32Array(positions.length);
 
   for (let i = 0; i < positions.length; i++) {
     const p = positions[i];
@@ -80,11 +82,13 @@ function createInstancedGrassGeometry(baseGeo, positions) {
     instancePositions[i * 3 + 2] = p.z;
     instanceScales[i] = p.scale;
     instancePhases[i] = p.phase;
+    instanceBiomes[i] = p.biome || 0;
   }
 
   geo.setAttribute('instancePosition', new THREE.InstancedBufferAttribute(instancePositions, 3));
   geo.setAttribute('instanceScale', new THREE.InstancedBufferAttribute(instanceScales, 1));
   geo.setAttribute('instancePhase', new THREE.InstancedBufferAttribute(instancePhases, 1));
+  geo.setAttribute('instanceBiome', new THREE.InstancedBufferAttribute(instanceBiomes, 1));
   geo.instanceCount = positions.length;
   geo.computeBoundingSphere();
   return geo;
@@ -94,12 +98,14 @@ const grassVertexShader = `
   attribute vec3 instancePosition;
   attribute float instanceScale;
   attribute float instancePhase;
+  attribute float instanceBiome;
 
   uniform float time;
   uniform vec3 playerPos;
 
   varying float vHeight;
   varying float vDist;
+  varying float vBiome;
 
   void main() {
     vec3 pos = position * instanceScale;
@@ -122,6 +128,7 @@ const grassVertexShader = `
     pos += instancePosition;
     vHeight = height;
     vDist = distToPlayer;
+    vBiome = instanceBiome;
     gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
   }
 `;
@@ -129,10 +136,36 @@ const grassVertexShader = `
 const grassFragmentShader = `
   varying float vHeight;
   varying float vDist;
+  varying float vBiome;
 
   void main() {
+    // Default: green grass
     vec3 baseColor = vec3(0.1, 0.35, 0.08);
     vec3 tipColor = vec3(0.25, 0.55, 0.15);
+
+    // Biome-specific colors
+    if (vBiome > 0.5 && vBiome < 1.5) {
+      // Snow: white-blue
+      baseColor = vec3(0.6, 0.65, 0.7);
+      tipColor = vec3(0.85, 0.88, 0.9);
+    } else if (vBiome > -0.5 && vBiome < 0.5) {
+      // Desert: dry yellow
+      baseColor = vec3(0.4, 0.35, 0.15);
+      tipColor = vec3(0.6, 0.5, 0.3);
+    } else if (vBiome > 1.5 && vBiome < 2.5) {
+      // Jungle: deep green
+      baseColor = vec3(0.05, 0.25, 0.05);
+      tipColor = vec3(0.1, 0.45, 0.1);
+    } else if (vBiome > 2.5 && vBiome < 3.5) {
+      // Swamp: dark green-brown
+      baseColor = vec3(0.15, 0.2, 0.08);
+      tipColor = vec3(0.2, 0.3, 0.1);
+    } else if (vBiome > 3.5 && vBiome < 4.5) {
+      // Lava: charred black
+      baseColor = vec3(0.1, 0.07, 0.03);
+      tipColor = vec3(0.15, 0.1, 0.05);
+    }
+
     vec3 color = mix(baseColor, tipColor, vHeight);
     color *= 0.9 + 0.1 * sin(vDist * 0.1);
     gl_FragColor = vec4(color, 1.0);
@@ -149,16 +182,25 @@ function isGrassPosition(x, z, y) {
 function collectPositions() {
   chunkMap.clear();
 
+  // Biome density skip probabilities
+  const biomeSkip = [0.8, 0.6, 0.0, 0.5, 0.95]; // desert, snow, jungle, swamp, lava
+
   let grassCollected = 0;
   for (let i = 0; i < GRASS_COUNT * 2 && grassCollected < GRASS_COUNT; i++) {
     const x = (Math.random() - 0.5) * MAP_SIZE * 0.95;
     const z = (Math.random() - 0.5) * MAP_SIZE * 0.95;
     const y = getTerrainHeight(x, z);
     if (!isGrassPosition(x, z, y)) continue;
+
+    const biome = getBiomeAt(x, z);
+    // Skip based on biome density
+    if (Math.random() < biomeSkip[biome]) continue;
+
     getChunk(x, z).grass.push({
       x, y, z,
       scale: 0.6 + Math.random() * 1.0,
-      phase: Math.random() * Math.PI * 2
+      phase: Math.random() * Math.PI * 2,
+      biome
     });
     grassCollected++;
   }
@@ -169,6 +211,8 @@ function collectPositions() {
     const z = (Math.random() - 0.5) * MAP_SIZE * 0.9;
     const y = getTerrainHeight(x, z);
     if (!isGrassPosition(x, z, y)) continue;
+    const biome = getBiomeAt(x, z);
+    if (biome === BIOME.DESERT || biome === BIOME.LAVA) continue; // no flowers in desert/lava
     getChunk(x, z).flowers.push({ x, y, z, color: flowerColors[Math.floor(Math.random() * flowerColors.length)] });
   }
 
@@ -177,6 +221,8 @@ function collectPositions() {
     const z = (Math.random() - 0.5) * MAP_SIZE * 0.9;
     const y = getTerrainHeight(x, z);
     if (y < 3 || y > 25) continue;
+    const biome = getBiomeAt(x, z);
+    if (biome === BIOME.DESERT || biome === BIOME.LAVA || biome === BIOME.SNOW) continue;
     getChunk(x, z).bushes.push({ x, y, z, scale: 3 + Math.random() * 4 });
   }
 }
