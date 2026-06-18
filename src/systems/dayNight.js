@@ -53,10 +53,14 @@ export function updateDayNight(delta) {
   const t = state.dayNightTime / DAY_CYCLE_DURATION;
   const sunAngle = t * Math.PI * 2;
 
-  // Sun position (circular orbit)
+  // Sun on a tilted orbit so its azimuth (Y-axis rotation) sweeps a full circle each cycle
+  // while elevation rises/falls. cos drives east/west sweep, sin drives both elevation
+  // (Y) and a softer north/south (Z) component — i.e. the orbit plane is tilted ~30° from
+  // vertical so the sun does loop around the Y axis.
   const sunX = Math.cos(sunAngle) * 1500;
-  const sunY = Math.sin(sunAngle) * 1500 + 200;
-  state.dirLight.position.set(sunX, Math.max(sunY, 100), 500);
+  const sunY = Math.sin(sunAngle) * 1500 * 0.866; // cos(30°)
+  const sunZ = Math.sin(sunAngle) * 1500 * 0.5;   // sin(30°)
+  state.dirLight.position.set(sunX, Math.max(sunY, 100), sunZ);
 
   // Moon (opposite side of sun)
   if (moonMesh) {
@@ -64,7 +68,7 @@ export function updateDayNight(delta) {
     moonMesh.visible = moonVisible;
     moonGlow.visible = moonVisible;
     if (moonVisible) {
-      moonMesh.position.set(-sunX, -sunY + 400, -500);
+      moonMesh.position.set(-sunX, -sunY + 400, -sunZ);
       moonGlow.position.copy(moonMesh.position);
     }
   }

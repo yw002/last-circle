@@ -625,3 +625,11 @@ export function zombieDied(zombie) {
   addKillFeed(`[You] 击杀了一只 [血腥丧尸] (${remaining} 剩余)`);
   updateUI();
 }
+
+// === Stub exports for orphaned waveManager.js (not yet wired up in main.js) ===
+// These keep the imports in waveManager.js resolvable until the wave mode is implemented.
+export function spawnSingleZombie(x, z, scaling) {
+  // TODO: implement when wave survival mode is wired up.
+  return null;
+}
+

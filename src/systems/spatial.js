@@ -49,7 +49,11 @@ const grids = {
   loot: new Map(),
   colliders: new Map(),
   aliens: new Map(),
-  allEntities: new Map()
+  allEntities: new Map(),
+  // Interactive world objects (campfires, barrels, fishing spots) — rebuilt on demand.
+  interactables: new Map(),
+  // Vehicles — rebuilt every frame since they move when occupied.
+  vehicles: new Map(),
 };
 
 let staticBuilt = false;
@@ -73,6 +77,21 @@ function buildStaticGrids() {
     const cx = (box.min.x + box.max.x) * 0.5;
     const cz = (box.min.z + box.max.z) * 0.5;
     addToGrid(grids.colliders, box, cx, cz);
+  }
+
+  // Interactables (campfires + barrels + fishing spots) are static — bucket them once.
+  clearGrid(grids.interactables);
+  for (let i = 0; i < state.campfires.length; i++) {
+    const cf = state.campfires[i];
+    addToGrid(grids.interactables, { kind: 'campfire', ref: cf, position: cf.position }, cf.position.x, cf.position.z);
+  }
+  for (let i = 0; i < state.barrels.length; i++) {
+    const b = state.barrels[i];
+    addToGrid(grids.interactables, { kind: 'barrel', ref: b, position: b.position }, b.position.x, b.position.z);
+  }
+  for (let i = 0; i < state.fishingSpots.length; i++) {
+    const s = state.fishingSpots[i];
+    addToGrid(grids.interactables, { kind: 'fishing', ref: s, position: s.position }, s.position.x, s.position.z);
   }
 
   staticBuilt = true;
@@ -145,6 +164,14 @@ export function rebuildSpatialIndex() {
     const p = loot.mesh.position;
     addToGrid(grids.loot, loot, p.x, p.z);
   }
+
+  // Vehicles move (when occupied) and are destroyed at zero health, so rebuild every frame.
+  clearGrid(grids.vehicles);
+  for (let i = 0; i < state.vehicles.length; i++) {
+    const v = state.vehicles[i];
+    if (v.destroyed) continue;
+    addToGrid(grids.vehicles, v, v.position.x, v.position.z);
+  }
 }
 
 export function resetStaticSpatialIndex() {
@@ -177,4 +204,12 @@ export function getNearbyEntities(x, z, range = NEAR_RANGE) {
 
 export function getNearbyAliens(x, z, range = NEAR_RANGE) {
   return queryGrid(grids.aliens, x, z, range);
+}
+
+export function getNearbyInteractables(x, z, range = NEAR_RANGE) {
+  return queryGrid(grids.interactables, x, z, range);
+}
+
+export function getNearbyVehicles(x, z, range = NEAR_RANGE) {
+  return queryGrid(grids.vehicles, x, z, range);
 }

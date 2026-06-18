@@ -6,6 +6,9 @@ import { MAP_SIZE } from '../config.js';
 import { getTerrainHeight } from '../world/terrain.js';
 import { getBiomeAt, BIOME } from '../world/biomes.js';
 import { registerStaticObject } from '../systems/staticVisibility.js';
+import { spawnLoot } from '../world/loot.js';
+import { playSound } from '../systems/audio.js';
+import { showNotice } from '../ui/notices.js';
 
 // Shared resources
 const campfireLogGeo = new THREE.CylinderGeometry(0.5, 0.5, 4, 6);
@@ -16,6 +19,37 @@ const barrelBandGeo = new THREE.CylinderGeometry(2.1, 2.1, 0.3, 12);
 const barrelBandMat = new THREE.MeshLambertMaterial({ color: 0x333333 });
 const rippleGeo = new THREE.RingGeometry(1, 3, 12);
 const rippleMat = new THREE.MeshBasicMaterial({ color: 0x4488FF, transparent: true, opacity: 0.5, side: THREE.DoubleSide });
+
+// Fire particle system shared across all campfires — one Points object, per-campfire ranges.
+let fireParticles = null;
+const FIRE_PARTICLES_PER_CAMPFIRE = 24;
+let fireParticleData = null; // Float32Array, written each frame
+
+function ensureFireSystem() {
+  if (fireParticles) return;
+  const total = state.campfires.length * FIRE_PARTICLES_PER_CAMPFIRE;
+  if (total === 0) return;
+  const positions = new Float32Array(total * 3);
+  fireParticleData = new Float32Array(total * 3); // (life, life0, baseY) packed... actually we store life/maxLife/seed
+  const fireGeo = new THREE.BufferGeometry();
+  fireGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  const fireMat = new THREE.PointsMaterial({
+    color: 0xFF6600,
+    size: 1.6,
+    transparent: true,
+    opacity: 0.85,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+  fireParticles = new THREE.Points(fireGeo, fireMat);
+  state.scene.add(fireParticles);
+  // Initialize per-particle lifetime/seed
+  for (let i = 0; i < total; i++) {
+    fireParticleData[i * 3] = Math.random() * 1.2;     // life
+    fireParticleData[i * 3 + 1] = 1.0 + Math.random() * 0.6; // maxLife
+    fireParticleData[i * 3 + 2] = Math.random() * Math.PI * 2; // seed
+  }
+}
 
 function createCampfire(x, y, z) {
   const group = new THREE.Group();
@@ -30,14 +64,7 @@ function createCampfire(x, y, z) {
     group.add(log);
   }
 
-  // Fire particles (simple cone)
-  const fireGeo = new THREE.ConeGeometry(1, 4, 6);
-  const fireMat = new THREE.MeshBasicMaterial({ color: 0xFF6600, transparent: true, opacity: 0.7 });
-  const fire = new THREE.Mesh(fireGeo, fireMat);
-  fire.position.y = 2;
-  group.add(fire);
-
-  // Point light
+  // Point light (the fire itself is rendered by the shared Points system)
   const light = new THREE.PointLight(0xFF6600, 2, 30);
   light.position.y = 3;
   group.add(light);
@@ -49,8 +76,8 @@ function createCampfire(x, y, z) {
   state.campfires.push({
     position: new THREE.Vector3(x, y, z),
     light,
-    fire,
-    group
+    group,
+    fireParticleStart: state.campfires.length * FIRE_PARTICLES_PER_CAMPFIRE,
   });
 }
 
@@ -59,7 +86,9 @@ function createBarrel(x, y, z) {
 
   const barrel = new THREE.Mesh(barrelGeo, barrelMat);
   barrel.position.y = 2;
-  barrel.userData = { isBarrel: true, impactMaterial: 'metal' };
+  // Barrel index is stamped on userData so raycasts can find the entry in state.barrels.
+  const barrelIndex = state.barrels.length;
+  barrel.userData = { isBarrel: true, impactMaterial: 'metal', barrelIndex };
   group.add(barrel);
 
   // Metal bands
@@ -87,7 +116,7 @@ function createBarrel(x, y, z) {
     position: new THREE.Vector3(x, y, z),
     mesh: group,
     health: 50,
-    exploded: false
+    exploded: false,
   });
 }
 
@@ -102,7 +131,7 @@ function createFishingSpot(x, y, z) {
     position: new THREE.Vector3(x, y, z),
     mesh: ripple,
     active: true,
-    cooldown: 0
+    cooldownEndsAt: 0, // performance.now() ms
   });
 }
 
@@ -141,27 +170,117 @@ export function initInteractables() {
     createFishingSpot(x, y, z);
     placed++;
   }
+
+  ensureFireSystem();
 }
+
+// === Fishing state ===
+// Press E near a fishing spot, wait FISH_DURATION seconds, then receive +50 HP and a random reward.
+const FISH_DURATION = 2.0;
+const FISH_RANGE_SQ = 8 * 8;
+let fishingSession = null; // { spotIndex, elapsed }
+
+export function tryStartFishing(playerPos) {
+  if (fishingSession) return false;
+  const spots = state.fishingSpots;
+  const now = performance.now();
+  for (let i = 0; i < spots.length; i++) {
+    const s = spots[i];
+    if (now < s.cooldownEndsAt) continue;
+    const dx = playerPos.x - s.position.x;
+    const dz = playerPos.z - s.position.z;
+    if (dx * dx + dz * dz <= FISH_RANGE_SQ) {
+      fishingSession = { spotIndex: i, elapsed: 0 };
+      showNotice('开始钓鱼…', '#88ccff');
+      return true;
+    }
+  }
+  return false;
+}
+
+function finishFishing() {
+  if (!fishingSession) return;
+  const spot = state.fishingSpots[fishingSession.spotIndex];
+  spot.cooldownEndsAt = performance.now() + 8000; // 8s cooldown per spot
+
+  // Heal +50, capped to maxHealth.
+  const healed = Math.min(50, state.player.maxHealth - state.player.health);
+  state.player.health = Math.min(state.player.maxHealth, state.player.health + 50);
+
+  // Random reward: spawn 1 loot at the player's feet (so they can pick it up).
+  const player = state.controls.getObject().position;
+  spawnLoot(player.x + (Math.random() - 0.5) * 2, getTerrainHeight(player.x, player.z), player.z + (Math.random() - 0.5) * 2);
+
+  showNotice(`钓到了一条鱼！+${healed} HP`, '#7fff7f');
+  fishingSession = null;
+}
+
+export function isFishing() { return !!fishingSession; }
 
 export function updateInteractables(delta) {
   const playerPos = state.controls ? state.controls.getObject().position : null;
   if (!playerPos) return;
 
-  // Campfire fire flicker + healing
+  // Campfire heal + light flicker
+  const nowMs = performance.now();
   for (let i = 0; i < state.campfires.length; i++) {
     const cf = state.campfires[i];
-    if (!cf.fire || !cf.fire.visible) continue;
-
-    // Flicker
-    const flicker = 0.9 + Math.sin(performance.now() * 0.01 + i) * 0.1;
-    cf.fire.scale.set(flicker, 0.8 + Math.random() * 0.4, flicker);
     cf.light.intensity = 1.5 + Math.random() * 1;
 
-    // Heal player within range
+    // Heal player within radius 20
     const dx = playerPos.x - cf.position.x;
     const dz = playerPos.z - cf.position.z;
-    if (dx * dx + dz * dz < 400) { // 20 unit radius
+    if (dx * dx + dz * dz < 400) {
       state.player.health = Math.min(state.player.maxHealth, state.player.health + 10 * delta);
+    }
+  }
+
+  // Fire particle simulation — additive points rising from each campfire base.
+  if (fireParticles && fireParticleData) {
+    const positions = fireParticles.geometry.attributes.position.array;
+    for (let c = 0; c < state.campfires.length; c++) {
+      const cf = state.campfires[c];
+      const start = cf.fireParticleStart;
+      for (let p = 0; p < FIRE_PARTICLES_PER_CAMPFIRE; p++) {
+        const idx = start + p;
+        const dataIdx = idx * 3;
+        let life = fireParticleData[dataIdx];
+        const maxLife = fireParticleData[dataIdx + 1];
+        const seed = fireParticleData[dataIdx + 2];
+        life += delta;
+        if (life >= maxLife) {
+          // respawn at base
+          life = 0;
+          positions[idx * 3] = cf.position.x + (Math.random() - 0.5) * 1.2;
+          positions[idx * 3 + 1] = cf.position.y + 0.6;
+          positions[idx * 3 + 2] = cf.position.z + (Math.random() - 0.5) * 1.2;
+          fireParticleData[dataIdx + 1] = 1.0 + Math.random() * 0.6;
+          fireParticleData[dataIdx + 2] = Math.random() * Math.PI * 2;
+        } else {
+          // rise + jitter
+          const t = life / maxLife;
+          positions[idx * 3] += Math.sin(seed + nowMs * 0.005) * delta * 0.6;
+          positions[idx * 3 + 1] += (3.5 - t * 1.5) * delta;
+          positions[idx * 3 + 2] += Math.cos(seed + nowMs * 0.005) * delta * 0.6;
+        }
+        fireParticleData[dataIdx] = life;
+      }
+    }
+    fireParticles.geometry.attributes.position.needsUpdate = true;
+  }
+
+  // Fishing tick
+  if (fishingSession) {
+    fishingSession.elapsed += delta;
+    // Cancel if player walked away from the spot.
+    const spot = state.fishingSpots[fishingSession.spotIndex];
+    const dx = playerPos.x - spot.position.x;
+    const dz = playerPos.z - spot.position.z;
+    if (dx * dx + dz * dz > FISH_RANGE_SQ * 4) {
+      showNotice('钓鱼中断', '#ff8888');
+      fishingSession = null;
+    } else if (fishingSession.elapsed >= FISH_DURATION) {
+      finishFishing();
     }
   }
 }
@@ -184,6 +303,9 @@ export function explodeBarrel(barrelIndex, sourcePos) {
   explosion.position.y += 3;
   state.scene.add(explosion);
 
+  // Audio
+  playSound('explosion', barrel.position);
+
   // Scale up and fade
   let scale = 1;
   const expandInterval = setInterval(() => {
@@ -197,12 +319,11 @@ export function explodeBarrel(barrelIndex, sourcePos) {
     }
   }, 50);
 
-  // Damage nearby entities (bots, player, zombies)
+  // Damage nearby entities
   const explosionRadius = 25;
   const explosionRadiusSq = explosionRadius * explosionRadius;
   const damage = 80;
 
-  // Damage player
   if (state.player.alive) {
     const dx = state.controls.getObject().position.x - barrel.position.x;
     const dz = state.controls.getObject().position.z - barrel.position.z;
@@ -212,7 +333,6 @@ export function explodeBarrel(barrelIndex, sourcePos) {
     }
   }
 
-  // Damage bots
   for (const bot of state.bots) {
     if (!bot.alive) continue;
     const dx = bot.position.x - barrel.position.x;

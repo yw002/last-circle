@@ -943,3 +943,9 @@ export function updateGiant(delta) {
     }
   }
 }
+
+// === Stub exports for orphaned waveManager.js (not yet wired up in main.js) ===
+export function spawnWaveGiant(scaling) {
+  return null;
+}
+

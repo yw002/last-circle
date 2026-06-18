@@ -4,7 +4,8 @@ import * as THREE from 'three';
 import { state } from '../state.js';
 import { MAP_SIZE } from '../config.js';
 import { getTerrainHeight } from '../world/terrain.js';
-import { spawnLoot } from '../world/loot.js';
+import { spawnAirdropLoot } from '../world/loot.js';
+import { playSound } from './audio.js';
 
 // Shared resources
 const planeMat = new THREE.MeshLambertMaterial({ color: 0x555555 });
@@ -14,6 +15,10 @@ const smokeMat = new THREE.PointsMaterial({ color: 0xFF2200, size: 5, transparen
 
 let airdropTimer = 0;
 const AIRDROP_INTERVAL = 90; // seconds
+// Trigger an extra airdrop every -20 alive players (from when this trigger was last fired).
+const AIRDROP_PLAYER_DROP_THRESHOLD = 20;
+let lastAirdropAliveSnapshot = null;
+let engineSoundTimer = 0;
 
 function createPlaneMesh() {
   const group = new THREE.Group();
@@ -129,15 +134,54 @@ function createSmokeMarker(x, y, z) {
 
 export function initAirdrop() {
   airdropTimer = AIRDROP_INTERVAL * 0.5; // First drop at 45s
+  lastAirdropAliveSnapshot = null;
+  engineSoundTimer = 0;
 }
 
 export function updateAirdrop(delta) {
   airdropTimer += delta;
 
-  // Trigger new airdrop
+  // Initialize alive-count snapshot the first time we have a real value.
+  if (lastAirdropAliveSnapshot === null && state.aliveCount > 0) {
+    lastAirdropAliveSnapshot = state.aliveCount;
+  }
+
+  // Trigger conditions: scheduled timer OR aliveCount dropped by 20+ since last trigger.
+  let shouldSpawn = false;
   if (airdropTimer >= AIRDROP_INTERVAL) {
+    shouldSpawn = true;
+  } else if (
+    lastAirdropAliveSnapshot !== null &&
+    state.aliveCount <= lastAirdropAliveSnapshot - AIRDROP_PLAYER_DROP_THRESHOLD
+  ) {
+    shouldSpawn = true;
+  }
+
+  if (shouldSpawn) {
     airdropTimer = 0;
+    lastAirdropAliveSnapshot = state.aliveCount;
     spawnAirdrop();
+  }
+
+  // Engine sound: pulse while at least one plane is in flight.
+  let anyPlane = false;
+  for (let i = 0; i < state.airdrops.length; i++) {
+    if (state.airdrops[i].phase === 'flying' && state.airdrops[i].plane) {
+      anyPlane = true;
+      break;
+    }
+  }
+  engineSoundTimer -= delta;
+  if (anyPlane && engineSoundTimer <= 0) {
+    // Use the first airborne plane's position as the sound source.
+    for (let i = 0; i < state.airdrops.length; i++) {
+      const ad = state.airdrops[i];
+      if (ad.phase === 'flying' && ad.plane) {
+        playSound('engine', ad.plane.position);
+        break;
+      }
+    }
+    engineSoundTimer = 0.6;
   }
 
   // Update active airdrops
@@ -154,42 +198,37 @@ export function updateAirdrop(delta) {
       const dx = ad.plane.position.x - ad.targetX;
       const dz = ad.plane.position.z - ad.targetZ;
       if (dx * dx + dz * dz < 100 * 100) {
-        // Drop crate
         ad.phase = 'dropping';
         ad.crate = createCrate(ad.targetX, 490, ad.targetZ);
         ad.parachute = createParachute(ad.targetX, 492, ad.targetZ);
       }
 
-      // Remove plane when far enough
       if (ad.distanceTraveled > ad.totalDistance * 2) {
         state.scene.remove(ad.plane);
         ad.plane = null;
       }
 
     } else if (ad.phase === 'dropping') {
-      // Crate falls
       const terrainY = getTerrainHeight(ad.crate.position.x, ad.crate.position.z);
       ad.crate.position.y -= 30 * delta;
       ad.parachute.position.y = ad.crate.position.y + 2;
 
       if (ad.crate.position.y <= terrainY + 2) {
-        // Landed
         ad.phase = 'landed';
         ad.crate.position.y = terrainY + 2;
         state.scene.remove(ad.parachute);
         ad.parachute = null;
 
-        // Create smoke marker
         ad.smoke = createSmokeMarker(ad.crate.position.x, terrainY + 2, ad.crate.position.z);
 
-        // Spawn high-quality loot
-        spawnLoot(ad.crate.position.x, terrainY, ad.crate.position.z);
-        spawnLoot(ad.crate.position.x + 5, terrainY, ad.crate.position.z);
-        spawnLoot(ad.crate.position.x - 5, terrainY, ad.crate.position.z);
+        // Spawn rare airdrop-grade loot (special weapon + L3 helmet/armor + ammo).
+        spawnAirdropLoot(ad.crate.position.x, terrainY, ad.crate.position.z);
+
+        // Expose drop position so HUD/minimap can highlight it.
+        state.nearestAirdropPos = ad.crate.position.clone();
       }
 
     } else if (ad.phase === 'landed') {
-      // Animate smoke upward
       if (ad.smoke) {
         const positions = ad.smoke.geometry.attributes.position.array;
         for (let j = 0; j < positions.length; j += 3) {

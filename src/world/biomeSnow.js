@@ -63,23 +63,47 @@ function createFrozenLake(x, y, z) {
   mesh.userData.impactMaterial = 'ice';
   state.scene.add(mesh);
   registerStaticObject(mesh, x, z, 1000);
+  // Marker collider — standable surface tagged 'ice' for any system that wants to react.
+  const box = new THREE.Box3().setFromCenterAndSize(
+    new THREE.Vector3(x, y + 0.2, z),
+    new THREE.Vector3(radius * 2, 0.3, radius * 2)
+  );
+  box.userData = { kind: 'frozen_lake', standable: true, soft: true };
+  state.colliders.push(box);
 }
 
 function createSnowPile(x, y, z) {
   const mesh = new THREE.Mesh(snowPileGeo, snowPileMat);
   mesh.position.set(x, y + 1.5, z);
-  mesh.scale.set(1 + Math.random() * 1.5, 0.5 + Math.random() * 0.5, 1 + Math.random() * 1.5);
+  const sx = 1 + Math.random() * 1.5;
+  const sy = 0.5 + Math.random() * 0.5;
+  const sz = 1 + Math.random() * 1.5;
+  mesh.scale.set(sx, sy, sz);
   state.scene.add(mesh);
   registerStaticObject(mesh, x, z, 500);
+  const box = new THREE.Box3().setFromCenterAndSize(
+    new THREE.Vector3(x, y + 1.5, z),
+    new THREE.Vector3(8 * sx, 4 * sy, 8 * sz)
+  );
+  box.userData = { kind: 'snow_pile', standable: true, soft: true };
+  state.colliders.push(box);
 }
 
 function createIcicle(x, y, z) {
   const mesh = new THREE.Mesh(icicleGeo, icicleMat);
   mesh.position.set(x, y + 20 + Math.random() * 10, z);
   mesh.rotation.x = Math.PI; // point downward
-  mesh.scale.y = 1 + Math.random() * 2;
+  const sy = 1 + Math.random() * 2;
+  mesh.scale.y = sy;
   state.scene.add(mesh);
   registerStaticObject(mesh, x, z, 500);
+  // Hanging icicle collider (overhead), thin column near tip.
+  const box = new THREE.Box3().setFromCenterAndSize(
+    new THREE.Vector3(x, mesh.position.y, z),
+    new THREE.Vector3(1, 4 * sy, 1)
+  );
+  box.userData = { kind: 'icicle', standable: false, soft: true };
+  state.colliders.push(box);
 }
 
 export function initBiomeSnowVegetation() {

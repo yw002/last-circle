@@ -398,3 +398,65 @@ export function spawnSingleLoot(lx, ly, lz, forceType = null, scale = 1.0, ammoA
   state.scene.add(mesh);
   state.lootItems.push({ mesh: mesh, type: type, data: itemData, bubble: bubble, ring: ring });
 }
+
+/**
+ * Spawn airdrop-grade loot — biased to special weapons + L3 equipment.
+ * Drops a fixed loadout (special weapon, L3 helmet, L3 armor, ammo box) instead of a random table.
+ */
+export function spawnAirdropLoot(bx, by, bz) {
+  const specials = weapons.filter((w) => w.special);
+  const helmetL3 = equipments.find((e) => e.type === 'helmet' && e.level === 3);
+  const armorL3 = equipments.find((e) => e.type === 'armor' && e.level === 3);
+
+  const items = [];
+  if (specials.length > 0) {
+    items.push({
+      kind: 'weapon',
+      itemData: { ...specials[Math.floor(Math.random() * specials.length)] },
+      buildMesh: (data) => createWeaponMesh(data, 1.6),
+    });
+    if (Math.random() < 0.5) {
+      items.push({
+        kind: 'weapon',
+        itemData: { ...specials[Math.floor(Math.random() * specials.length)] },
+        buildMesh: (data) => createWeaponMesh(data, 1.6),
+      });
+    }
+  }
+  if (helmetL3) {
+    items.push({ kind: 'helmet', itemData: helmetL3, buildMesh: (data) => new THREE.Mesh(sharedGeos.helmetSphere, getWeaponMat(data.color)) });
+  }
+  if (armorL3) {
+    items.push({ kind: 'armor', itemData: armorL3, buildMesh: (data) => new THREE.Mesh(sharedGeos.armorBox, getWeaponMat(data.color)) });
+  }
+  // Ammo too — high-tier loadouts demand bullets.
+  items.push({ kind: 'ammo', itemData: { name: '弹药箱 (120发)', amount: 120 }, buildMesh: () => new THREE.Mesh(sharedGeos.ammoBox, sharedMats.ammo) });
+
+  // Place items in a tight ring around the crate.
+  const radius = 6;
+  for (let i = 0; i < items.length; i++) {
+    const angle = (i / items.length) * Math.PI * 2;
+    const lx = bx + Math.cos(angle) * radius;
+    const lz = bz + Math.sin(angle) * radius;
+    const ly = getTerrainHeight(lx, lz) + 1.5;
+    const it = items[i];
+    const mesh = it.buildMesh(it.itemData);
+    mesh.position.set(lx, ly, lz);
+
+    const bubble = new THREE.Mesh(sharedGeos.bubble, sharedMats.bubble);
+    bubble.position.y = 0.5;
+    mesh.add(bubble);
+    const ring = new THREE.Mesh(sharedGeos.ring, sharedMats.ring);
+    ring.position.y = 0.5;
+    ring.rotation.x = Math.PI / 2;
+    mesh.add(ring);
+
+    const labelColor = it.kind === 'weapon' ? '#f1c40f' : (it.kind === 'ammo' ? '#2ecc71' : '#3498db');
+    const labelSprite = createTextSprite(it.itemData.name, labelColor);
+    labelSprite.position.set(0, 2.5, 0);
+    mesh.add(labelSprite);
+
+    state.scene.add(mesh);
+    state.lootItems.push({ mesh, type: it.kind, data: it.itemData, bubble, ring });
+  }
+}

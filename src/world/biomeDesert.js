@@ -91,6 +91,13 @@ function createDuneRipple(x, y, z) {
   mesh.scale.set(1 + Math.random(), 1, 1 + Math.random());
   state.scene.add(mesh);
   registerStaticObject(mesh, x, z, 600);
+  // Flat low collider so AI/player ground-cast still resolves the surface (standable).
+  const box = new THREE.Box3().setFromCenterAndSize(
+    new THREE.Vector3(x, y + 0.1, z),
+    new THREE.Vector3(8, 0.2, 8)
+  );
+  box.userData = { kind: 'dune', standable: true, soft: true };
+  state.colliders.push(box);
 }
 
 function createBones(x, y, z) {
@@ -112,6 +119,13 @@ function createBones(x, y, z) {
   group.position.set(x, y, z);
   state.scene.add(group);
   registerStaticObject(group, x, z, 500);
+  // Small soft collider so the bone pile reads as something — won't significantly block movement.
+  const box = new THREE.Box3().setFromCenterAndSize(
+    new THREE.Vector3(x, y + 0.5, z),
+    new THREE.Vector3(3, 1, 3)
+  );
+  box.userData = { kind: 'bones', standable: true, soft: true };
+  state.colliders.push(box);
 }
 
 export function initBiomeDesertVegetation() {

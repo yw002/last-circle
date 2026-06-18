@@ -116,3 +116,9 @@ export function updateGhosts(delta) {
     }
   });
 }
+
+// === Stub exports for orphaned waveManager.js (not yet wired up in main.js) ===
+export function spawnSingleGhost(x, z, scaling) {
+  return null;
+}
+

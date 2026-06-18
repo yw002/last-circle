@@ -89,3 +89,73 @@ export const weapons = [
   { type: "throwable", name: "Grenade", ammo: 1, maxAmmo: 1, damage: 150, fireRate: 1000, range: 80, color: 0x27ae60, sound: '', scope: null },
   { type: "throwable", name: "Flashbang", ammo: 1, maxAmmo: 1, damage: 0, fireRate: 1000, range: 80, color: 0xbdc3c7, sound: '', scope: null }
 ];
+
+// === Biome Configuration (5 biomes: Desert/Snow/Jungle/Swamp/Lava) ===
+// Single source of truth for biome IDs, colors, and gameplay attributes.
+export const BIOME_CONFIG = {
+  DESERT: {
+    id: 0,
+    name: 'Desert',
+    colors: { low: 0xA0926B, mid: 0xC2B280, high: 0xD4C494 },
+    seed: { x: -1500, z: -1500 },
+    damagePerSec: 0,
+    fogColor: null,
+  },
+  SNOW: {
+    id: 1,
+    name: 'Snow',
+    colors: { low: 0xB0C4DE, mid: 0xE8E8F0, high: 0xF0F0F8 },
+    seed: { x: 1500, z: -1500 },
+    damagePerSec: 0,
+    fogColor: null,
+  },
+  JUNGLE: {
+    id: 2,
+    name: 'Jungle',
+    colors: { low: 0x0D3B0D, mid: 0x1B5E20, high: 0x2E7D32 },
+    seed: { x: 0, z: 1800 },
+    damagePerSec: 0,
+    fogColor: 0x0a2a0a, // local dense fog tint
+    fogDensity: 0.012,
+  },
+  SWAMP: {
+    id: 3,
+    name: 'Swamp',
+    colors: { low: 0x2F3B1A, mid: 0x4A5D23, high: 0x5A6D33 },
+    seed: { x: -1800, z: 1200 },
+    damagePerSec: 5, // poison: -5 HP / sec when low
+    fogColor: null,
+  },
+  LAVA: {
+    id: 4,
+    name: 'Lava',
+    colors: { low: 0xFF4500, mid: 0x2C2C2C, high: 0x3A3A3A },
+    seed: { x: 1800, z: 1200 },
+    damagePerSec: 15, // fire: -15 HP / sec when low
+    fogColor: null,
+  },
+};
+
+// Map of biome id -> entry, used by biomes.js for fast lookup.
+export const BIOME_BY_ID = Object.freeze(
+  Object.values(BIOME_CONFIG).reduce((acc, entry) => {
+    acc[entry.id] = entry;
+    return acc;
+  }, {})
+);
+
+// === Wave Survival Configuration (20-wave mode) ===
+export const WAVE_CONFIG = {
+  TOTAL_WAVES: 20,
+  REST_DURATION: 15,
+  KILL_THRESHOLD: 0.8,
+  SPAWN_DISTANCE_MIN: 300,
+  SPAWN_DISTANCE_MAX: 800,
+  BOSS_EVERY_N_WAVES: 5,
+  HEALTH_SCALE: 0.15,
+  DAMAGE_SCALE: 0.10,
+  SPEED_SCALE: 0.05,
+  BASE_ENEMY_COUNT: 20,
+  ENEMIES_PER_WAVE: 6,
+  AIRDROP_INTERVAL: 60
+};

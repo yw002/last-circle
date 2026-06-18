@@ -30,7 +30,42 @@ const leafLifetimes = new Float32Array(LEAF_COUNT);
 // Bird flocks
 let birdFlocks = [];
 let lastBirdSpawn = 0;
-const BIRD_INTERVAL = 80; // seconds
+let nextBirdInterval = 60 + Math.random() * 60; // 60-120s, re-rolled per spawn
+
+// Aurora shader — vertex displacement + green/purple/blue gradient. Replaces a
+// flat MeshBasicMaterial with a real ShaderMaterial so the wave deformation and
+// vertical color stripes are GPU-driven instead of a CPU position attribute write.
+const AURORA_VERT = /* glsl */`
+  uniform float uTime;
+  uniform float uPhase;
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    vec3 p = position;
+    p.y += sin(uTime * 0.5 + p.x * 0.005 + uPhase) * 25.0;
+    p.y += cos(uTime * 0.3 + p.x * 0.011 + uPhase * 0.5) * 12.0;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+  }
+`;
+const AURORA_FRAG = /* glsl */`
+  uniform float uTime;
+  uniform vec3 uColorA;
+  uniform vec3 uColorB;
+  uniform float uOpacity;
+  varying vec2 vUv;
+  void main() {
+    float band = smoothstep(0.0, 0.5, vUv.y) * smoothstep(1.0, 0.5, vUv.y);
+    float wave = 0.5 + 0.5 * sin(uTime * 0.6 + vUv.x * 6.2832 * 3.0);
+    vec3 col = mix(uColorA, uColorB, wave);
+    float alpha = band * (0.18 + 0.12 * wave) * uOpacity;
+    gl_FragColor = vec4(col, alpha);
+  }
+`;
+const AURORA_PALETTE = [
+  { a: new THREE.Color(0x00ff88), b: new THREE.Color(0x2288ff) }, // green→blue
+  { a: new THREE.Color(0x8844ff), b: new THREE.Color(0x00ff88) }, // purple→green
+  { a: new THREE.Color(0x2288ff), b: new THREE.Color(0x8844ff) }, // blue→purple
+];
 
 export function initSkyEffects() {
   // Stars
@@ -51,12 +86,23 @@ export function initSkyEffects() {
   starsPoints = new THREE.Points(starGeo, starMat);
   state.scene.add(starsPoints);
 
-  // Aurora (3 wavy planes in northern sky)
+  // Aurora — 3 wavy planes in northern sky, ShaderMaterial-driven
   for (let i = 0; i < 3; i++) {
     const auroraGeo = new THREE.PlaneGeometry(2000, 150, 50, 1);
-    const auroraMat = new THREE.MeshBasicMaterial({
-      color: [0x00FF88, 0x8844FF, 0x2288FF][i],
-      transparent: true, opacity: 0.15, side: THREE.DoubleSide, depthWrite: false
+    const palette = AURORA_PALETTE[i % AURORA_PALETTE.length];
+    const auroraMat = new THREE.ShaderMaterial({
+      uniforms: {
+        uTime: { value: 0 },
+        uPhase: { value: i * 1.7 },
+        uColorA: { value: palette.a.clone() },
+        uColorB: { value: palette.b.clone() },
+        uOpacity: { value: 1.0 },
+      },
+      vertexShader: AURORA_VERT,
+      fragmentShader: AURORA_FRAG,
+      transparent: true,
+      side: THREE.DoubleSide,
+      depthWrite: false,
     });
     const aurora = new THREE.Mesh(auroraGeo, auroraMat);
     aurora.position.set(0, 800 + i * 100, -1500);
@@ -165,12 +211,9 @@ export function updateSkyEffects(delta, time) {
     const shouldShow = nightActive && playerPos.z < -500;
     aurora.visible = shouldShow;
     if (shouldShow) {
-      // Wave animation
-      const positions = aurora.geometry.attributes.position.array;
-      for (let j = 0; j < positions.length; j += 3) {
-        positions[j + 1] = Math.sin(time * 0.5 + positions[j] * 0.005 + i) * 20;
-      }
-      aurora.geometry.attributes.position.needsUpdate = true;
+      // Drive shader uniforms; the GPU handles wave deformation + color band each frame.
+      const u = aurora.material.uniforms;
+      u.uTime.value = time;
       aurora.position.x = playerPos.x;
     }
   }
@@ -192,35 +235,54 @@ export function updateSkyEffects(delta, time) {
     }
   }
 
-  // Falling leaves - near birch/cherry trees (any biome, autumn effect)
+  // Falling leaves — only spawn near birch/cherry trees (recorded in state.autumnTreePositions).
+  // Each leaf picks the nearest such tree on respawn so the effect localises to autumn foliage.
   if (leafPoints) {
+    const trees = state.autumnTreePositions;
+    const nearbyTrees = [];
+    if (trees && trees.length > 0) {
+      for (let t = 0; t < trees.length; t++) {
+        const dx = trees[t].x - playerPos.x;
+        const dz = trees[t].z - playerPos.z;
+        if (dx * dx + dz * dz < 220 * 220) nearbyTrees.push(trees[t]);
+      }
+    }
+
     for (let i = 0; i < LEAF_COUNT; i++) {
       leafLifetimes[i] -= delta;
       if (leafLifetimes[i] <= 0) {
-        // Respawn near player
-        leafPositions[i * 3] = playerPos.x + (Math.random() - 0.5) * 100;
-        leafPositions[i * 3 + 1] = playerPos.y + 20 + Math.random() * 30;
-        leafPositions[i * 3 + 2] = playerPos.z + (Math.random() - 0.5) * 100;
+        if (nearbyTrees.length === 0) {
+          // No autumn trees near the player — park the leaf far offscreen.
+          leafPositions[i * 3] = 99999;
+          leafPositions[i * 3 + 1] = 99999;
+          leafPositions[i * 3 + 2] = 99999;
+          leafLifetimes[i] = 1 + Math.random();
+          continue;
+        }
+        const tree = nearbyTrees[Math.floor(Math.random() * nearbyTrees.length)];
+        leafPositions[i * 3] = tree.x + (Math.random() - 0.5) * 30;
+        leafPositions[i * 3 + 1] = playerPos.y + 35 + Math.random() * 25;
+        leafPositions[i * 3 + 2] = tree.z + (Math.random() - 0.5) * 30;
         leafVelocities[i * 3] = (Math.random() - 0.5) * 5;
         leafVelocities[i * 3 + 1] = -(2 + Math.random() * 3);
         leafVelocities[i * 3 + 2] = (Math.random() - 0.5) * 5;
-        leafLifetimes[i] = 3 + Math.random() * 5;
+        leafLifetimes[i] = 4 + Math.random() * 5;
       } else {
         leafPositions[i * 3] += leafVelocities[i * 3] * delta;
         leafPositions[i * 3 + 1] += leafVelocities[i * 3 + 1] * delta;
         leafPositions[i * 3 + 2] += leafVelocities[i * 3 + 2] * delta;
-        // Wind drift
         leafVelocities[i * 3] += Math.sin(time + i) * delta * 2;
       }
     }
     leafPoints.geometry.attributes.position.needsUpdate = true;
   }
 
-  // Bird flocks
+  // Bird flocks — random 60-120s spacing per spawn.
   lastBirdSpawn += delta;
-  if (lastBirdSpawn > BIRD_INTERVAL && !nightActive && birdFlocks.length < 3) {
+  if (lastBirdSpawn > nextBirdInterval && !nightActive && birdFlocks.length < 3) {
     spawnBirdFlock();
     lastBirdSpawn = 0;
+    nextBirdInterval = 60 + Math.random() * 60;
   }
 
   // Update existing flocks

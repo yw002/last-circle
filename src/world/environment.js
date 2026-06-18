@@ -260,6 +260,7 @@ function initTrees() {
         tree.add(trunk, l1, l2, l3);
         state.objects.push(trunk);
         trunkCollider = createTreeTrunkCollider(x, y, z, 5.5, 60);
+        state.autumnTreePositions.push({ x, z, kind: 'birch' });
       } else if (treeType === 3) {
         trunk = new THREE.Mesh(trunkGeoCherry, trunkMatCherry); trunk.position.y = 20;
         const crown1 = new THREE.Mesh(new THREE.SphereGeometry(20, 8, 8), leavesMatCherry); crown1.position.y = 45;
@@ -268,6 +269,7 @@ function initTrees() {
         tree.add(trunk, crown1, crown2, crown3);
         state.objects.push(trunk);
         trunkCollider = createTreeTrunkCollider(x, y, z, 6.8, 40);
+        state.autumnTreePositions.push({ x, z, kind: 'cherry' });
       } else if (treeType === 4) {
         trunk = new THREE.Mesh(trunkGeoWillow, trunkMatWillow); trunk.position.y = 25;
         for (let b = 0; b < 12; b++) {
@@ -404,6 +406,12 @@ function initRivers() {
       const y = getTerrainHeight(x, z) - 0.5;
       riverPoints.push(new THREE.Vector3(x, y, z));
     }
+
+    // Expose to state so other systems (bridges, etc.) can place themselves over the river.
+    state.rivers.push({
+      points: riverPoints.map((p) => p.clone()),
+      width: 12,
+    });
 
     // Create river as flat plane segments
     const riverWidth = 12;

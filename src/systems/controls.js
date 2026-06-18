@@ -8,6 +8,7 @@ import { toggleADS } from './ads.js';
 import { toggleCollisionDebug } from './collisionDebug.js';
 import { toggleHealthBars } from './combatFeedback.js';
 import { getNearbyVehicle, enterVehicle, exitVehicle } from '../world/vehicles.js';
+import { tryStartFishing } from '../world/interactables.js';
 
 let lastWheelSwitchTime = 0;
 let cheatBuffer = '';
@@ -66,14 +67,17 @@ export function initControls() {
       case 'ShiftLeft': state.isSprinting = true; break;
       case 'KeyF': state.interactKey = true; break;
       case 'KeyE':
-        // Vehicle enter/exit
+        // Vehicle enter/exit takes priority; otherwise try fishing.
         if (state.currentVehicle) {
           exitVehicle();
         } else if (state.controls && state.controls.getObject()) {
-          const vehicle = getNearbyVehicle(state.controls.getObject().position);
+          const playerPos = state.controls.getObject().position;
+          const vehicle = getNearbyVehicle(playerPos);
           if (vehicle) {
             enterVehicle(vehicle);
             showNotice(`进入${vehicle.type === 'jeep' ? '吉普车' : '摩托车'}`, '#44ff44');
+          } else {
+            tryStartFishing(playerPos);
           }
         }
         state.interactEKey = true;

@@ -117,6 +117,18 @@ export const state = {
   // Biome system
   biomeMap: null,
 
+  // River paths (populated by environment.initRivers, used by bridges to span them)
+  rivers: [],
+
+  // Anchor points (farms + military bases) used by destructibles to cluster fences nearby.
+  fenceClusterAnchors: [],
+
+  // Building markers (used by minimap to draw building icons).
+  buildingMarkers: [],
+
+  // Birch / cherry tree positions (used by skyEffects falling-leaf system)
+  autumnTreePositions: [],
+
   // Vehicles
   vehicles: [],
   currentVehicle: null,
@@ -129,5 +141,21 @@ export const state = {
   fishingSpots: [],
 
   // Day/night cycle (0 to DAY_CYCLE_DURATION seconds)
-  dayNightTime: 0
+  dayNightTime: 0,
+
+  // Wave survival system (20-wave mode)
+  wave: {
+    number: 0,
+    phase: 'rest',          // 'rest' | 'spawning' | 'active' | 'boss'
+    enemiesRemaining: 0,
+    enemiesSpawned: 0,
+    enemiesTotal: 0,
+    killThreshold: 0,
+    restTimer: 0,
+    score: 0,
+    totalKills: 0
+  },
+
+  // Nearest airdrop position (for HUD indicator)
+  nearestAirdropPos: null
 };

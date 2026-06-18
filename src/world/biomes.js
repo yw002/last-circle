@@ -1,29 +1,24 @@
 // Biome system: Voronoi-based biome assignment with smooth blending
 // Provides O(1) biome lookup via pre-computed grid
 
-import { MAP_SIZE } from '../config.js';
+import { MAP_SIZE, BIOME_CONFIG, BIOME_BY_ID } from '../config.js';
 import { state } from '../state.js';
 
 const GRID_RES = 600; // 600x600 grid = 10 units per cell
 const CELL_SIZE = MAP_SIZE / GRID_RES;
 
-// Voronoi seed points - manually placed to ensure good distribution
-const SEEDS = [
-  { x: -1500, z: -1500, id: 0 }, // DESERT - southwest
-  { x:  1500, z: -1500, id: 1 }, // SNOW   - southeast
-  { x:     0, z:  1800, id: 2 }, // JUNGLE - north center
-  { x: -1800, z:  1200, id: 3 }, // SWAMP  - northwest
-  { x:  1800, z:  1200, id: 4 }, // LAVA   - northeast
-];
+// Voronoi seed points - sourced from config BIOME_CONFIG so the layout is single-source.
+const SEEDS = Object.values(BIOME_CONFIG).map((entry) => ({
+  x: entry.seed.x,
+  z: entry.seed.z,
+  id: entry.id,
+}));
 
-// Biome terrain color lookup (used by terrain vertex colors)
-const BIOME_COLORS = {
-  0: { low: 0xA0926B, mid: 0xC2B280, high: 0xD4C494 }, // Desert: dark sand → sand → light sand
-  1: { low: 0xB0C4DE, mid: 0xE8E8F0, high: 0xF0F0F8 }, // Snow: ice blue → white → bright white
-  2: { low: 0x0D3B0D, mid: 0x1B5E20, high: 0x2E7D32 }, // Jungle: deep dark → deep green → forest
-  3: { low: 0x2F3B1A, mid: 0x4A5D23, high: 0x5A6D33 }, // Swamp: murky → green-brown → olive
-  4: { low: 0xFF4500, mid: 0x2C2C2C, high: 0x3A3A3A }, // Lava: glowing lava → obsidian → dark rock
-};
+// Biome terrain color lookup (used by terrain vertex colors) - mirrors BIOME_CONFIG colors.
+const BIOME_COLORS = Object.values(BIOME_CONFIG).reduce((acc, entry) => {
+  acc[entry.id] = entry.colors;
+  return acc;
+}, {});
 
 /**
  * Initialize the biome lookup grid. Must be called before any other world generation.
@@ -173,11 +168,11 @@ export function isInBiome(x, z, biomeId) {
   return getBiomeAt(x, z) === biomeId;
 }
 
-// Biome IDs for external use
-export const BIOME = {
-  DESERT: 0,
-  SNOW: 1,
-  JUNGLE: 2,
-  SWAMP: 3,
-  LAVA: 4,
-};
+// Biome IDs for external use - derived from BIOME_CONFIG
+export const BIOME = Object.values(BIOME_CONFIG).reduce((acc, entry) => {
+  acc[entry.name.toUpperCase()] = entry.id;
+  return acc;
+}, {});
+
+// Re-export biome config for convenience
+export { BIOME_CONFIG, BIOME_BY_ID };

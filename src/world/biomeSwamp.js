@@ -27,13 +27,21 @@ function createPoisonPool(x, y, z) {
   mesh.rotation.x = -Math.PI / 2;
   state.scene.add(mesh);
   registerStaticObject(mesh, x, z, 800);
+  // Damage zone marker — keep standable so movement isn't blocked, biome-wide poison still applies.
+  const box = new THREE.Box3().setFromCenterAndSize(
+    new THREE.Vector3(x, y + 0.15, z),
+    new THREE.Vector3(radius * 2, 0.4, radius * 2)
+  );
+  box.userData = { kind: 'poison_pool', standable: true, soft: true, damagePerSec: 5, radius };
+  state.colliders.push(box);
 }
 
 function createMushroom(x, y, z) {
   const group = new THREE.Group();
   const stem = new THREE.Mesh(mushroomStemGeo, mushroomStemMat);
   stem.position.y = 3;
-  stem.scale.y = 0.5 + Math.random() * 1.5;
+  const stemScaleY = 0.5 + Math.random() * 1.5;
+  stem.scale.y = stemScaleY;
   group.add(stem);
 
   const isRed = Math.random() > 0.4;
@@ -60,6 +68,13 @@ function createMushroom(x, y, z) {
   group.position.set(x, y, z);
   state.scene.add(group);
   registerStaticObject(group, x, z, 600);
+  // Mushroom can block movement (giant variant), small collider.
+  const box = new THREE.Box3().setFromCenterAndSize(
+    new THREE.Vector3(x, y + 3, z),
+    new THREE.Vector3(4, 6 * stemScaleY, 4)
+  );
+  box.userData = { kind: 'mushroom', standable: false, soft: true };
+  state.colliders.push(box);
 }
 
 function createTwistedTree(x, y, z) {

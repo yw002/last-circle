@@ -48,6 +48,14 @@ function createLavaRiver(x, y, z) {
   const light = new THREE.PointLight(0xFF4500, 2, 40);
   light.position.set(x, y + 5, z);
   state.scene.add(light);
+
+  // Lava damage zone collider — standable but tagged for fire damage.
+  const box = new THREE.Box3().setFromCenterAndSize(
+    new THREE.Vector3(x, y + 0.1, z),
+    new THREE.Vector3(width, 0.4, length)
+  );
+  box.userData = { kind: 'lava_river', standable: true, soft: true, damagePerSec: 15 };
+  state.colliders.push(box);
 }
 
 function createRockPillar(x, y, z) {
@@ -73,12 +81,22 @@ function createRockPillar(x, y, z) {
 function createObsidianRock(x, y, z) {
   const mesh = new THREE.Mesh(obsidianGeo, obsidianMat);
   mesh.position.set(x, y + 2, z);
-  mesh.scale.set(1 + Math.random() * 2, 0.5 + Math.random(), 1 + Math.random() * 2);
+  const sx = 1 + Math.random() * 2;
+  const sy = 0.5 + Math.random();
+  const sz = 1 + Math.random() * 2;
+  mesh.scale.set(sx, sy, sz);
   mesh.rotation.y = Math.random() * Math.PI;
   mesh.userData.impactMaterial = 'stone';
   state.scene.add(mesh);
   registerStaticObject(mesh, x, z, 600);
   state.objects.push(mesh);
+  // Obsidian as a hard collider — standard rock obstacle.
+  const box = new THREE.Box3().setFromCenterAndSize(
+    new THREE.Vector3(x, y + 2, z),
+    new THREE.Vector3(6 * sx, 4 * sy, 6 * sz)
+  );
+  box.userData = { kind: 'obsidian', standable: false };
+  state.colliders.push(box);
 }
 
 function initSmokeSystem() {

@@ -24,6 +24,9 @@ import { getNearbyColliders, getNearbyDoors, getNearbyLoot } from '../systems/sp
 import { checkSweptColliderCollision } from '../systems/collision.js';
 import { registerCombatHit } from '../systems/combatFeedback.js';
 import { fireSpecialWeapon } from '../systems/specialWeapons.js';
+import { explodeBarrel } from '../world/interactables.js';
+import { damageDestructible } from '../systems/destructibles.js';
+import { damageVehicle } from '../world/vehicles.js';
 
 // Crosshair spread state
 let crosshairSpread = 0;
@@ -1149,6 +1152,16 @@ export function fireWeapon() {
     playImpactSound(impactMaterial, coverHit.point);
     spawnImpactEffect(coverHit.point, n, impactMaterial);
     if (impactMaterial !== 'water') spawnBulletHole(coverHit.point, n);
+
+    // Interactive damage: barrels detonate, destructibles take chip damage, vehicles take heavy damage.
+    const cud = coverHit.object.userData || {};
+    if (cud.isBarrel && typeof cud.barrelIndex === 'number') {
+      explodeBarrel(cud.barrelIndex, coverHit.point);
+    } else if (cud.isDestructible && typeof cud.destructibleIndex === 'number') {
+      damageDestructible(cud.destructibleIndex, state.player.weapon.damage);
+    } else if (cud.isVehicle && typeof cud.vehicleIndex === 'number') {
+      damageVehicle(cud.vehicleIndex, state.player.weapon.damage);
+    }
   } else if (targetHit) {
     let ud = targetHit.object.userData;
     if (ud.isBot) {

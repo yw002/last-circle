@@ -8,6 +8,7 @@ import { getTerrainHeight } from '../world/terrain.js';
 import { addKillFeed } from '../ui/notices.js';
 import { playThunderSound } from './audio.js';
 import { triggerLightningStrike } from './lightning.js';
+import { getDayNightFactor } from './dayNight.js';
 
 // Weather states
 const WEATHER = {
@@ -185,9 +186,22 @@ export function updateWeather(delta) {
       break;
   }
 
+  // Couple weather tint with the day/night cycle: night dims weather colors,
+  // day shows them faithfully. dayNight.js then runs after this to make any
+  // additional adjustments.
+  const dayFactor = typeof getDayNightFactor === 'function' ? getDayNightFactor() : 1;
+  const weatherDayWeight = 0.18 + 0.82 * dayFactor;
+  _skySunny.multiplyScalar(weatherDayWeight);
+
   state.scene.background.lerp(_skySunny, delta * 0.5);
   state.scene.fog.color.lerp(_skySunny, delta * 0.5);
   state.scene.fog.density = THREE.MathUtils.lerp(state.scene.fog.density, targetDensity, delta * 0.5);
+
+  // Light intensities are owned by dayNight.js; we scale ambient further at full
+  // storm to give weather some lighting weight.
+  if (state.ambLight && currentWeather === WEATHER.STORM) {
+    state.ambLight.intensity *= 0.85;
+  }
 
   // Update clouds
   let speedMult = currentWeather === WEATHER.STORM ? 4.0 : (currentWeather === WEATHER.BLIZZARD ? 2.0 : 1.0);

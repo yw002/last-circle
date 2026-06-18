@@ -41,10 +41,10 @@ import { updateVictory } from './systems/victory.js';
 import { initBiomeMap } from './world/biomes.js';
 import { initBiomeDesertVegetation } from './world/biomeDesert.js';
 import { initBiomeSnowVegetation } from './world/biomeSnow.js';
-import { initBiomeJungleVegetation } from './world/biomeJungle.js';
+import { initBiomeJungleVegetation, updateBiomeJungle } from './world/biomeJungle.js';
 import { initBiomeSwampVegetation } from './world/biomeSwamp.js';
 import { initBiomeLavaVegetation, updateBiomeLava } from './world/biomeLava.js';
-import { initBuildings } from './world/buildings.js';
+import { initBuildings, updateBuildings } from './world/buildings.js';
 import { initInteractables, updateInteractables } from './world/interactables.js';
 import { initVehicles, updateVehicles } from './world/vehicles.js';
 import { initDayNight, updateDayNight } from './systems/dayNight.js';
@@ -302,6 +302,8 @@ function animate() {
       runFrameStep('volcano update', () => updateVolcano(delta));
       runFrameStep('giant update', () => updateGiant(delta));
       runFrameStep('zone update', () => updateZone(delta));
+      // dayNight must run before weather so weather can layer its tint on top.
+      runFrameStep('day-night update', () => updateDayNight(delta));
       runFrameStep('weather update', () => updateWeather(delta));
       runFrameStep('particle update', () => updateParticles(delta));
       runFrameStep('crosshair update', () => updateCrosshairSpread(delta));
@@ -314,13 +316,14 @@ function animate() {
       runFrameStep('special weapon update', () => updateSpecialWeapons(delta));
       runFrameStep('funny events update', () => updateFunnyEvents(delta));
       runFrameStep('victory update', () => updateVictory(delta));
-      runFrameStep('day-night update', () => updateDayNight(delta));
       runFrameStep('sky effects update', () => updateSkyEffects(delta, time));
       runFrameStep('interactables update', () => updateInteractables(delta));
       runFrameStep('destructibles update', () => updateDestructibles(delta));
       runFrameStep('vehicles update', () => updateVehicles(delta));
       runFrameStep('airdrop update', () => updateAirdrop(delta));
       runFrameStep('biome lava update', () => updateBiomeLava(delta));
+      runFrameStep('biome jungle update', () => updateBiomeJungle(delta));
+      runFrameStep('buildings update', () => updateBuildings(delta));
 
       // Throttle minimap to ~15 FPS
       runFrameStep('minimap update', () => {

@@ -686,3 +686,9 @@ export function getAllAliens() {
 export function getAllUFOs() {
   return ufos;
 }
+
+// === Stub exports for orphaned waveManager.js (not yet wired up in main.js) ===
+export function spawnSingleAlien(x, z, scaling) {
+  return null;
+}
+

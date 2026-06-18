@@ -1923,6 +1923,57 @@ export function playFootstepSound(surface) {
 }
 
 
+// ========== ENGINE SOUND (vehicle / aircraft pulse) ==========
+function playEngineSound(now, vol, panner) {
+  // Single low pulse — call repeatedly to simulate a running engine.
+  const dur = 0.35;
+  // Layer 1: deep rumble
+  const rumble = audioCtx.createOscillator();
+  const rumbleG = audioCtx.createGain();
+  rumble.type = 'sawtooth';
+  rumble.frequency.setValueAtTime(70, now);
+  rumble.frequency.linearRampToValueAtTime(85, now + dur);
+  rumbleG.gain.setValueAtTime(0, now);
+  rumbleG.gain.linearRampToValueAtTime(vol * 0.55, now + 0.05);
+  rumbleG.gain.linearRampToValueAtTime(vol * 0.4, now + dur - 0.05);
+  rumbleG.gain.exponentialRampToValueAtTime(0.001, now + dur);
+  rumble.connect(rumbleG);
+  connectToOutput(rumbleG, panner);
+  rumble.start(now);
+  rumble.stop(now + dur + 0.02);
+
+  // Layer 2: mid-frequency growl with light distortion
+  const growl = audioCtx.createOscillator();
+  const growlG = audioCtx.createGain();
+  const ws = audioCtx.createWaveShaper();
+  ws.curve = makeDistortionCurve(20);
+  growl.type = 'square';
+  growl.frequency.setValueAtTime(180, now);
+  growl.frequency.linearRampToValueAtTime(220, now + dur);
+  growlG.gain.setValueAtTime(0, now);
+  growlG.gain.linearRampToValueAtTime(vol * 0.18, now + 0.06);
+  growlG.gain.exponentialRampToValueAtTime(0.001, now + dur);
+  growl.connect(ws);
+  ws.connect(growlG);
+  connectToOutput(growlG, panner);
+  growl.start(now);
+  growl.stop(now + dur + 0.02);
+
+  // Layer 3: thin top harmonic
+  const top = audioCtx.createOscillator();
+  const topG = audioCtx.createGain();
+  top.type = 'triangle';
+  top.frequency.setValueAtTime(420, now);
+  top.frequency.linearRampToValueAtTime(520, now + dur);
+  topG.gain.setValueAtTime(0, now);
+  topG.gain.linearRampToValueAtTime(vol * 0.07, now + 0.08);
+  topG.gain.exponentialRampToValueAtTime(0.001, now + dur);
+  top.connect(topG);
+  connectToOutput(topG, panner);
+  top.start(now);
+  top.stop(now + dur + 0.02);
+}
+
 // ========== MAIN PLAY SOUND DISPATCHER ==========
 export function playSound(type, sourcePos = null, options = null) {
   if (!audioCtx) return;
@@ -1948,6 +1999,7 @@ export function playSound(type, sourcePos = null, options = null) {
       case 'melee': playMeleeSwingSound(now, vol, panner); break;
       case 'fish_slap': playFishSlapSound(now, vol, panner); break;
       case 'explosion': playExplosionSound(now, vol, panner); break;
+      case 'engine': playEngineSound(now, vol, panner); break;
       default: playARSound(now, vol, panner, false); break;
     }
     applyAmmoTone(type, now, vol, panner, options);
