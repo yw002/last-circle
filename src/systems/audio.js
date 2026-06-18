@@ -50,11 +50,11 @@ export function initAudio() {
 
     // Master chain: compressor → [dry + reverb] → master gain → destination
     masterCompressor = audioCtx.createDynamicsCompressor();
-    masterCompressor.threshold.setValueAtTime(-18, audioCtx.currentTime);
-    masterCompressor.knee.setValueAtTime(12, audioCtx.currentTime);
-    masterCompressor.ratio.setValueAtTime(6, audioCtx.currentTime);
-    masterCompressor.attack.setValueAtTime(0.003, audioCtx.currentTime);
-    masterCompressor.release.setValueAtTime(0.15, audioCtx.currentTime);
+    masterCompressor.threshold.setValueAtTime(-24, audioCtx.currentTime);
+    masterCompressor.knee.setValueAtTime(18, audioCtx.currentTime);
+    masterCompressor.ratio.setValueAtTime(4, audioCtx.currentTime);
+    masterCompressor.attack.setValueAtTime(0.005, audioCtx.currentTime);
+    masterCompressor.release.setValueAtTime(0.25, audioCtx.currentTime);
 
     // Convolution reverb
     reverbNode = audioCtx.createConvolver();
@@ -92,8 +92,10 @@ export function initAudio() {
 
     initialized = true;
     setInterval(() => {
-      if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-    }, 500);
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume().catch(() => {});
+      }
+    }, 200);
     return true;
   } catch (e) {
     console.warn('Audio init failed:', e);
@@ -114,6 +116,27 @@ function createNoiseBuffer(duration) {
 export function resumeAudio() {
   if (!initialized) initAudio();
   if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+// Watchdog: resume audio on tab switch, focus, and user interaction
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+  });
+  window.addEventListener('focus', () => {
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+  });
+  // Resume on any user gesture (click, keydown, touch)
+  const resumeOnGesture = () => {
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  };
+  document.addEventListener('click', resumeOnGesture, { passive: true });
+  document.addEventListener('keydown', resumeOnGesture, { passive: true });
+  document.addEventListener('touchstart', resumeOnGesture, { passive: true });
 }
 
 function createPanner(sourcePos) {
@@ -981,7 +1004,7 @@ export function playCombatFeedbackSound(type = 'hit') {
     cueGain.gain.linearRampToValueAtTime(p.gain, now + 0.01);
     cueGain.gain.exponentialRampToValueAtTime(0.001, now + p.dur);
     cue.connect(cueGain);
-    cueGain.connect(audioCtx.destination);
+    connectToOutput(cueGain, null);
     cue.start(now);
     cue.stop(now + p.dur + 0.02);
 
@@ -994,7 +1017,7 @@ export function playCombatFeedbackSound(type = 'hit') {
     harmG.gain.setValueAtTime(0, now);
     harmG.gain.linearRampToValueAtTime(p.gain * 0.3, now + 0.008);
     harmG.gain.exponentialRampToValueAtTime(0.001, now + p.dur * 0.7);
-    harm.connect(harmG); harmG.connect(audioCtx.destination);
+    harm.connect(harmG); connectToOutput(harmG, null);
     harm.start(now); harm.stop(now + p.dur + 0.02);
 
     // Layer 3: Transient click (sharp attack)
@@ -1018,7 +1041,7 @@ export function playCombatFeedbackSound(type = 'hit') {
       dingG.gain.setValueAtTime(0, now);
       dingG.gain.linearRampToValueAtTime(0.12, now + 0.06);
       dingG.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
-      ding.connect(dingG); dingG.connect(audioCtx.destination);
+      ding.connect(dingG); connectToOutput(dingG, null);
       ding.start(now + 0.04); ding.stop(now + 0.3);
     }
   } catch (e) {}
@@ -1229,7 +1252,7 @@ export function playThunderSound() {
     crackGain.gain.linearRampToValueAtTime(0.45, now + 0.08);
     crackGain.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
     crack.connect(crackGain);
-    crackGain.connect(audioCtx.destination);
+    connectToOutput(crackGain, null);
     crack.start(now);
     crack.stop(now + 0.6);
 
@@ -1244,7 +1267,7 @@ export function playThunderSound() {
     rumbleGain.gain.setValueAtTime(0.34, now + 1.0);
     rumbleGain.gain.exponentialRampToValueAtTime(0.001, now + 3.4);
     rumble.connect(rumbleGain);
-    rumbleGain.connect(audioCtx.destination);
+    connectToOutput(rumbleGain, null);
     rumble.start(now + 0.1);
     rumble.stop(now + 3.8);
 
@@ -1258,7 +1281,7 @@ export function playThunderSound() {
     bodyGain.gain.linearRampToValueAtTime(0.26, now + 0.16);
     bodyGain.gain.exponentialRampToValueAtTime(0.001, now + 1.35);
     body.connect(bodyGain);
-    bodyGain.connect(audioCtx.destination);
+    connectToOutput(bodyGain, null);
     body.start(now + 0.05);
     body.stop(now + 2.0);
 
@@ -1276,7 +1299,7 @@ export function playThunderSound() {
       noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
       noise.connect(noiseFilter);
       noiseFilter.connect(noiseGain);
-      noiseGain.connect(audioCtx.destination);
+      connectToOutput(noiseGain, null);
       noise.start(now);
       noise.stop(now + 0.4);
     }
@@ -1291,7 +1314,7 @@ export function playThunderSound() {
     boomGain.gain.linearRampToValueAtTime(0.2, now + 0.45);
     boomGain.gain.exponentialRampToValueAtTime(0.001, now + 2.5);
     boom.connect(boomGain);
-    boomGain.connect(audioCtx.destination);
+    connectToOutput(boomGain, null);
     boom.start(now + 0.2);
     boom.stop(now + 3.0);
 
@@ -1306,7 +1329,7 @@ export function playThunderSound() {
       lg.gain.setValueAtTime(0.35, now);
       lg.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
       lightning.connect(lf); lf.connect(ws); ws.connect(lg);
-      lg.connect(audioCtx.destination);
+      connectToOutput(lg, null);
       lightning.start(now); lightning.stop(now + 0.1);
     }
 
@@ -1322,7 +1345,7 @@ export function playThunderSound() {
       tg.gain.linearRampToValueAtTime(0.12, now + 0.6);
       tg.gain.exponentialRampToValueAtTime(0.001, now + 4.5);
       tail.connect(tf); tf.connect(tg);
-      tg.connect(audioCtx.destination);
+      connectToOutput(tg, null);
       tail.start(now + 0.3); tail.stop(now + 5);
     }
 
@@ -1340,7 +1363,7 @@ export function playThunderSound() {
         echoGain.gain.linearRampToValueAtTime(0.16, echoNow + 0.25);
         echoGain.gain.exponentialRampToValueAtTime(0.001, echoNow + 2.0);
         echo.connect(echoGain);
-        echoGain.connect(audioCtx.destination);
+        connectToOutput(echoGain, null);
         echo.start(echoNow);
         echo.stop(echoNow + 2.5);
       } catch (e) {}
@@ -1580,7 +1603,7 @@ export function playKillStreakSound(level) {
       gain.gain.setValueAtTime(vol, now + i * 0.08);
       gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.15);
       osc.connect(gain);
-      gain.connect(audioCtx.destination);
+      connectToOutput(gain, null);
       osc.start(now + i * 0.08);
       osc.stop(now + i * 0.08 + 0.2);
     }
@@ -1594,7 +1617,7 @@ export function playKillStreakSound(level) {
       kGain.gain.setValueAtTime(0.3, now);
       kGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
       kick.connect(kGain);
-      kGain.connect(audioCtx.destination);
+      connectToOutput(kGain, null);
       kick.start(now);
       kick.stop(now + 0.2);
     }
@@ -1688,7 +1711,7 @@ export function playDiscoBeat() {
       kick.frequency.exponentialRampToValueAtTime(30, now + i * 0.25 + 0.05);
       kg.gain.setValueAtTime(0.2, now + i * 0.25);
       kg.gain.exponentialRampToValueAtTime(0.001, now + i * 0.25 + 0.1);
-      kick.connect(kg); kg.connect(audioCtx.destination);
+      kick.connect(kg); connectToOutput(kg, null);
       kick.start(now + i * 0.25); kick.stop(now + i * 0.25 + 0.15);
     }
     // Hi-hat on off-beats
@@ -1701,7 +1724,7 @@ export function playDiscoBeat() {
         const hg = audioCtx.createGain();
         hg.gain.setValueAtTime(0.1, now + i * 0.25 + 0.125);
         hg.gain.exponentialRampToValueAtTime(0.001, now + i * 0.25 + 0.18);
-        hh.connect(hf); hf.connect(hg); hg.connect(audioCtx.destination);
+        hh.connect(hf); hf.connect(hg); connectToOutput(hg, null);
         hh.start(now + i * 0.25 + 0.125); hh.stop(now + i * 0.25 + 0.2);
       }
     }
@@ -1721,7 +1744,7 @@ export function playVictoryMusic() {
       osc.frequency.setValueAtTime(freq, now + i * 0.4);
       gain.gain.setValueAtTime(0.2, now + i * 0.4);
       gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.4 + 0.5);
-      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.connect(gain); connectToOutput(gain, null);
       osc.start(now + i * 0.4); osc.stop(now + i * 0.4 + 0.6);
     });
     // Applause noise
@@ -1734,7 +1757,7 @@ export function playVictoryMusic() {
       ng.gain.setValueAtTime(0, now);
       ng.gain.linearRampToValueAtTime(0.15, now + 0.5);
       ng.gain.exponentialRampToValueAtTime(0.001, now + 3);
-      n.connect(f); f.connect(ng); ng.connect(audioCtx.destination);
+      n.connect(f); f.connect(ng); connectToOutput(ng, null);
       n.start(now + 0.3); n.stop(now + 3.5);
     }
   } catch (e) {}
@@ -1902,7 +1925,11 @@ export function playFootstepSound(surface) {
 
 // ========== MAIN PLAY SOUND DISPATCHER ==========
 export function playSound(type, sourcePos = null, options = null) {
-  if (!audioCtx || audioCtx.state === 'suspended') return;
+  if (!audioCtx) return;
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume().catch(() => {});
+    return;
+  }
   try {
     const now = audioCtx.currentTime;
     const vol = sourcePos ? 0.85 : 0.55;

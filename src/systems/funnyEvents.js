@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { state } from '../state.js';
 import { showNotice } from '../ui/notices.js';
-import { playFartSound, playDiscoBeat } from './audio.js';
+import { playFartSound } from './audio.js';
 import { isGiantAlive, getGiantPosition } from '../entities/giant.js';
 import { setBotsDancing } from '../entities/bots.js';
 import { spawnSingleLoot } from '../world/loot.js';
@@ -18,12 +18,9 @@ let fallingFish = [];
 const fishGeo = new THREE.SphereGeometry(0.4, 8, 6);
 const fishMat = new THREE.MeshLambertMaterial({ color: 0x7fb3d8 });
 
-// Disco state
-let discoTimer = 0;
-let discoOrigAmbient = null;
-let discoOrigDir = null;
+// (disco removed)
 
-const EVENT_NAMES = ['dance', 'fishRain', 'giantFart', 'disco', 'delivery'];
+const EVENT_NAMES = ['dance', 'fishRain', 'giantFart', 'delivery'];
 
 function scheduleNextEvent() {
   nextEventTime = performance.now() / 1000 + EVENT_INTERVAL_MIN + Math.random() * (EVENT_INTERVAL_MAX - EVENT_INTERVAL_MIN);
@@ -94,13 +91,7 @@ function triggerGiantFart() {
   }
 }
 
-function triggerDisco() {
-  showNotice('🪩 迪斯科模式！Everybody dance now!', '#ff00ff');
-  discoTimer = 5;
-  discoOrigAmbient = state.ambLight ? state.ambLight.color.clone() : null;
-  discoOrigDir = state.dirLight ? state.dirLight.color.clone() : null;
-  playDiscoBeat();
-}
+// (disco trigger removed)
 
 function triggerDelivery() {
   showNotice('📦 外卖到了！请签收您的快递！', '#f39c12');
@@ -133,7 +124,6 @@ export function updateFunnyEvents(delta) {
       case 'dance': triggerDance(); break;
       case 'fishRain': triggerFishRain(); break;
       case 'giantFart': triggerGiantFart(); break;
-      case 'disco': triggerDisco(); break;
       case 'delivery': triggerDelivery(); break;
     }
     scheduleNextEvent();
@@ -162,21 +152,5 @@ export function updateFunnyEvents(delta) {
     }
   }
 
-  // Update disco mode
-  if (discoTimer > 0) {
-    discoTimer -= delta;
-    const t = performance.now() / 200;
-    const colors = [0xff0000, 0x00ff00, 0x0000ff, 0xff00ff, 0xffff00, 0x00ffff];
-    const ci = Math.floor(t) % colors.length;
-    if (state.ambLight) state.ambLight.color.setHex(colors[ci]);
-    if (state.dirLight) state.dirLight.color.setHex(colors[(ci + 2) % colors.length]);
-
-    if (discoTimer <= 0) {
-      // Restore original colors
-      if (state.ambLight && discoOrigAmbient) state.ambLight.color.copy(discoOrigAmbient);
-      if (state.dirLight && discoOrigDir) state.dirLight.color.copy(discoOrigDir);
-      discoOrigAmbient = null;
-      discoOrigDir = null;
-    }
-  }
+  // (disco update removed)
 }

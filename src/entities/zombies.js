@@ -46,7 +46,7 @@ const bloodDripMat = new THREE.MeshBasicMaterial({ color: 0x8b0000, transparent:
 const woundMat = new THREE.MeshLambertMaterial({ color: 0x4a0808, emissive: 0x2a0404, emissiveIntensity: 0.3 });
 
 // ========== MAXIMUM PRECISION ZOMBIE GEOMETRIES ==========
-const SEG_Z = 48; // Ultra-high segment count for zombies
+const SEG_Z = 14; // Optimized segment count
 
 // Zombie torso profile - emaciated, ribcage visible
 const zombieTorsoProfile = [];

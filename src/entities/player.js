@@ -187,7 +187,7 @@ export function updateWeaponModel() {
   const springMat = new THREE.MeshLambertMaterial({ color: 0x777777 });
 
   // Maximum segment count for ultra-smooth curves
-  const SEG = 32;
+  const SEG = 16;
   const SEG2 = 48;
 
   // LatheGeometry profiles for organic weapon shapes

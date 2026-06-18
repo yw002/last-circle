@@ -78,8 +78,11 @@ function buildStaticGrids() {
   staticBuilt = true;
 }
 
+let _rebuildCounter = 0;
 export function rebuildSpatialIndex() {
   if (!staticBuilt) buildStaticGrids();
+  _rebuildCounter++;
+  if (_rebuildCounter % 5 !== 0) return;
 
   clearGrid(grids.bots);
   clearGrid(grids.allEntities);

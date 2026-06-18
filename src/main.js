@@ -30,7 +30,7 @@ import { initGiant, updateGiant } from './entities/giant.js';
 import { updateUI } from './ui/hud.js';
 import { initMinimap, updateMinimap } from './ui/minimap.js';
 import { initHitIndicator } from './ui/hitindicator.js';
-import { optimizeRenderer, optimizeScene, updateFPS, getAverageFPS, resetFPS, adaptQuality, profileStep, logPerformanceProfile } from './systems/performance.js';
+import { optimizeRenderer, optimizeScene, updateFPS, getAverageFPS, resetFPS, adaptQuality, profileStep } from './systems/performance.js';
 import { rebuildSpatialIndex, resetStaticSpatialIndex, getNearbyLoot } from './systems/spatial.js';
 import { updateStaticVisibility } from './systems/staticVisibility.js';
 import { updateCollisionDebug } from './systems/collisionDebug.js';
@@ -192,7 +192,6 @@ function animate() {
     const time = performance.now();
     const delta = Math.min((time - state.prevTime) / 1000, 0.1);
     state.frameId++;
-    logPerformanceProfile(time);
 
     runFrameStep('spatial rebuild', () => rebuildSpatialIndex());
     runFrameStep('static visibility', () => updateStaticVisibility(time));
@@ -241,7 +240,7 @@ function animate() {
       // Count performance only during active gameplay, excluding initial and pause overlays.
       const fps = updateFPS(delta);
       const avgFps = getAverageFPS();
-      if (fps < 30) {
+      if (state.frameId % 60 === 0 && fps < 30) {
         adaptQuality(fps);
       }
 

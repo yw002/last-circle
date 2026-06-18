@@ -20,21 +20,22 @@ let currentWeather = WEATHER.SUNNY;
 let gameStartTime = 0;
 let weatherInitialized = false;
 let lastLightningStrikeTime = 0;
+const _skySunny = new THREE.Color(0x87CEEB);
 
 // Snow particles
 let snowParticles = [];
 
 export function initClouds() {
-  const cloudGeo = new THREE.SphereGeometry(1, 8, 8);
+  const cloudGeo = new THREE.SphereGeometry(1, 6, 5);
   const cloudMat = new THREE.MeshBasicMaterial({
     color: 0xffffff,
     transparent: true,
     opacity: 0.8
   });
 
-  for (let i = 0; i < 120; i++) {
+  for (let i = 0; i < 40; i++) {
     const cloudGroup = new THREE.Group();
-    let numParts = 4 + Math.floor(Math.random() * 5);
+    let numParts = 2 + Math.floor(Math.random() * 3);
     for (let j = 0; j < numParts; j++) {
       const part = new THREE.Mesh(cloudGeo, cloudMat);
       let scale = 25 + Math.random() * 50;
@@ -167,52 +168,54 @@ export function updateWeather(delta) {
     setWeatherStorm();
   }
 
-  // Update sky/fog based on weather
-  let targetSky, targetFog, targetDensity;
+  // Update sky/fog based on weather (pre-allocated to avoid GC)
+  let targetDensity;
   switch (currentWeather) {
     case WEATHER.SUNNY:
-      targetSky = new THREE.Color(0x87CEEB);
-      targetFog = new THREE.Color(0x87CEEB);
+      _skySunny.setHex(0x87CEEB);
       targetDensity = 0.0004;
       break;
     case WEATHER.STORM:
-      targetSky = new THREE.Color(0x1a212a);
-      targetFog = new THREE.Color(0x1a212a);
+      _skySunny.setHex(0x1a212a);
       targetDensity = 0.0008;
       break;
     case WEATHER.BLIZZARD:
-      targetSky = new THREE.Color(0xc8d6e5);
-      targetFog = new THREE.Color(0xc8d6e5);
+      _skySunny.setHex(0xc8d6e5);
       targetDensity = 0.0015;
       break;
   }
 
-  state.scene.background.lerp(targetSky, delta * 0.5);
-  state.scene.fog.color.lerp(targetFog, delta * 0.5);
+  state.scene.background.lerp(_skySunny, delta * 0.5);
+  state.scene.fog.color.lerp(_skySunny, delta * 0.5);
   state.scene.fog.density = THREE.MathUtils.lerp(state.scene.fog.density, targetDensity, delta * 0.5);
 
   // Update clouds
   let speedMult = currentWeather === WEATHER.STORM ? 4.0 : (currentWeather === WEATHER.BLIZZARD ? 2.0 : 1.0);
-  state.clouds.forEach(cloud => {
+  for (let i = 0, len = state.clouds.length; i < len; i++) {
+    const cloud = state.clouds[i];
     cloud.position.x += cloud.userData.speed * delta * 10 * speedMult;
     if (cloud.position.x > MAP_SIZE) cloud.position.x = -MAP_SIZE;
-  });
+  }
 
   // Update rain
-  state.rainParticles.forEach(rain => {
+  for (let i = 0, len = state.rainParticles.length; i < len; i++) {
+    const rain = state.rainParticles[i];
     rain.position.x = playerPos.x;
     rain.position.z = playerPos.z;
     rain.position.y -= 380 * delta;
     if (rain.position.y < -150) rain.position.y = 180;
-  });
+  }
 
   // Update snow
-  snowParticles.forEach(snow => {
-    snow.position.x = playerPos.x + Math.sin(elapsed * 0.5) * 50;
-    snow.position.z = playerPos.z + Math.cos(elapsed * 0.3) * 50;
+  const _sx = playerPos.x + Math.sin(elapsed * 0.5) * 50;
+  const _sz = playerPos.z + Math.cos(elapsed * 0.3) * 50;
+  for (let i = 0, len = snowParticles.length; i < len; i++) {
+    const snow = snowParticles[i];
+    snow.position.x = _sx;
+    snow.position.z = _sz;
     snow.position.y -= 60 * delta;
     if (snow.position.y < -150) snow.position.y = 200;
-  });
+  }
 
   // Lightning during storm and blizzard
   if ((currentWeather === WEATHER.STORM || currentWeather === WEATHER.BLIZZARD)) {

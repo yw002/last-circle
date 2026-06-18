@@ -87,15 +87,15 @@ function createGiantGeometries() {
 
   // === BASE GEOMETRIES ===
   _giantGeos.torso = new THREE.CylinderGeometry(8 * u, 10 * u, 12 * S * 0.15, 28);
-  _giantGeos.belly = new THREE.SphereGeometry(10 * u, 28, 20);
-  _giantGeos.head = new THREE.SphereGeometry(5.5 * u, 32, 24);
-  _giantGeos.jaw = new THREE.SphereGeometry(3.8 * u, 24, 16);
-  _giantGeos.eyeMain = new THREE.SphereGeometry(1.4 * u, 24, 18);
+  _giantGeos.belly = new THREE.SphereGeometry(10 * u, 16, 12);
+  _giantGeos.head = new THREE.SphereGeometry(5.5 * u, 16, 12);
+  _giantGeos.jaw = new THREE.SphereGeometry(3.8 * u, 12, 10);
+  _giantGeos.eyeMain = new THREE.SphereGeometry(1.4 * u, 10, 8);
   _giantGeos.eyeSmall = new THREE.SphereGeometry(0.7 * u, 10, 10);
   _giantGeos.eyeGlow = new THREE.SphereGeometry(2.2 * u, 10, 10);
   _giantGeos.pupil = new THREE.SphereGeometry(0.5 * u, 8, 8);
   _giantGeos.nose = new THREE.ConeGeometry(1.5 * u, 3.5 * u, 14);
-  _giantGeos.mouth = new THREE.SphereGeometry(2.8 * u, 24, 16);
+  _giantGeos.mouth = new THREE.SphereGeometry(2.8 * u, 12, 10);
   _giantGeos.tooth = new THREE.ConeGeometry(0.5 * u, 2 * u, 12);
   _giantGeos.toothBig = new THREE.ConeGeometry(0.7 * u, 3 * u, 12);
   _giantGeos.ear = new THREE.SphereGeometry(2 * u, 18, 14);
@@ -106,20 +106,20 @@ function createGiantGeometries() {
   // Arms & Legs
   _giantGeos.armUpper = new THREE.CylinderGeometry(3.2 * u, 2.8 * u, 10 * S * 0.15, 22);
   _giantGeos.armLower = new THREE.CylinderGeometry(2.8 * u, 2.2 * u, 9 * S * 0.15, 22);
-  _giantGeos.fist = new THREE.SphereGeometry(2.8 * u, 22, 16);
+  _giantGeos.fist = new THREE.SphereGeometry(2.8 * u, 12, 10);
   _giantGeos.legUpper = new THREE.CylinderGeometry(4.2 * u, 3.2 * u, 12 * S * 0.15, 22);
   _giantGeos.legLower = new THREE.CylinderGeometry(3.2 * u, 2.6 * u, 10 * S * 0.15, 22);
   _giantGeos.foot = new THREE.CylinderGeometry(3.5 * u, 4 * u, 2.5 * u, 20);
 
   // Joint/connector geometries (seamless transitions)
   _giantGeos.neck = new THREE.CylinderGeometry(5.5 * u, 8 * u, 10 * u, 24);
-  _giantGeos.shoulderL = new THREE.SphereGeometry(4 * u, 22, 16);
-  _giantGeos.shoulderR = new THREE.SphereGeometry(4 * u, 22, 16);
-  _giantGeos.elbow = new THREE.SphereGeometry(3 * u, 20, 14);
+  _giantGeos.shoulderL = new THREE.SphereGeometry(4 * u, 12, 10);
+  _giantGeos.shoulderR = new THREE.SphereGeometry(4 * u, 12, 10);
+  _giantGeos.elbow = new THREE.SphereGeometry(3 * u, 10, 8);
   _giantGeos.wrist = new THREE.SphereGeometry(2.5 * u, 18, 12);
-  _giantGeos.knee = new THREE.SphereGeometry(3.5 * u, 20, 14);
+  _giantGeos.knee = new THREE.SphereGeometry(3.5 * u, 10, 8);
   _giantGeos.ankle = new THREE.SphereGeometry(2.8 * u, 18, 12);
-  _giantGeos.hipJoint = new THREE.SphereGeometry(4.5 * u, 22, 16);
+  _giantGeos.hipJoint = new THREE.SphereGeometry(4.5 * u, 12, 10);
 
   // Horror details
   _giantGeos.rib = new THREE.CylinderGeometry(0.3 * u, 0.3 * u, 6 * u, 12);

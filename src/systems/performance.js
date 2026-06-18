@@ -87,18 +87,16 @@ class ThrottledUpdater {
 }
 
 // Frustum culling helper
+const _cachedFrustum = new THREE.Frustum();
+const _cachedMatrix = new THREE.Matrix4();
+const _cachedSphere = new THREE.Sphere();
+
 export function isInView(object, camera, margin = 50) {
   if (!object.position) return true;
-
-  const frustum = new THREE.Frustum();
-  const projScreenMatrix = new THREE.Matrix4();
-
-  projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
-  frustum.setFromProjectionMatrix(projScreenMatrix);
-
-  // Expand frustum by margin
-  const sphere = new THREE.Sphere(object.position, margin);
-  return frustum.intersectsSphere(sphere);
+  _cachedMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+  _cachedFrustum.setFromProjectionMatrix(_cachedMatrix);
+  _cachedSphere.set(object.position, margin);
+  return _cachedFrustum.intersectsSphere(_cachedSphere);
 }
 
 // Efficient distance check using squared distance
@@ -195,7 +193,7 @@ let fpsAverage = 0;
 const recentFpsSamples = [];
 const profileStats = new Map();
 let profileLastLog = 0;
-let profileEnabled = true;
+let profileEnabled = false;
 
 export function profileStep(label, fn) {
   if (!profileEnabled) return fn();

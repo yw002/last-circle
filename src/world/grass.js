@@ -9,7 +9,7 @@ const GRASS_COUNT = 50000;
 const FLOWER_COUNT = 2000;
 const BUSH_COUNT = 500;
 const CHUNK_SIZE = 350;
-const GRASS_VISIBLE_RADIUS = 650;
+const GRASS_VISIBLE_RADIUS = 450;
 const DECOR_VISIBLE_RADIUS = 800;
 const GRASS_VISIBLE_RADIUS_SQ = GRASS_VISIBLE_RADIUS * GRASS_VISIBLE_RADIUS;
 const DECOR_VISIBLE_RADIUS_SQ = DECOR_VISIBLE_RADIUS * DECOR_VISIBLE_RADIUS;
@@ -296,13 +296,16 @@ export function updateGrass(delta) {
   grassTime += delta;
   const p = state.controls ? state.controls.getObject().position : null;
 
+  // Only update uniforms on visible chunks (major perf win)
   for (let i = 0; i < grassChunks.length; i++) {
-    const material = grassChunks[i].mesh.material;
+    const chunk = grassChunks[i];
+    if (!chunk.mesh.visible) continue;
+    const material = chunk.mesh.material;
     material.uniforms.time.value = grassTime;
     if (p) material.uniforms.playerPos.value.set(p.x, p.y, p.z);
   }
 
-  if (p && performance.now() - lastVisibilityUpdate > 150) {
+  if (p && performance.now() - lastVisibilityUpdate > 200) {
     updateChunkVisibility(p.x, p.z);
     lastVisibilityUpdate = performance.now();
   }

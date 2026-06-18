@@ -126,7 +126,7 @@ const ANIMAL_TYPES = {
 };
 
 // ========== ORGANIC PROFILES (LatheGeometry) ==========
-const SEG_A = 24; // Animal segment count
+const SEG_A = 12; // Optimized segment count
 
 // Quadruped body profile - barrel shape with chest and haunches
 const quadBodyProfile = [];

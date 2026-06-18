@@ -30,7 +30,7 @@ function createUFOMesh() {
   const group = new THREE.Group();
 
   // Main saucer body
-  const saucerGeo = new THREE.SphereGeometry(15, 32, 16, 0, Math.PI * 2, 0, Math.PI / 3);
+  const saucerGeo = new THREE.SphereGeometry(15, 16, 10, 0, Math.PI * 2, 0, Math.PI / 3);
   const saucerMat = new THREE.MeshLambertMaterial({
     color: 0x888888,
     emissive: 0x222222,
@@ -103,7 +103,7 @@ function createAlienMesh() {
     else r = 0.75 - (t - 0.7) * 2.0;
     alienBodyProfile.push(new THREE.Vector2(Math.max(0.3, r), t * 4 - 2));
   }
-  const bodyGeo = new THREE.LatheGeometry(alienBodyProfile, 20);
+  const bodyGeo = new THREE.LatheGeometry(alienBodyProfile, 10);
   const bodyMat = new THREE.MeshLambertMaterial({
     color: 0x44cc44,
     emissive: 0x226622,
@@ -120,7 +120,7 @@ function createAlienMesh() {
   group.add(neck);
 
   // Head (large, elongated)
-  const headGeo = new THREE.SphereGeometry(1.5, 24, 16);
+  const headGeo = new THREE.SphereGeometry(1.5, 12, 10);
   const headMat = new THREE.MeshLambertMaterial({
     color: 0x55dd55,
     emissive: 0x338833,
