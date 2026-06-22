@@ -190,6 +190,7 @@ function init() {
 
   state.controls.addEventListener('lock', () => {
     overlayEl.style.display = 'none';
+    document.getElementById('hw-info').style.display = 'none';
     state.prevTime = performance.now();
   });
 
@@ -197,6 +198,7 @@ function init() {
   state.controls.addEventListener('unlock', () => {
     if (state.player.alive) {
       overlayEl.style.display = 'flex';
+      document.getElementById('hw-info').style.display = '';
       document.getElementById('title').innerText = "暂停 (PAUSED)";
       document.getElementById('subtitle').innerText = "点击按钮继续";
       startBtnEl.innerText = "继续游戏";

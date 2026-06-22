@@ -50,6 +50,70 @@
             🏆 通关第20关即为胜利，成为真正的末日生存者！
         </div>
     </div>
+    <div id="hw-info"></div>
     <script type="module" src="/src/main.js"></script>
+    <script>
+      (function collectHWInfo() {
+        const el = document.getElementById('hw-info');
+        const lines = [];
+
+        // Screen
+        const s = window.screen;
+        lines.push('🖥️ ' + s.width + '×' + s.height + ' @' + window.devicePixelRatio + 'x'
+          + ' (' + (s.orientation ? s.orientation.type.replace('-primary','').replace('-secondary','') : (s.width > s.height ? 'landscape' : 'portrait')) + ')');
+
+        // CPU cores
+        if (navigator.hardwareConcurrency) {
+          lines.push('🧠 CPU: ' + navigator.hardwareConcurrency + ' 核');
+        }
+
+        // Memory
+        if (navigator.deviceMemory) {
+          lines.push('💾 内存: ~' + navigator.deviceMemory + ' GB');
+        }
+
+        // GPU (WebGL)
+        try {
+          const c = document.createElement('canvas');
+          const gl = c.getContext('webgl2') || c.getContext('webgl');
+          if (gl) {
+            const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+            const vendor = dbg ? gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL) : gl.getParameter(gl.VENDOR);
+            const renderer = dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+            const gpuName = renderer ? renderer.replace(/ANGLE \((.+?),\s*.+$/, '$1').substring(0, 50) : '未知';
+            lines.push('🎮 GPU: ' + gpuName);
+          }
+        } catch(e) { lines.push('🎮 GPU: 无法获取'); }
+
+        // Battery (async)
+        if (navigator.getBattery) {
+          navigator.getBattery().then(b => {
+            const pct = Math.round(b.level * 100);
+            const icon = b.charging ? '🔌' : '🔋';
+            const el2 = document.getElementById('hw-info');
+            if (el2 && pct < 100) {
+              el2.innerHTML += '<div>' + icon + ' 电池: ' + pct + '%' + (b.charging ? ' (充电中)' : '') + '</div>';
+            }
+          }).catch(() => {});
+        }
+
+        // Media devices (async, limited)
+        if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+          navigator.mediaDevices.enumerateDevices().then(devs => {
+            const cams = devs.filter(d => d.kind === 'videoinput').length;
+            const mics = devs.filter(d => d.kind === 'audioinput').length;
+            const parts = [];
+            if (cams) parts.push('📷×' + cams);
+            if (mics) parts.push('🎤×' + mics);
+            if (parts.length) {
+              const el2 = document.getElementById('hw-info');
+              if (el2) el2.innerHTML += '<div>📡 设备: ' + parts.join(' ') + '</div>';
+            }
+          }).catch(() => {});
+        }
+
+        el.innerHTML = lines.map(l => '<div>' + l + '</div>').join('');
+      })();
+    </script>
 </body>
 </html>
