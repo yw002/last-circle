@@ -1,12 +1,10 @@
 // Wave Manager — 20-wave survival mode core scheduler
 
-import * as THREE from 'three';
 import { state } from '../state.js';
 import { WAVE_CONFIG } from '../config.js';
 import { getTerrainHeight } from '../world/terrain.js';
 import { spawnSingleBot } from '../entities/bots.js';
 import { spawnSingleZombie } from '../entities/zombies.js';
-import { spawnSingleGhost } from '../entities/ghosts.js';
 import { spawnSingleAlien } from '../entities/aliens.js';
 import { spawnWaveGiant } from '../entities/giant.js';
 import { triggerVictoryChicken } from './victory.js';
@@ -30,18 +28,16 @@ function getWaveComposition(waveNum) {
     return [{ type: 'zombie', ratio: 0.6 }, { type: 'bot', ratio: 0.4 }];
   } else if (waveNum <= 14) {
     return [
-      { type: 'zombie', ratio: 0.3 },
-      { type: 'bot', ratio: 0.35 },
-      { type: 'ghost', ratio: 0.15 },
-      { type: 'alien', ratio: 0.2 }
+      { type: 'zombie', ratio: 0.35 },
+      { type: 'bot', ratio: 0.4 },
+      { type: 'alien', ratio: 0.25 }
     ];
   } else {
     // Waves 15-19: heavy mix
     return [
-      { type: 'zombie', ratio: 0.25 },
-      { type: 'bot', ratio: 0.35 },
-      { type: 'ghost', ratio: 0.2 },
-      { type: 'alien', ratio: 0.2 }
+      { type: 'zombie', ratio: 0.3 },
+      { type: 'bot', ratio: 0.4 },
+      { type: 'alien', ratio: 0.3 }
     ];
   }
 }
@@ -83,9 +79,6 @@ function spawnEnemy(type, scaling) {
       break;
     case 'bot':
       spawnSingleBot(pos.x, pos.z, scaling);
-      break;
-    case 'ghost':
-      spawnSingleGhost(pos.x, pos.z, scaling);
       break;
     case 'alien':
       spawnSingleAlien(pos.x, pos.z, scaling);
@@ -143,10 +136,11 @@ function startNextWave() {
 }
 
 function cleanupDeadEntities() {
-  // Remove dead bots from array to prevent memory growth
+  // Remove dead entities from arrays to prevent memory growth
   state.bots = state.bots.filter(b => b.alive);
   state.zombies = state.zombies.filter(z => z.alive);
   state.ghosts = state.ghosts.filter(g => g.state !== 'dead');
+  state.aliens = state.aliens.filter(a => a.alive);
 }
 
 export function initWaveManager() {
@@ -231,7 +225,12 @@ export function updateWaveManager(delta) {
     // Check if kill threshold reached
     const killsNeeded = wave.enemiesTotal - wave.killThreshold;
     const killsSoFar = wave.enemiesTotal - wave.enemiesRemaining;
-    if (killsSoFar >= killsNeeded || wave.enemiesRemaining <= 0) {
+    const thresholdMet = killsSoFar >= killsNeeded || wave.enemiesRemaining <= 0;
+
+    // Boss wave: giant must also be dead
+    const bossCleared = wave.phase !== 'boss' || !state.giantAlive;
+
+    if (thresholdMet && bossCleared) {
       // Wave complete
       wave.score = wave.number;
       showNotice(`✅ 第${wave.number}关完成！`, "#2ecc71");

@@ -2,10 +2,8 @@
 
 import * as THREE from 'three';
 import { state } from '../state.js';
-import { MAP_SIZE } from '../config.js';
 import { getTerrainHeight } from '../world/terrain.js';
 import { playGhostWhisper } from '../systems/audio.js';
-import { onWaveEnemyKilled } from '../systems/waveManager.js';
 
 // Shared geometries (created once at module load)
 const ghostMat = new THREE.MeshBasicMaterial({
