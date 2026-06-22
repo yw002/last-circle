@@ -136,7 +136,7 @@ export function optimizeRenderer(renderer) {
   // Keep the renderer from undoing scene-level pixel ratio caps on high-DPI screens.
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   const currentRatio = renderer.getPixelRatio ? renderer.getPixelRatio() : 1;
-  const targetRatio = isMobile ? 1 : Math.min(currentRatio || 1, window.devicePixelRatio, 1.0);
+  const targetRatio = isMobile ? 1 : Math.min(currentRatio || 1, window.devicePixelRatio, 1.5);
   renderer.setPixelRatio(targetRatio);
 
   return renderer;

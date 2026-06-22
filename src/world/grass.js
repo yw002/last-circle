@@ -6,12 +6,12 @@ import { MAP_SIZE } from '../config.js';
 import { getTerrainHeight } from './terrain.js';
 import { getBiomeAt, BIOME } from './biomes.js';
 
-const GRASS_COUNT = 50000;
-const FLOWER_COUNT = 2000;
-const BUSH_COUNT = 500;
+const GRASS_COUNT = 35000;
+const FLOWER_COUNT = 1500;
+const BUSH_COUNT = 400;
 const CHUNK_SIZE = 350;
-const GRASS_VISIBLE_RADIUS = 450;
-const DECOR_VISIBLE_RADIUS = 800;
+const GRASS_VISIBLE_RADIUS = 350;
+const DECOR_VISIBLE_RADIUS = 600;
 const GRASS_VISIBLE_RADIUS_SQ = GRASS_VISIBLE_RADIUS * GRASS_VISIBLE_RADIUS;
 const DECOR_VISIBLE_RADIUS_SQ = DECOR_VISIBLE_RADIUS * DECOR_VISIBLE_RADIUS;
 

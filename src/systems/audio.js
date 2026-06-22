@@ -12,12 +12,10 @@ let reverbNode = null;
 let reverbGain = null;
 let dryGain = null;
 let masterGainNode = null;
-let saturationNode = null;
-let subBassGain = null;
 
 // ========== DISTORTION CURVE (soft clipping saturation) ==========
 function makeDistortionCurve(amount) {
-  const samples = 44100;
+  const samples = 8192;
   const curve = new Float32Array(samples);
   const deg = Math.PI / 180;
   for (let i = 0; i < samples; i++) {
@@ -46,49 +44,34 @@ export function initAudio() {
   try {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     noiseBuffer = createNoiseBuffer(1);
-    longNoiseBuffer = createNoiseBuffer(3);
+    longNoiseBuffer = createNoiseBuffer(1.5);
 
-    // Master chain: compressor → [dry + reverb] → master gain → destination
+    // Master chain: compressor → [dry + light reverb] → masterGain → destination
     masterCompressor = audioCtx.createDynamicsCompressor();
-    masterCompressor.threshold.setValueAtTime(-24, audioCtx.currentTime);
-    masterCompressor.knee.setValueAtTime(18, audioCtx.currentTime);
+    masterCompressor.threshold.setValueAtTime(-18, audioCtx.currentTime);
+    masterCompressor.knee.setValueAtTime(12, audioCtx.currentTime);
     masterCompressor.ratio.setValueAtTime(4, audioCtx.currentTime);
-    masterCompressor.attack.setValueAtTime(0.005, audioCtx.currentTime);
-    masterCompressor.release.setValueAtTime(0.25, audioCtx.currentTime);
+    masterCompressor.attack.setValueAtTime(0.003, audioCtx.currentTime);
+    masterCompressor.release.setValueAtTime(0.15, audioCtx.currentTime);
 
-    // Convolution reverb
+    // Lightweight reverb (short decay, no convolution overhead)
     reverbNode = audioCtx.createConvolver();
-    reverbNode.buffer = createReverbIR(audioCtx, 1.8, 2.5);
+    reverbNode.buffer = createReverbIR(audioCtx, 0.8, 3.5);
     reverbGain = audioCtx.createGain();
-    reverbGain.gain.setValueAtTime(0.18, audioCtx.currentTime);
+    reverbGain.gain.setValueAtTime(0.1, audioCtx.currentTime);
     dryGain = audioCtx.createGain();
     dryGain.gain.setValueAtTime(1.0, audioCtx.currentTime);
 
-    // Soft saturation on master bus (analog warmth)
-    saturationNode = audioCtx.createWaveShaper();
-    saturationNode.curve = makeDistortionCurve(12);
-    saturationNode.oversample = '4x';
-
     masterGainNode = audioCtx.createGain();
-    masterGainNode.gain.setValueAtTime(1.4, audioCtx.currentTime);
+    masterGainNode.gain.setValueAtTime(1.2, audioCtx.currentTime);
 
-    // Sub-bass enhancer (boosts 20-80Hz)
-    subBassGain = audioCtx.createGain();
-    subBassGain.gain.setValueAtTime(1.6, audioCtx.currentTime);
-    const subFilter = audioCtx.createBiquadFilter();
-    subFilter.type = 'lowshelf';
-    subFilter.frequency.value = 80;
-    subFilter.gain.value = 4;
-
-    // Routing: compressor → saturation → [dry + reverb] → masterGain → subFilter → destination
-    masterCompressor.connect(saturationNode);
-    saturationNode.connect(dryGain);
-    saturationNode.connect(reverbNode);
+    // Routing: compressor → [dry + reverb] → masterGain → destination
+    masterCompressor.connect(dryGain);
+    masterCompressor.connect(reverbNode);
     reverbNode.connect(reverbGain);
     dryGain.connect(masterGainNode);
     reverbGain.connect(masterGainNode);
-    masterGainNode.connect(subFilter);
-    subFilter.connect(audioCtx.destination);
+    masterGainNode.connect(audioCtx.destination);
 
     initialized = true;
     setInterval(() => {
@@ -1236,11 +1219,18 @@ export function playGhostWhisper(pos) {
   } catch (e) {}
 }
 
+let thunderActive = false;
+
 // ========== THUNDER - dramatic storm with electric crack ==========
 export function playThunderSound() {
   if (!audioCtx || audioCtx.state === 'suspended') return;
+  if (thunderActive) return; // Prevent overlapping thunder
+  thunderActive = true;
+  setTimeout(() => { thunderActive = false; }, 4000);
+
   try {
     const now = audioCtx.currentTime;
+    const echoTime = now + 1.2; // Echo scheduled 1.2s later
 
     // Layer 1: Sharp initial crack (electric snap)
     const crack = audioCtx.createOscillator();
@@ -1285,7 +1275,7 @@ export function playThunderSound() {
     body.start(now + 0.03);
     body.stop(now + 2.0);
 
-    // Layer 4: Noise crackle (electrical discharge - louder)
+    // Layer 4: Noise crackle (electrical discharge)
     if (noiseBuffer) {
       const noise = audioCtx.createBufferSource();
       noise.buffer = noiseBuffer;
@@ -1325,10 +1315,9 @@ export function playThunderSound() {
       const zg = audioCtx.createGain();
       const zf = audioCtx.createBiquadFilter();
       zf.type = 'highpass'; zf.frequency.value = 4000; zf.Q.value = 2;
-      const ws = audioCtx.createWaveShaper(); ws.curve = makeDistortionCurve(100);
       zg.gain.setValueAtTime(0.4, now);
       zg.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
-      zap.connect(zf); zf.connect(ws); ws.connect(zg);
+      zap.connect(zf); zf.connect(zg);
       connectToOutput(zg, null);
       zap.start(now); zap.stop(now + 0.15);
 
@@ -1346,56 +1335,53 @@ export function playThunderSound() {
       sizzle2.start(now + 0.05); sizzle2.stop(now + 0.4);
     }
 
-    // Layer 7: Long reverb tail (distant rolling echo)
+    // Layer 7: Reverb tail (shorter, no 6s drain)
     if (longNoiseBuffer) {
       const tail = audioCtx.createBufferSource();
       tail.buffer = longNoiseBuffer;
       const tg = audioCtx.createGain();
       const tf = audioCtx.createBiquadFilter();
-      tf.type = 'lowpass'; tf.frequency.setValueAtTime(900, now + 0.5);
-      tf.frequency.exponentialRampToValueAtTime(80, now + 5);
+      tf.type = 'lowpass'; tf.frequency.setValueAtTime(800, now + 0.3);
+      tf.frequency.exponentialRampToValueAtTime(100, now + 2.5);
       tg.gain.setValueAtTime(0, now);
-      tg.gain.linearRampToValueAtTime(0.15, now + 0.5);
-      tg.gain.exponentialRampToValueAtTime(0.001, now + 5.5);
+      tg.gain.linearRampToValueAtTime(0.12, now + 0.4);
+      tg.gain.exponentialRampToValueAtTime(0.001, now + 3.0);
       tail.connect(tf); tf.connect(tg);
       connectToOutput(tg, null);
-      tail.start(now + 0.25); tail.stop(now + 6);
+      tail.start(now + 0.2); tail.stop(now + 3.2);
     }
 
-    // Layer 8: Echo/reflection (delayed boom echo)
-    setTimeout(() => {
-      if (!audioCtx || audioCtx.state === 'suspended') return;
-      try {
-        const echoNow = audioCtx.currentTime;
-        const echo = audioCtx.createOscillator();
-        const echoGain = audioCtx.createGain();
-        echo.type = 'triangle';
-        echo.frequency.setValueAtTime(45, echoNow);
-        echo.frequency.exponentialRampToValueAtTime(15, echoNow + 1.2);
-        echoGain.gain.setValueAtTime(0, echoNow);
-        echoGain.gain.linearRampToValueAtTime(0.18, echoNow + 0.2);
-        echoGain.gain.exponentialRampToValueAtTime(0.001, echoNow + 2.5);
-        echo.connect(echoGain);
-        connectToOutput(echoGain, null);
-        echo.start(echoNow);
-        echo.stop(echoNow + 3.0);
+    // Layer 8: Echo (scheduled via AudioContext, no setTimeout)
+    const echo = audioCtx.createOscillator();
+    const echoGain = audioCtx.createGain();
+    echo.type = 'triangle';
+    echo.frequency.setValueAtTime(45, echoTime);
+    echo.frequency.exponentialRampToValueAtTime(15, echoTime + 1.2);
+    echoGain.gain.setValueAtTime(0, echoTime);
+    echoGain.gain.linearRampToValueAtTime(0.18, echoTime + 0.2);
+    echoGain.gain.exponentialRampToValueAtTime(0.001, echoTime + 2.0);
+    echo.connect(echoGain);
+    connectToOutput(echoGain, null);
+    echo.start(echoTime);
+    echo.stop(echoTime + 2.5);
 
-        // Echo noise tail
-        if (longNoiseBuffer) {
-          const echoNoise = audioCtx.createBufferSource();
-          echoNoise.buffer = longNoiseBuffer;
-          const eng = audioCtx.createGain();
-          const enf = audioCtx.createBiquadFilter();
-          enf.type = 'lowpass'; enf.frequency.value = 400;
-          eng.gain.setValueAtTime(0.08, echoNow);
-          eng.gain.exponentialRampToValueAtTime(0.001, echoNow + 1.5);
-          echoNoise.connect(enf); enf.connect(eng);
-          connectToOutput(eng, null);
-          echoNoise.start(echoNow); echoNoise.stop(echoNow + 1.8);
-        }
-      } catch (e) {}
-    }, 1200); // Echo arrives 1.2 seconds later
-  } catch (e) {}
+    // Echo noise tail (also scheduled)
+    if (longNoiseBuffer) {
+      const echoNoise = audioCtx.createBufferSource();
+      echoNoise.buffer = longNoiseBuffer;
+      const eng = audioCtx.createGain();
+      const enf = audioCtx.createBiquadFilter();
+      enf.type = 'lowpass'; enf.frequency.value = 400;
+      eng.gain.setValueAtTime(0, echoTime);
+      eng.gain.linearRampToValueAtTime(0.08, echoTime + 0.1);
+      eng.gain.exponentialRampToValueAtTime(0.001, echoTime + 1.2);
+      echoNoise.connect(enf); enf.connect(eng);
+      connectToOutput(eng, null);
+      echoNoise.start(echoTime); echoNoise.stop(echoTime + 1.5);
+    }
+  } catch (e) {
+    thunderActive = false;
+  }
 }
 
 // ========== RELOAD SOUND (5 layers) ==========
