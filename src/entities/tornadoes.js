@@ -129,9 +129,10 @@ export function updateTornadoes(delta) {
 
     tornado.age += delta;
 
-    // Move toward zone center
-    let dx = state.zone.x - tornado.x;
-    let dz = state.zone.z - tornado.z;
+    // Move toward player
+    const playerPos = state.controls.getObject().position;
+    let dx = playerPos.x - tornado.x;
+    let dz = playerPos.z - tornado.z;
     let dist = Math.sqrt(dx * dx + dz * dz);
     if (dist > 50) {
       tornado.vx = (dx / dist) * 15;

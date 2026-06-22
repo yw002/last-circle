@@ -53,23 +53,8 @@ export const state = {
     cameraRecoil: 0
   },
 
-  // Alive count (player + bots)
-  aliveCount: 0,
-
   // Giant boss
   giantAlive: false,
-
-  // Blue zone
-  zone: {
-    x: 0, z: 0,
-    radius: 2500,
-    targetX: 0, targetZ: 0,
-    targetRadius: 2500,
-    phase: 0,
-    nextShrinkTime: 60,
-    lastTick: 0
-  },
-  zoneMesh: null,
 
   // Player visuals
   parachuteGroup: null,

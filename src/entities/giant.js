@@ -31,11 +31,11 @@ const SPIT_INSULTS = [
 const GIANT_SPAWN_MESSAGES = [
   "⚠️ 大地震颤…远古恶魔巨人从地狱深渊爬出！",
   "🏔️ 地平线上升起了一座\"山\"…不，那是远古恶魔！",
-  "💀 全图可见的恶魔巨人苏醒了！击杀它是吃鸡的条件之一！"
+  "💀 全图可见的恶魔巨人苏醒了！击败它是通关的关键！"
 ];
 
 const GIANT_DEATH_MESSAGES = [
-  "🏆 你击杀了远古恶魔巨人！吃鸡之路已无阻碍！",
+  "🏆 你击杀了远古恶魔巨人！闯关之路已无阻碍！",
   "💀 巨人轰然倒地！大地震颤！全场震惊！",
   "⚡ 远古恶魔终于倒下了！你证明了自己是最强者！"
 ];
@@ -846,22 +846,19 @@ export function updateGiant(delta) {
   giantSwayPhase += delta * 0.8;
   giantGroup.rotation.z = Math.sin(giantSwayPhase) * 0.01;
 
-  // Walk toward safe zone
-  const zoneX = state.zone.x || 0;
-  const zoneZ = state.zone.z || 0;
-  const toZone = new THREE.Vector3(zoneX - giantPos.x, 0, zoneZ - giantPos.z);
-  const distToZone = toZone.length();
+  // Walk toward player
+  const toPlayer = new THREE.Vector3(playerPos.x - giantPos.x, 0, playerPos.z - giantPos.z);
+  const distToPlayer2 = toPlayer.length();
 
-  if (distToZone > 20) {
-    toZone.normalize();
-    const walkSpeed = 20 + Math.max(0, 15 - state.zone.radius / 200);
-    giantPos.x += toZone.x * walkSpeed * delta;
-    giantPos.z += toZone.z * walkSpeed * delta;
+  if (distToPlayer2 > 20) {
+    toPlayer.normalize();
+    const walkSpeed = 25;
+    giantPos.x += toPlayer.x * walkSpeed * delta;
+    giantPos.z += toPlayer.z * walkSpeed * delta;
     giantPos.y = getTerrainHeight(giantPos.x, giantPos.z);
     giantGroup.position.copy(giantPos);
 
-    const distToPlayer = Math.sqrt(dxP * dxP + dzP * dzP);
-    if (distToPlayer < 1000 && Math.sin(now * 0.004) > 0.9) {
+    if (distToPlayer2 < 1000 && Math.sin(now * 0.004) > 0.9) {
       state.camera.rotation.z += (Math.random() - 0.5) * 0.008;
     }
   }

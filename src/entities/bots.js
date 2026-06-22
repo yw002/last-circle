@@ -19,7 +19,7 @@ import { registerKill } from '../systems/killstreak.js';
 import { onWaveEnemyKilled } from '../systems/waveManager.js';
 
 // ========== SHARED RESOURCES (created once) ==========
-const BOT_NAMES = ['铁头娃','菜鸡','送快递的','伏地魔','描边大师','落地成盒','舔包怪','快递员','人头狗','苟王','钢枪王','草丛伦','空投猎手','毒圈跑者','伏地魔王','吃鸡达人','神仙哥','挂壁','六神装','一拳超人'];
+const BOT_NAMES = ['铁头娃','菜鸡','送快递的','伏地魔','描边大师','落地成盒','舔包怪','快递员','人头狗','苟王','钢枪王','草丛伦','空投猎手','波次狂人','伏地魔王','闯关达人','神仙哥','挂壁','六神装','一拳超人'];
 
 const PLAYER_KILL_MESSAGES = [
   (n) => `${n}已阵亡，快递请签收`,
@@ -614,15 +614,18 @@ export function updateBots(delta) {
 
       if (!bot.target) {
         bot.state = 'wander';
-        // Zone-aware wandering
-        const dx = bPos.x - state.zone.x;
-        const dz = bPos.z - state.zone.z;
-        const distToZoneCenterSq = dx * dx + dz * dz;
-        if (distToZoneCenterSq > state.zone.radius * state.zone.radius * 0.81) {
-          let angle = Math.atan2(state.zone.z - bPos.z, state.zone.x - bPos.x);
+        // Wave mode: wander toward player's general area
+        const playerPos = state.controls.getObject().position;
+        const dx = playerPos.x - bPos.x;
+        const dz = playerPos.z - bPos.z;
+        const distToPlayerSq = dx * dx + dz * dz;
+        if (distToPlayerSq > 500 * 500) {
+          // Far from player: move generally toward player
+          let angle = Math.atan2(dz, dx) + (Math.random() - 0.5) * 1.0;
           bot.vx = Math.cos(angle) * 20;
           bot.vz = Math.sin(angle) * 20;
         } else {
+          // Near player: random wander
           let angle = Math.random() * Math.PI * 2;
           bot.vx = Math.cos(angle) * 15;
           bot.vz = Math.sin(angle) * 15;
