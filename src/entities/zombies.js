@@ -15,7 +15,7 @@ import { getNearbyBots, getNearbyColliders, getNearbyDoors } from '../systems/sp
 import { spawnSingleLoot } from '../world/loot.js';
 import { addKillFeed } from '../ui/notices.js';
 import { updateUI } from '../ui/hud.js';
-import { showNotice } from '../ui/notices.js';
+import { onWaveEnemyKilled } from '../systems/waveManager.js';
 
 // ========== SHARED RESOURCES (created once) ==========
 const zombieSkinMat = new THREE.MeshLambertMaterial({
@@ -136,39 +136,16 @@ const _zombieBloodPos = new THREE.Vector3();
 const _zombieUp = new THREE.Vector3(0, 1, 0);
 const _zombieBloodOffset = new THREE.Vector3(0, 4, 0);
 
+
 export function initZombies() {
-  // Pick 3-4 specific houses to cluster zombies around (so player can clear them)
-  const clusterHouses = [];
-  if (state.housePositions.length > 0) {
-    const numClusters = Math.min(4, state.housePositions.length);
-    const shuffled = [...state.housePositions].sort(() => Math.random() - 0.5);
-    for (let c = 0; c < numClusters; c++) {
-      clusterHouses.push(shuffled[c]);
-    }
-  }
+  // Wave mode: zombies spawned dynamically by waveManager
+}
 
-  for (let i = 0; i < ZOMBIE_COUNT; i++) {
-    const zombieGroup = new THREE.Group();
+export function spawnSingleZombie(x, z, scaling = null) {
+  let y = getTerrainHeight(x, z);
+  if (y < 2) return null;
 
-    let x, z;
-    if (clusterHouses.length > 0) {
-      // Cluster around specific houses (4-5 per house)
-      let house = clusterHouses[i % clusterHouses.length];
-      let angle = Math.random() * Math.PI * 2;
-      let dist = 12 + Math.random() * 25;
-      x = house.x + Math.cos(angle) * dist;
-      z = house.z + Math.sin(angle) * dist;
-    } else {
-      x = (Math.random() - 0.5) * MAP_SIZE * 0.75;
-      z = (Math.random() - 0.5) * MAP_SIZE * 0.75;
-    }
-
-    let y = getTerrainHeight(x, z);
-    if (y < 2) {
-      i--;
-      continue;
-    }
-
+  const zombieGroup = new THREE.Group();
     // Build zombie using shared geometries
     const torsoLower = new THREE.Mesh(zGeos.torsoLower, zombieClothMat);
     torsoLower.scale.set(1, 0.8, 0.7);
@@ -401,7 +378,15 @@ export function initZombies() {
     bloodWound.userData = { isZombie: true, zombieIndex: state.zombies.length, isHeadshot: true };
     state.objects.push(torsoLower, torsoUpper, head, bloodWound);
 
-    state.zombies.push({
+
+    let health = 110;
+    let speed = 18 + Math.random() * 5;
+    if (scaling) {
+      health *= scaling.healthMul;
+      speed *= scaling.speedMul;
+    }
+
+    const zombie = {
       id: state.zombies.length,
       mesh: zombieGroup,
       modelMesh: zombieModel,
@@ -410,16 +395,17 @@ export function initZombies() {
       bloodWound: bloodWound,
       legL: legLowerL,
       legR: legLowerR,
-      health: 110,
+      health: health,
       alive: true,
-      speed: 18 + Math.random() * 5,
+      speed: speed,
       lastAttack: 0,
       lastThreatGrowl: 0,
       changeDirTime: 0,
       target: null,
       vx: 0, vz: 0
-    });
-  }
+    };
+    state.zombies.push(zombie);
+    return zombie;
 }
 
 export function updateZombies(delta) {
@@ -593,6 +579,7 @@ export function updateZombies(delta) {
   });
 }
 
+
 export function zombieDied(zombie) {
   if (!zombie.alive) return;
   zombie.alive = false;
@@ -606,14 +593,7 @@ export function zombieDied(zombie) {
   if (idx3 > -1) state.objects.splice(idx3, 1);
 
   state.player.kills++;
-
-  // Show remaining zombie count
-  const remaining = state.zombies.filter(z => z.alive).length;
-  if (remaining === 0) {
-    showNotice("🎉 所有丧尸已清除！", "#2ecc71");
-  } else {
-    showNotice(`击杀丧尸！剩余 ${remaining}/${ZOMBIE_COUNT}`, "#e74c3c");
-  }
+  onWaveEnemyKilled();
 
   let r = Math.random();
   if (r < 0.4) {
@@ -622,14 +602,6 @@ export function zombieDied(zombie) {
     spawnSingleLoot(zombie.mesh.position.x, zombie.mesh.position.y, zombie.mesh.position.z, 'ammo');
   }
 
-  addKillFeed(`[You] 击杀了一只 [血腥丧尸] (${remaining} 剩余)`);
+  addKillFeed(`[You] 击杀了一只 [血腥丧尸]`);
   updateUI();
 }
-
-// === Stub exports for orphaned waveManager.js (not yet wired up in main.js) ===
-// These keep the imports in waveManager.js resolvable until the wave mode is implemented.
-export function spawnSingleZombie(x, z, scaling) {
-  // TODO: implement when wave survival mode is wired up.
-  return null;
-}
-

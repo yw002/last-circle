@@ -12,6 +12,7 @@ import { addKillFeed } from '../ui/notices.js';
 import { updateUI } from '../ui/hud.js';
 import { showNotice } from '../ui/notices.js';
 import { playSound } from '../systems/audio.js';
+import { onWaveEnemyKilled } from '../systems/waveManager.js';
 import { spawnBlood, spawnWorldMuzzleFlash } from '../systems/particles.js';
 import { checkEntityCollision, resolveEntityCollisions } from '../systems/collision.js';
 import { getNearbyBots, getNearbyColliders, getNearbyDoors } from '../systems/spatial.js';
@@ -225,11 +226,19 @@ function createAlienMesh() {
 }
 
 export function initAliens() {
-  // Spawn initial UFOs
-  for (let i = 0; i < 3; i++) {
-    spawnUFO();
-  }
+  // Wave mode: aliens spawned dynamically by waveManager
   state.aliens = aliens;
+}
+
+export function spawnSingleAlien(x, z, scaling = null) {
+  const y = getTerrainHeight(x, z) + 3;
+  const alien = spawnAlien(x, y, z);
+  if (scaling) {
+    alien.health *= scaling.healthMul;
+    alien.weaponDamage *= scaling.damageMul;
+    alien.speed *= scaling.speedMul;
+  }
+  return alien;
 }
 
 function spawnUFO() {
@@ -662,7 +671,8 @@ export function alienDied(alien) {
   if (idx2 > -1) state.objects.splice(idx2, 1);
 
   state.player.kills++;
-  showNotice("👽 击杀外星人！(+1 击杀)", "#00ff88");
+  onWaveEnemyKilled();
+  showNotice("👽 击杀外星人！", "#00ff88");
 
   // Drop alien technology
   let r = Math.random();
@@ -685,10 +695,5 @@ export function getAllAliens() {
 
 export function getAllUFOs() {
   return ufos;
-}
-
-// === Stub exports for orphaned waveManager.js (not yet wired up in main.js) ===
-export function spawnSingleAlien(x, z, scaling) {
-  return null;
 }
 

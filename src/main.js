@@ -51,6 +51,8 @@ import { initDayNight, updateDayNight } from './systems/dayNight.js';
 import { initSkyEffects, updateSkyEffects } from './systems/skyEffects.js';
 import { initAirdrop, updateAirdrop } from './systems/airdrop.js';
 import { initDestructibles, updateDestructibles } from './systems/destructibles.js';
+import { initWaveManager, updateWaveManager } from './systems/waveManager.js';
+import { initAirdropIndicator, updateAirdropIndicator } from './systems/airdropIndicator.js';
 
 // Disable right-click menu
 document.addEventListener('contextmenu', e => e.preventDefault());
@@ -113,7 +115,7 @@ function init() {
   defaultWeapon.ammo = defaultWeapon.maxAmmo; // Full magazine
   state.player.weapon = defaultWeapon;
   state.player.inventory = [defaultWeapon, null];
-  state.player.sharedAmmo = 300; // Start with 300 reserve ammo
+  state.player.sharedAmmo = 150; // Start with 150 reserve ammo (scarce, rely on airdrops)
 
   // Create first-person weapon model - pushed forward to prevent back-clipping
   state.viewWeaponMesh = new THREE.Group();
@@ -164,8 +166,8 @@ function init() {
   initAnimals();
   initVolcano(); // Create massive volcano
 
-  // Initialize zone
-  initZone();
+  // Initialize wave manager (replaces zone system)
+  initWaveManager();
 
   const overlayEl = document.getElementById('overlay');
   const startBtnEl = document.getElementById('start-btn');
@@ -193,7 +195,7 @@ function init() {
 
   // Pause handler
   state.controls.addEventListener('unlock', () => {
-    if (state.player.alive && state.aliveCount > 1) {
+    if (state.player.alive) {
       overlayEl.style.display = 'flex';
       document.getElementById('title').innerText = "暂停 (PAUSED)";
       document.getElementById('subtitle').innerText = "点击按钮继续";
@@ -205,6 +207,7 @@ function init() {
   updateUI();
   initMinimap();
   initHitIndicator();
+  initAirdropIndicator();
 
   // Start game loop
   state.prevTime = performance.now();
@@ -302,6 +305,7 @@ function animate() {
       runFrameStep('volcano update', () => updateVolcano(delta));
       runFrameStep('giant update', () => updateGiant(delta));
       runFrameStep('zone update', () => updateZone(delta));
+      runFrameStep('wave manager update', () => updateWaveManager(delta));
       // dayNight must run before weather so weather can layer its tint on top.
       runFrameStep('day-night update', () => updateDayNight(delta));
       runFrameStep('weather update', () => updateWeather(delta));
@@ -321,6 +325,7 @@ function animate() {
       runFrameStep('destructibles update', () => updateDestructibles(delta));
       runFrameStep('vehicles update', () => updateVehicles(delta));
       runFrameStep('airdrop update', () => updateAirdrop(delta));
+      runFrameStep('airdrop indicator update', () => updateAirdropIndicator());
       runFrameStep('biome lava update', () => updateBiomeLava(delta));
       runFrameStep('biome jungle update', () => updateBiomeJungle(delta));
       runFrameStep('buildings update', () => updateBuildings(delta));

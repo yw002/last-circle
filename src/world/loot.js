@@ -256,7 +256,7 @@ function getLootBubbleColor(type) {
 }
 
 export function spawnLoot(bx, by, bz) {
-  for (let i = 0; i < 8; i++) { // Reduced from 12
+  for (let i = 0; i < 3; i++) { // Scarce resources: only 3 items per house (rely on airdrops)
     // Spawn in a ring OUTSIDE the house (house walls are at ~16 units from center)
     let angle = Math.random() * Math.PI * 2;
     let dist = 18 + Math.random() * 18; // 18-36 units from center (outside walls)

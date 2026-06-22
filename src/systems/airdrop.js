@@ -2,10 +2,11 @@
 
 import * as THREE from 'three';
 import { state } from '../state.js';
-import { MAP_SIZE } from '../config.js';
+import { MAP_SIZE, WAVE_CONFIG } from '../config.js';
 import { getTerrainHeight } from '../world/terrain.js';
 import { spawnAirdropLoot } from '../world/loot.js';
 import { playSound } from './audio.js';
+import { showNotice } from '../ui/notices.js';
 
 // Shared resources
 const planeMat = new THREE.MeshLambertMaterial({ color: 0x555555 });
@@ -14,10 +15,6 @@ const parachuteMat = new THREE.MeshLambertMaterial({ color: 0xFFFFFF, side: THRE
 const smokeMat = new THREE.PointsMaterial({ color: 0xFF2200, size: 5, transparent: true, opacity: 0.6, depthWrite: false });
 
 let airdropTimer = 0;
-const AIRDROP_INTERVAL = 90; // seconds
-// Trigger an extra airdrop every -20 alive players (from when this trigger was last fired).
-const AIRDROP_PLAYER_DROP_THRESHOLD = 20;
-let lastAirdropAliveSnapshot = null;
 let engineSoundTimer = 0;
 
 function createPlaneMesh() {
@@ -133,33 +130,16 @@ function createSmokeMarker(x, y, z) {
 }
 
 export function initAirdrop() {
-  airdropTimer = AIRDROP_INTERVAL * 0.5; // First drop at 45s
-  lastAirdropAliveSnapshot = null;
+  airdropTimer = WAVE_CONFIG.AIRDROP_INTERVAL * 0.4; // First drop earlier
   engineSoundTimer = 0;
 }
 
 export function updateAirdrop(delta) {
   airdropTimer += delta;
 
-  // Initialize alive-count snapshot the first time we have a real value.
-  if (lastAirdropAliveSnapshot === null && state.aliveCount > 0) {
-    lastAirdropAliveSnapshot = state.aliveCount;
-  }
-
-  // Trigger conditions: scheduled timer OR aliveCount dropped by 20+ since last trigger.
-  let shouldSpawn = false;
-  if (airdropTimer >= AIRDROP_INTERVAL) {
-    shouldSpawn = true;
-  } else if (
-    lastAirdropAliveSnapshot !== null &&
-    state.aliveCount <= lastAirdropAliveSnapshot - AIRDROP_PLAYER_DROP_THRESHOLD
-  ) {
-    shouldSpawn = true;
-  }
-
-  if (shouldSpawn) {
+  // Spawn on timer only (no alive-count trigger in wave mode)
+  if (airdropTimer >= WAVE_CONFIG.AIRDROP_INTERVAL) {
     airdropTimer = 0;
-    lastAirdropAliveSnapshot = state.aliveCount;
     spawnAirdrop();
   }
 
@@ -226,6 +206,14 @@ export function updateAirdrop(delta) {
 
         // Expose drop position so HUD/minimap can highlight it.
         state.nearestAirdropPos = ad.crate.position.clone();
+
+        // Notify player with direction and distance
+        const pp = state.controls.getObject().position;
+        const ddx = ad.crate.position.x - pp.x;
+        const ddz = ad.crate.position.z - pp.z;
+        const dist = Math.sqrt(ddx * ddx + ddz * ddz);
+        const dir = dist > 0 ? (ddx > 0 ? '东' : '西') + (ddz > 0 ? '南' : '北') : '';
+        showNotice(`📦 空投落地！方向: ${dir} | 距离: ${Math.round(dist)}m`, '#DAA520');
       }
 
     } else if (ad.phase === 'landed') {

@@ -411,16 +411,7 @@ body {
 }
 
 #zone-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0,0,255,0.2);
-  opacity: 0;
-  transition: opacity 0.5s;
-  pointer-events: none;
-  z-index: 4;
+  display: none;
 }
 
 #interact-prompt {
@@ -535,4 +526,37 @@ body {
 .inv-slot.active {
   border-color: #f1c40f;
   background: rgba(241,196,15,0.3);
+}
+
+/* Airdrop direction indicator */
+#airdrop-indicator {
+  position: absolute;
+  pointer-events: none;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.9);
+}
+
+.airdrop-arrow {
+  font-size: 32px;
+  color: #FFD700;
+  text-shadow: 0 0 8px rgba(255,215,0,0.6), 0 2px 4px rgba(0,0,0,0.8);
+  animation: airdropPulse 1.2s ease-in-out infinite;
+}
+
+.airdrop-dist {
+  font-size: 13px;
+  font-weight: bold;
+  color: #FFD700;
+  background: rgba(0,0,0,0.6);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+@keyframes airdropPulse {
+  0%, 100% { opacity: 0.7; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.2); }
 }

@@ -851,7 +851,7 @@ export function playerHit(dmg, attackerPos = null, attackerName = null) {
     const deathMsg = attackerName ? `你被${attackerName}击败了，太菜了` : "游戏结束 (YOU DIED)";
     document.getElementById('title').innerText = deathMsg;
     document.getElementById('title').style.color = "#e74c3c";
-    document.getElementById('subtitle').innerText = "排名: #" + state.aliveCount;
+    document.getElementById('subtitle').innerText = `击杀数: ${state.player.kills} | 坚持到第${state.wave.number}关`;
     document.getElementById('start-btn').innerText = "重新开始";
     document.getElementById('start-btn').style.display = "block";
     document.getElementById('start-btn').onclick = () => location.reload();

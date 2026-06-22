@@ -157,15 +157,16 @@ export function updateWeather(delta) {
   let elapsed = (performance.now() - gameStartTime) / 1000;
   let playerPos = state.controls.getObject().position;
 
-  // Weather state machine based on time and enemy count
-  if (state.aliveCount <= 4 && currentWeather !== WEATHER.SUNNY) {
-    // Last 3 enemies - return to sunny
+  // Weather state machine based on wave progression
+  const waveNum = state.wave.number || 0;
+  if (waveNum >= 18 && currentWeather !== WEATHER.SUNNY) {
+    // Late game - return to sunny
     setWeatherSunny();
-  } else if (elapsed > 120 && currentWeather !== WEATHER.BLIZZARD && state.aliveCount > 6) {
-    // 2 minutes - blizzard with lightning
+  } else if (waveNum >= 10 && currentWeather !== WEATHER.BLIZZARD && waveNum < 18) {
+    // Mid-late waves - blizzard with lightning
     setWeatherBlizzard();
-  } else if (elapsed > 50 && currentWeather === WEATHER.SUNNY && state.aliveCount > 6) {
-    // 50 seconds - storm with meteors
+  } else if (waveNum >= 5 && currentWeather === WEATHER.SUNNY && waveNum < 18) {
+    // Mid waves - storm with meteors
     setWeatherStorm();
   }
 

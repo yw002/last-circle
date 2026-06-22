@@ -8,7 +8,7 @@ import { playerHit } from './player.js';
 import { showNotice, addKillFeed } from '../ui/notices.js';
 import { playSound } from '../systems/audio.js';
 import { spawnSingleLoot } from '../world/loot.js';
-import { triggerVictoryChicken } from '../systems/victory.js';
+import { onWaveEnemyKilled } from '../systems/waveManager.js';
 
 const GIANT_HEIGHT = 900;
 const GIANT_SCALE = GIANT_HEIGHT / 20;
@@ -245,32 +245,32 @@ export function damageGiant(dmg, hitPoint) {
 
     playSound('explosion', { x: giantPos.x, y: giantPos.y, z: giantPos.z });
 
-    // Check if this completes the chicken dinner condition
-    if (state.aliveCount === 1 && state.player.alive) {
-      triggerVictoryChicken();
-      setTimeout(() => {
-        state.controls.unlock();
-        document.getElementById('title').innerText = "大吉大利，今晚吃鸡！";
-        document.getElementById('title').style.color = "#f1c40f";
-        document.getElementById('subtitle').innerText = `WINNER WINNER CHICKEN DINNER! 击杀数: ${state.player.kills} (含远古恶魔巨人)`;
-        document.getElementById('start-btn').innerText = "再玩一局";
-        document.getElementById('start-btn').style.display = "block";
-        document.getElementById('start-btn').onclick = () => location.reload();
-        document.getElementById('overlay').style.display = "flex";
-      }, 5000); // Wait for death animation
-    }
+    // Wave mode: giant killed
+    onWaveEnemyKilled();
   }
 }
 
 export function initGiant() {
   createGiantGeometries();
+  // Giant mesh is built by spawnWaveGiant when boss wave triggers
+}
 
+function _buildGiantMesh(scaling) {
+  if (giantGroup) {
+    state.scene.remove(giantGroup);
+  }
   giantGroup = new THREE.Group();
-  giantHealth = GIANT_MAX_HP;
+  giantHealth = GIANT_MAX_HP * (scaling ? scaling.healthMul : 1);
   giantAlive = true;
   giantDeathPhase = 0;
+  giantDyingTimer = 0;
+  giantNextSpit = 8 + Math.random() * 12;
+  spitProjectiles = [];
+  giantSwayPhase = 0;
   state.giantAlive = true;
-  state.giantHealth = GIANT_MAX_HP;
+  state.giantHealth = giantHealth;
+  giantPos.y = getTerrainHeight(giantPos.x, giantPos.z);
+
   const S = GIANT_SCALE;
   const u = S * 0.12;
 
@@ -758,6 +758,19 @@ function createSpitImpact(x, y, z) {
     splatMat.opacity = 0.7 * (1 - fade);
     if (fade >= 1) { clearInterval(interval); state.scene.remove(splat); }
   }, 80);
+
+  return giantGroup;
+}
+
+export function spawnWaveGiant(scaling = null) {
+  _buildGiantMesh(scaling);
+  const GIANT_DEATH_MSGS = [
+    "⚠️ 大地震颤…远古恶魔巨人从地狱深渊爬出！",
+    "🏔️ 地平线上升起了一座\"山\"…不，那是远古恶魔！",
+    "💀 BOSS出现！远古恶魔巨人苏醒了！"
+  ];
+  const msg = GIANT_DEATH_MSGS[Math.floor(Math.random() * GIANT_DEATH_MSGS.length)];
+  showNotice(msg, "#ff4444");
 }
 
 export function updateGiant(delta) {
@@ -944,8 +957,5 @@ export function updateGiant(delta) {
   }
 }
 
-// === Stub exports for orphaned waveManager.js (not yet wired up in main.js) ===
-export function spawnWaveGiant(scaling) {
-  return null;
-}
+// spawnWaveGiant is defined above (after _buildGiantMesh)
 

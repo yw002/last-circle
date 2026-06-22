@@ -5,57 +5,60 @@ import { state } from '../state.js';
 import { MAP_SIZE } from '../config.js';
 import { getTerrainHeight } from '../world/terrain.js';
 import { playGhostWhisper } from '../systems/audio.js';
+import { onWaveEnemyKilled } from '../systems/waveManager.js';
+
+// Shared geometries (created once at module load)
+const ghostMat = new THREE.MeshBasicMaterial({
+  color: 0xccffff,
+  transparent: true,
+  opacity: 0.0,
+  blending: THREE.AdditiveBlending,
+  side: THREE.DoubleSide,
+  depthWrite: false
+});
+
+const bodyGeo = new THREE.ConeGeometry(2, 8, 16, 1, true);
+bodyGeo.translate(0, -1, 0);
+
+const headGeo = new THREE.SphereGeometry(2, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+headGeo.translate(0, 3, 0);
+
+const eyeMat = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide });
+const eyeGeo = new THREE.PlaneGeometry(0.5, 0.8);
 
 export function initGhosts() {
-  const ghostMat = new THREE.MeshBasicMaterial({
-    color: 0xccffff,
-    transparent: true,
-    opacity: 0.0,
-    blending: THREE.AdditiveBlending,
-    side: THREE.DoubleSide,
-    depthWrite: false
-  });
+  // Wave mode: ghosts spawned dynamically by waveManager
+}
 
-  const bodyGeo = new THREE.ConeGeometry(2, 8, 16, 1, true);
-  bodyGeo.translate(0, -1, 0);
+export function spawnSingleGhost(x, z, scaling = null) {
+  const ghostGroup = new THREE.Group();
+  const body = new THREE.Mesh(bodyGeo, ghostMat.clone());
+  const head = new THREE.Mesh(headGeo, ghostMat.clone());
 
-  const headGeo = new THREE.SphereGeometry(2, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2);
-  headGeo.translate(0, 3, 0);
+  const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
+  eyeL.position.set(-0.6, 3.5, 1.95);
+  const eyeR = new THREE.Mesh(eyeGeo, eyeMat);
+  eyeR.position.set(0.6, 3.5, 1.95);
 
-  const eyeMat = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide });
-  const eyeGeo = new THREE.PlaneGeometry(0.5, 0.8);
+  ghostGroup.add(body, head, eyeL, eyeR);
 
-  for (let i = 0; i < 30; i++) {
-    const ghostGroup = new THREE.Group();
-    const body = new THREE.Mesh(bodyGeo, ghostMat.clone());
-    const head = new THREE.Mesh(headGeo, ghostMat.clone());
+  let y = getTerrainHeight(x, z) + 5;
+  ghostGroup.position.set(x, y, z);
+  state.scene.add(ghostGroup);
 
-    const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
-    eyeL.position.set(-0.6, 3.5, 1.95);
-    const eyeR = new THREE.Mesh(eyeGeo, eyeMat);
-    eyeR.position.set(0.6, 3.5, 1.95);
-
-    ghostGroup.add(body, head, eyeL, eyeR);
-
-    let x = (Math.random() - 0.5) * MAP_SIZE * 0.9;
-    let z = (Math.random() - 0.5) * MAP_SIZE * 0.9;
-    let y = getTerrainHeight(x, z) + 5;
-
-    ghostGroup.position.set(x, y, z);
-    state.scene.add(ghostGroup);
-
-    state.ghosts.push({
-      mesh: ghostGroup,
-      bodyMesh: body,
-      headMesh: head,
-      x: x, z: z, originY: y,
-      timeOffset: Math.random() * 100,
-      targetOpacity: 0.0,
-      currentOpacity: 0.0,
-      state: 'hidden',
-      stateTimer: 0
-    });
-  }
+  const ghost = {
+    mesh: ghostGroup,
+    bodyMesh: body,
+    headMesh: head,
+    x: x, z: z, originY: y,
+    timeOffset: Math.random() * 100,
+    targetOpacity: 0.0,
+    currentOpacity: 0.0,
+    state: 'hidden',
+    stateTimer: 0
+  };
+  state.ghosts.push(ghost);
+  return ghost;
 }
 
 export function updateGhosts(delta) {
@@ -116,9 +119,3 @@ export function updateGhosts(delta) {
     }
   });
 }
-
-// === Stub exports for orphaned waveManager.js (not yet wired up in main.js) ===
-export function spawnSingleGhost(x, z, scaling) {
-  return null;
-}
-

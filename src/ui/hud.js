@@ -1,7 +1,7 @@
 // HUD update functions
 
 import { state } from '../state.js';
-import { RELOAD_DURATION, BOT_COUNT } from '../config.js';
+import { RELOAD_DURATION, WAVE_CONFIG } from '../config.js';
 
 export function updateUI() {
   let hpPercent = Math.max(0, (state.player.health / state.player.maxHealth) * 100);
@@ -45,15 +45,21 @@ export function updateUI() {
     document.getElementById('ui-scope').style.color = 'white';
   }
 
-  // Fix: total should be BOT_COUNT + 1 (including player), and aliveCount should never exceed total
-  const totalPlayers = BOT_COUNT + 1;
-  const aliveDisplay = Math.min(state.aliveCount, totalPlayers);
-  let infoStr = `存活 (Alive): ${aliveDisplay} / ${totalPlayers}<br>击杀 (Kills): ${state.player.kills}`;
-  if (state.player.isParachuting) infoStr += `<br><span style="color:#f1c40f">正在跳伞... (控制WASD降落)</span>`;
+  // Wave survival info (replaces alive count + zone timer)
+  const wave = state.wave;
+  let infoStr = `<span style="color:#f1c40f">第${wave.number}/${WAVE_CONFIG.TOTAL_WAVES}关</span> | 击杀: ${state.player.kills}`;
 
-  let minutes = Math.floor(state.zone.nextShrinkTime / 60);
-  let seconds = Math.floor(state.zone.nextShrinkTime % 60);
-  infoStr += `<br><span style="color:#3498db">缩圈倒计时: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}</span>`;
+  if (wave.phase === 'rest' && wave.restTimer > 0) {
+    infoStr += `<br><span style="color:#2ecc71">休整中... ${Math.ceil(wave.restTimer)}秒后开始下一关</span>`;
+  } else if (wave.phase === 'spawning' || wave.phase === 'active') {
+    infoStr += `<br><span style="color:#e74c3c">敌人剩余: ${wave.enemiesRemaining}</span>`;
+  } else if (wave.phase === 'boss') {
+    infoStr += `<br><span style="color:#ff4444">⚠ BOSS关！敌人剩余: ${wave.enemiesRemaining}</span>`;
+  } else if (wave.phase === 'victory') {
+    infoStr += `<br><span style="color:#f1c40f">🏆 通关！总击杀: ${wave.totalKills}</span>`;
+  }
+
+  if (state.player.isParachuting) infoStr += `<br><span style="color:#f1c40f">正在跳伞... (控制WASD降落)</span>`;
 
   document.getElementById('info').innerHTML = infoStr;
 }

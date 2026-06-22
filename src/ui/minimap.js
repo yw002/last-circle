@@ -202,19 +202,6 @@ export function updateMinimap() {
   ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
   ctx.fillRect(0, 0, MINIMAP_SIZE, MINIMAP_SIZE);
 
-  // Draw zone
-  const zonePos = worldToMinimap(state.zone.x, state.zone.z, px, pz);
-  if (zonePos) {
-    const zoneRadius = (state.zone.radius / MINIMAP_RANGE) * (MINIMAP_SIZE / 2);
-    ctx.fillStyle = 'rgba(0, 100, 255, 0.25)';
-    ctx.beginPath();
-    ctx.arc(zonePos.x, zonePos.y, zoneRadius, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = '#0088ff';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-  }
-
   // Buildings — use state.buildingMarkers (kind-tagged).
   const markers = state.buildingMarkers || [];
   for (let i = 0; i < markers.length; i++) {

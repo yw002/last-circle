@@ -77,9 +77,9 @@ export function initVolcano() {
   state.scene.add(volcanoGroup);
 }
 
-// Trigger eruption when half enemies are defeated
+// Trigger eruption when reaching wave 15
 export function updateVolcano(delta) {
-  if (!volcanoTriggered && state.aliveCount <= 100) {
+  if (!volcanoTriggered && state.wave.number >= 15) {
     volcanoTriggered = true;
     eruptionActive = true;
     showNotice("🌋 火山喷发！富士山开始爆发！", "#ff4400");

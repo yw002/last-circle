@@ -818,7 +818,6 @@ export function botDied(bot, killerName) {
   if (!bot.alive) return;
   bot.alive = false;
   state.scene.remove(bot.mesh);
-  state.aliveCount = Math.max(1, state.aliveCount - 1);
 
   let idx1 = state.objects.indexOf(bot.bodyMesh);
   if (idx1 > -1) state.objects.splice(idx1, 1);
