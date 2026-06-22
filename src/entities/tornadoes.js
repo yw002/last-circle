@@ -129,20 +129,42 @@ export function updateTornadoes(delta) {
 
     tornado.age += delta;
 
-    // Move toward player
-    const playerPos = state.controls.getObject().position;
+    // Wander near player but keep distance
     let dx = playerPos.x - tornado.x;
     let dz = playerPos.z - tornado.z;
     let dist = Math.sqrt(dx * dx + dz * dz);
-    if (dist > 50) {
-      tornado.vx = (dx / dist) * 15;
-      tornado.vz = (dz / dist) * 15;
+
+    const MIN_DIST = 200;  // don't get closer than this
+    const MAX_DIST = 600;  // don't drift farther than this
+
+    if (dist < MIN_DIST) {
+      // Too close — push away from player
+      const nx = -dx / dist;
+      const nz = -dz / dist;
+      tornado.vx += nx * 8 * delta;
+      tornado.vz += nz * 8 * delta;
+    } else if (dist > MAX_DIST) {
+      // Too far — gently drift toward player
+      const nx = dx / dist;
+      const nz = dz / dist;
+      tornado.vx += nx * 5 * delta;
+      tornado.vz += nz * 5 * delta;
     } else {
-      // Wander near zone center
-      tornado.vx += (Math.random() - 0.5) * 2;
-      tornado.vz += (Math.random() - 0.5) * 2;
-      tornado.vx *= 0.95;
-      tornado.vz *= 0.95;
+      // Comfortable range — random wander
+      tornado.vx += (Math.random() - 0.5) * 3 * delta;
+      tornado.vz += (Math.random() - 0.5) * 3 * delta;
+    }
+
+    // Damping for smooth motion
+    tornado.vx *= 0.98;
+    tornado.vz *= 0.98;
+
+    // Clamp speed
+    const speed = Math.sqrt(tornado.vx * tornado.vx + tornado.vz * tornado.vz);
+    const maxSpeed = 20;
+    if (speed > maxSpeed) {
+      tornado.vx = (tornado.vx / speed) * maxSpeed;
+      tornado.vz = (tornado.vz / speed) * maxSpeed;
     }
 
     tornado.x += tornado.vx * delta;
