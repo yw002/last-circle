@@ -4,5 +4,6 @@ dist/
 .DS_Store
 *.zip
 .qcoder/
+.qoder/
 
 package-lock.json
