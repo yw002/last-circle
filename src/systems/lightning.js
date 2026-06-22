@@ -14,20 +14,20 @@ export function triggerLightningStrike() {
   const roll = Math.random();
   let playerPos = state.controls.getObject().position;
 
-  if (roll < 0.1) {
-    // 10% close to player for tension (50-120 units)
+  if (roll < 0.05) {
+    // 5% close to player for tension (100-200 units)
     const angle = Math.random() * Math.PI * 2;
-    const strikeDist = 50 + Math.random() * 70;
+    const strikeDist = 100 + Math.random() * 100;
     strikeX = playerPos.x + Math.cos(angle) * strikeDist;
     strikeZ = playerPos.z + Math.sin(angle) * strikeDist;
-  } else if (roll < 0.65) {
-    // 55% at visible distance from player (120-350 units) — player can actually see these
+  } else if (roll < 0.35) {
+    // 30% at visible distance from player (250-550 units)
     const angle = Math.random() * Math.PI * 2;
-    const strikeDist = 120 + Math.random() * 230;
+    const strikeDist = 250 + Math.random() * 300;
     strikeX = playerPos.x + Math.cos(angle) * strikeDist;
     strikeZ = playerPos.z + Math.sin(angle) * strikeDist;
   } else {
-    // 35% truly random across the map
+    // 65% truly random across the map
     strikeX = (Math.random() - 0.5) * MAP_SIZE * 0.95;
     strikeZ = (Math.random() - 0.5) * MAP_SIZE * 0.95;
   }

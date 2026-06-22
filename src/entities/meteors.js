@@ -32,24 +32,24 @@ function createMeteor() {
   const roll = Math.random();
   let playerPos = state.controls.getObject().position;
 
-  if (roll < 0.1) {
-    // 10% moderately close to player (50-100 units)
+  if (roll < 0.05) {
+    // 5% moderately close to player (80-180 units)
     let angle = Math.random() * Math.PI * 2;
-    let dist = 50 + Math.random() * 50;
+    let dist = 80 + Math.random() * 100;
     targetX = playerPos.x + Math.cos(angle) * dist;
     targetZ = playerPos.z + Math.sin(angle) * dist;
     spawnX = targetX + (Math.random() - 0.5) * 80;
     spawnZ = targetZ + (Math.random() - 0.5) * 80;
-  } else if (roll < 0.65) {
-    // 55% at visible distance from player (120-350 units) — player can see these fall
+  } else if (roll < 0.40) {
+    // 35% at visible distance from player (200-500 units)
     let angle = Math.random() * Math.PI * 2;
-    let dist = 120 + Math.random() * 230;
+    let dist = 200 + Math.random() * 300;
     targetX = playerPos.x + Math.cos(angle) * dist;
     targetZ = playerPos.z + Math.sin(angle) * dist;
     spawnX = targetX + (Math.random() - 0.5) * 100;
     spawnZ = targetZ + (Math.random() - 0.5) * 100;
   } else {
-    // 35% truly random across the map
+    // 60% truly random across the map
     targetX = (Math.random() - 0.5) * MAP_SIZE * 0.95;
     targetZ = (Math.random() - 0.5) * MAP_SIZE * 0.95;
     spawnX = targetX + (Math.random() - 0.5) * 120;
@@ -173,8 +173,8 @@ function createMeteorExplosion(x, y, z) {
     }
   }, 50);
 
-  // Play explosion sound
-  playSound('shotgun', { x, y, z });
+  // Play explosion sound (proper deep boom)
+  playSound('explosion', { x, y, z });
 }
 
 export function updateMeteors(delta) {

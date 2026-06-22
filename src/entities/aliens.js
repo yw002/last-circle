@@ -295,7 +295,7 @@ function spawnAlien(x, y, z) {
     vx: 0, vz: 0,
     changeDirTime: 0,
     speed: 15 + Math.random() * 10,
-    weaponDamage: 20
+    weaponDamage: 8
   };
 
   aliens.push(alien);
