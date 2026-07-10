@@ -19,6 +19,7 @@ import { botDied } from './bots.js';
 import { zombieDied } from './zombies.js';
 import { killAnimal, getAllAnimals } from './animals.js';
 import { alienDied, getAllAliens } from './aliens.js';
+import { onWaveEnemyKilled } from '../systems/waveManager.js';
 import { damageGiant, isGiantAlive } from './giant.js';
 import { getNearbyColliders, getNearbyDoors, getNearbyLoot } from '../systems/spatial.js';
 import { checkSweptColliderCollision } from '../systems/collision.js';
@@ -979,6 +980,7 @@ export function fireWeapon() {
           bot.alive = false;
           bot.mesh.visible = false;
           state.player.kills++;
+          onWaveEnemyKilled(); // count melee kill toward wave progress
         }
         hitAny = true;
         break;
@@ -996,11 +998,12 @@ export function fireWeapon() {
         const toTarget = new THREE.Vector3(dx, 0, dz).normalize();
         if (forward.dot(toTarget) > 0.4) {
           zombie.health -= meleeDamage;
-          if (zombie.health <= 0) {
-            zombie.alive = false;
-            zombie.mesh.visible = false;
-            state.player.kills++;
-          }
+        if (zombie.health <= 0) {
+          zombie.alive = false;
+          zombie.mesh.visible = false;
+          state.player.kills++;
+          onWaveEnemyKilled(); // count melee kill toward wave progress
+        }
           hitAny = true;
           break;
         }

@@ -6,7 +6,7 @@ import { getTerrainHeight } from '../world/terrain.js';
 import { spawnSingleBot } from '../entities/bots.js';
 import { spawnSingleZombie } from '../entities/zombies.js';
 import { spawnSingleAlien } from '../entities/aliens.js';
-import { spawnWaveGiant } from '../entities/giant.js';
+import { spawnWaveGiant, despawnGiant } from '../entities/giant.js';
 import { triggerVictoryChicken } from './victory.js';
 import { showNotice } from '../ui/notices.js';
 import { addKillFeed } from '../ui/notices.js';
@@ -15,11 +15,19 @@ import { updateUI } from '../ui/hud.js';
 let _spawnTimer = 0;
 const SPAWN_INTERVAL = 0.3; // seconds between each enemy spawn during spawning phase
 
-// Anti-camping detection
-let _lastPlayerPos = null;
+// Anti-camping detection — only penalize a player who is genuinely standing
+// nearly still. Movement is measured over a fixed time window (frame-rate
+// independent) so normal walking/sprinting is NOT mistaken for camping.
+// (The old per-frame check used a 10-unit threshold ≈ 600 u/s, which flagged
+// ordinary walking as "camping" and spawned reinforcements forever.)
+let _campSamplePos = null;
+let _campSampleTimer = 0;
 let _stationaryTimer = 0;
-const CAMP_THRESHOLD = 30; // seconds before penalty
-const CAMP_MOVE_THRESHOLD = 100; // squared distance to count as "moving"
+const CAMP_THRESHOLD = 30;          // seconds of near-stillness before penalty
+const CAMP_SAMPLE_INTERVAL = 0.25;  // seconds between movement samples
+const CAMP_MOVE_PER_SAMPLE = 12;    // units travelled per sample below this = "camping"
+                                    // (walking ≈ 80 u/s × 0.25s ≈ 20u, so 12 cleanly
+                                    // separates moving from standing still)
 
 function getWaveComposition(waveNum) {
   if (waveNum <= 3) {
@@ -44,6 +52,56 @@ function getWaveComposition(waveNum) {
 
 function isBossWave(waveNum) {
   return waveNum % WAVE_CONFIG.BOSS_EVERY_N_WAVES === 0;
+}
+
+// Count ACTUAL live wave-enemies from the entity arrays.
+// Used to reconcile the HUD "人数" (enemiesRemaining) so it stays correct
+// no matter which death path removed an enemy (ranged / melee / environment / bot-vs-bot).
+function getLiveEnemyCount() {
+  let n = 0;
+  for (const b of state.bots) if (b.alive) n++;
+  for (const z of state.zombies) if (z.alive) n++;
+  for (const a of state.aliens) if (a.alive) n++;
+  for (const g of state.ghosts) if (g.state !== 'dead') n++;
+  if (state.giantAlive) n++;
+  return n;
+}
+
+// Remove every remaining wave-enemy (alive or dead) from the scene/arrays
+// WITHOUT counting them as kills. Called when a wave ends so leftover enemies
+// never carry into the next wave (which would pollute the count and block progression).
+function spliceFromObjects(mesh) {
+  if (!mesh) return;
+  const idx = state.objects.indexOf(mesh);
+  if (idx > -1) state.objects.splice(idx, 1);
+}
+
+function clearWaveEnemies() {
+  for (const b of state.bots) {
+    if (b.mesh) state.scene.remove(b.mesh);
+    spliceFromObjects(b.bodyMesh);
+    spliceFromObjects(b.headMesh);
+    spliceFromObjects(b.packMesh);
+  }
+  for (const z of state.zombies) {
+    if (z.mesh) state.scene.remove(z.mesh);
+    spliceFromObjects(z.bodyMesh);
+    spliceFromObjects(z.headMesh);
+    spliceFromObjects(z.bloodWound);
+  }
+  for (const a of state.aliens) {
+    if (a.mesh) state.scene.remove(a.mesh);
+    spliceFromObjects(a.bodyMesh);
+    spliceFromObjects(a.headMesh);
+  }
+  for (const g of state.ghosts) {
+    if (g.mesh) state.scene.remove(g.mesh);
+  }
+  state.bots = [];
+  state.zombies = [];
+  state.aliens = [];
+  state.ghosts = [];
+  despawnGiant();
 }
 
 function getScaling(waveNum) {
@@ -88,6 +146,11 @@ function spawnEnemy(type, scaling) {
 
 function startNextWave() {
   const wave = state.wave;
+
+  // Clear any enemies left over from the previous wave so the new wave starts
+  // with a clean count and progression math stays correct.
+  clearWaveEnemies();
+
   wave.number++;
 
   if (wave.number > WAVE_CONFIG.TOTAL_WAVES) {
@@ -155,7 +218,8 @@ export function initWaveManager() {
   wave.score = 0;
   wave.totalKills = 0;
   _spawnTimer = 0;
-  _lastPlayerPos = null;
+  _campSamplePos = null;
+  _campSampleTimer = 0;
   _stationaryTimer = 0;
 }
 
@@ -165,28 +229,51 @@ export function updateWaveManager(delta) {
 
   const playerPos = state.controls.getObject().position;
 
-  // Anti-camping detection
-  if (_lastPlayerPos) {
-    const dx = playerPos.x - _lastPlayerPos.x;
-    const dz = playerPos.z - _lastPlayerPos.z;
-    if (dx * dx + dz * dz < CAMP_MOVE_THRESHOLD) {
-      _stationaryTimer += delta;
-      if (_stationaryTimer > CAMP_THRESHOLD && (wave.phase === 'active' || wave.phase === 'boss' || wave.phase === 'spawning')) {
-        // Spawn extra enemies near player
-        const scaling = getScaling(wave.number);
-        for (let i = 0; i < 3; i++) {
-          spawnEnemy(Math.random() < 0.5 ? 'zombie' : 'bot', scaling);
-          wave.enemiesRemaining++;
-          wave.enemiesTotal++;
-        }
-        showNotice("⚠️ 敌人检测到你停留不动，增援赶来！", "#ff6600");
-        _stationaryTimer = 0;
+  // Anti-camping detection (frame-rate independent): sample the player's
+  // position on a fixed cadence and judge "moving" vs "camping" by the distance
+  // actually travelled in that window — not by a single-frame delta.
+  _campSampleTimer += delta;
+  if (_campSampleTimer >= CAMP_SAMPLE_INTERVAL) {
+    if (_campSamplePos) {
+      const dx = playerPos.x - _campSamplePos.x;
+      const dz = playerPos.z - _campSamplePos.z;
+      const moved = Math.sqrt(dx * dx + dz * dz);
+      if (moved < CAMP_MOVE_PER_SAMPLE) {
+        _stationaryTimer += _campSampleTimer; // not moving enough → accumulate camp time
+      } else {
+        _stationaryTimer = Math.max(0, _stationaryTimer - _campSampleTimer * 2); // moved → recover
       }
-    } else {
-      _stationaryTimer = Math.max(0, _stationaryTimer - delta * 2);
+    }
+    _campSamplePos = playerPos.clone();
+    _campSampleTimer = 0;
+  }
+
+  if (_stationaryTimer > CAMP_THRESHOLD &&
+      (wave.phase === 'active' || wave.phase === 'boss' || wave.phase === 'spawning')) {
+    // Spawn extra enemies near player as a genuine camping penalty
+    const scaling = getScaling(wave.number);
+    for (let i = 0; i < 3; i++) {
+      spawnEnemy(Math.random() < 0.5 ? 'zombie' : 'bot', scaling);
+      wave.enemiesSpawned++;
+      wave.enemiesRemaining++;
+      wave.enemiesTotal++;
+    }
+    showNotice("⚠️ 敌人检测到你停留不动，增援赶来！", "#ff6600");
+    _stationaryTimer = 0;
+  }
+
+  // Reconcile the remaining-enemy count with the ACTUAL live entities.
+  // enemiesRemaining = alive enemies + enemies not yet spawned this wave.
+  // This guarantees the top-left "人数" (and the wave-completion check) always
+  // matches what's really on screen, regardless of how an enemy died.
+  if (wave.phase === 'spawning' || wave.phase === 'active' || wave.phase === 'boss') {
+    const live = getLiveEnemyCount();
+    const remaining = live + Math.max(0, wave.enemiesTotal - wave.enemiesSpawned);
+    if (remaining !== wave.enemiesRemaining) {
+      wave.enemiesRemaining = remaining;
+      updateUI();
     }
   }
-  _lastPlayerPos = playerPos.clone();
 
   // State machine
   if (wave.phase === 'rest') {
@@ -222,8 +309,11 @@ export function updateWaveManager(delta) {
   }
 
   if (wave.phase === 'active' || wave.phase === 'boss') {
-    // Check if kill threshold reached
-    const killsNeeded = wave.enemiesTotal - wave.killThreshold;
+    // Check if kill threshold reached.
+    // Correct progression condition: you must KILL `killThreshold` enemies
+    // (KILL_THRESHOLD × total), not `total − killThreshold` (a reversed formula
+    // that completed the wave after only 20% of kills).
+    const killsNeeded = wave.killThreshold;
     const killsSoFar = wave.enemiesTotal - wave.enemiesRemaining;
     const thresholdMet = killsSoFar >= killsNeeded || wave.enemiesRemaining <= 0;
 

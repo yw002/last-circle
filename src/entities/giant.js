@@ -762,6 +762,18 @@ function createSpitImpact(x, y, z) {
   return giantGroup;
 }
 
+// Force-remove the giant from the scene without counting it as a kill.
+// Used to clear leftover bosses when a wave ends / the next wave begins.
+export function despawnGiant() {
+  giantAlive = false;
+  state.giantAlive = false;
+  giantDeathPhase = 0;
+  if (giantGroup) {
+    state.scene.remove(giantGroup);
+    giantGroup = null;
+  }
+}
+
 export function spawnWaveGiant(scaling = null) {
   _buildGiantMesh(scaling);
   const GIANT_DEATH_MSGS = [
